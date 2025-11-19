@@ -70,12 +70,13 @@ jobs:
     - name: Collect commit messages
       id: changelog
       run: |
-        # Get all commits in this push
-        range="${{ github.event.before }}..${{ github.sha }}"
-        [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ] && range=${{ github.sha }}
-        echo 'body<<EOF' >> $GITHUB_OUTPUT
-        git log --pretty=format:"• %s (%h)" $range >> $GITHUB_OUTPUT
-        echo 'EOF' >> $GITHUB_OUTPUT
+        {
+          echo 'body<<EOF'
+          for msg in ${{ join( github.event.commits.*.message, '¶' ) }}; do
+            echo "• ${msg//¶/ }"
+          done
+          echo 'EOF'
+        } >>"$GITHUB_OUTPUT"
 
     - name: Post to Discord
       env:
