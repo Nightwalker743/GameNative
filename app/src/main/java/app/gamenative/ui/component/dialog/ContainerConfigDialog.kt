@@ -149,6 +149,9 @@ fun ContainerConfigDialog(
         val bcnEmulationEntries = stringArrayResource(R.array.bcn_emulation_entries).toList()
         val bcnEmulationTypeEntries = stringArrayResource(R.array.bcn_emulation_type_entries).toList()
         val sharpnessEffects = stringArrayResource(R.array.vkbasalt_sharpness_entries).toList()
+        val sharpnessEffectLabels = stringArrayResource(R.array.vkbasalt_sharpness_labels).toList()
+        val sharpnessDisplayItems =
+            if (sharpnessEffectLabels.size == sharpnessEffects.size) sharpnessEffectLabels else sharpnessEffects
         val renderingModes = stringArrayResource(R.array.offscreen_rendering_modes).toList()
         val videoMemSizes = stringArrayResource(R.array.video_memory_size_entries).toList()
         val mouseWarps = stringArrayResource(R.array.mouse_warp_override_entries).toList()
@@ -436,6 +439,115 @@ fun ContainerConfigDialog(
                 return startupSelectionEntries.subList(0, 2)
             }
         }
+        var dxWrapperIndex by rememberSaveable {
+            val driverIndex = dxWrappers.indexOfFirst { StringUtils.parseIdentifier(it) == config.dxwrapper }
+            mutableIntStateOf(if (driverIndex >= 0) driverIndex else 0)
+        }
+
+        var dxvkVersionIndex by rememberSaveable { mutableIntStateOf(0) }
+
+        // VKD3D version control (forced depending on driver)
+        fun vkd3dForcedVersion(): String {
+            val driverType = StringUtils.parseIdentifier(graphicsDrivers[graphicsDriverIndex])
+            val isVortekLike = config.containerVariant.equals(Container.GLIBC) && driverType == "vortek" || driverType == "adreno" || driverType == "sd-8-elite"
+            return if (isVortekLike) "2.6" else "2.14.1"
+        }
+
+        @Composable
+        fun DxWrapperSection() {
+            // TODO: add way to pick DXVK version
+            SettingsListDropdown(
+                colors = settingsTileColors(),
+                title = { Text(text = stringResource(R.string.dx_wrapper)) },
+                value = dxWrapperIndex,
+                items = dxWrappers,
+                onItemSelected = {
+                    dxWrapperIndex = it
+                    config = config.copy(dxwrapper = StringUtils.parseIdentifier(dxWrappers[it]))
+                },
+            )
+            // DXVK Version Dropdown (conditionally visible and constrained)
+            run {
+                val driverType = StringUtils.parseIdentifier(graphicsDrivers[graphicsDriverIndex])
+                val isVortekLike = config.containerVariant.equals(Container.GLIBC) && driverType == "vortek" || driverType == "adreno" || driverType == "sd-8-elite"
+                val isVKD3D = StringUtils.parseIdentifier(dxWrappers[dxWrapperIndex]) == "vkd3d"
+                val items =
+                    if (!inspectionMode && isVortekLike && GPUHelper.vkGetApiVersion() < GPUHelper.vkMakeVersion(
+                            1,
+                            3,
+                            0
+                        )
+                    ) listOf("1.10.3", "1.10.9-sarek", "1.9.2", "async-1.10.3") else dxvkVersionsAll
+                if (!isVKD3D) {
+                    SettingsListDropdown(
+                        colors = settingsTileColors(),
+                        title = { Text(text = stringResource(R.string.dxvk_version)) },
+                        value = dxvkVersionIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0)),
+                        items = items,
+                        onItemSelected = {
+                            dxvkVersionIndex = it
+                            val version = StringUtils.parseIdentifier(items[it])
+                            val currentConfig = KeyValueSet(config.dxwrapperConfig)
+                            currentConfig.put("version", version)
+                            val envVarsSet = EnvVars(config.envVars)
+                            if (version.contains("async", ignoreCase = true)) currentConfig.put("async", "1")
+                            else currentConfig.put("async", "0")
+                            if (version.contains("gplasync", ignoreCase = true)) currentConfig.put("asyncCache", "1")
+                            else currentConfig.put("asyncCache", "0")
+                            config =
+                                config.copy(dxwrapperConfig = currentConfig.toString(), envVars = envVarsSet.toString())
+                        },
+                    )
+                } else {
+                    // Ensure default version for vortek-like when hidden
+                    val version = if (isVortekLike) "1.10.3" else "2.4.1"
+                    val currentConfig = KeyValueSet(config.dxwrapperConfig)
+                    currentConfig.put("version", version)
+                    config = config.copy(dxwrapperConfig = currentConfig.toString())
+                }
+            }
+            // VKD3D Version UI (visible only when VKD3D selected)
+            run {
+                val isVKD3D = StringUtils.parseIdentifier(dxWrappers[dxWrapperIndex]) == "vkd3d"
+                if (isVKD3D) {
+                    val label = "VKD3D Version"
+                    val availableVersions = vkd3dVersions
+                    val selectedVersion =
+                        KeyValueSet(config.dxwrapperConfig).get("vkd3dVersion").ifEmpty { vkd3dForcedVersion() }
+                    val selectedIndex = availableVersions.indexOf(selectedVersion).coerceAtLeast(0)
+
+                    SettingsListDropdown(
+                        colors = settingsTileColors(),
+                        title = { Text(text = label) },
+                        value = selectedIndex,
+                        items = availableVersions,
+                        onItemSelected = { idx ->
+                            val currentConfig = KeyValueSet(config.dxwrapperConfig)
+                            currentConfig.put("vkd3dVersion", availableVersions[idx])
+                            config = config.copy(dxwrapperConfig = currentConfig.toString())
+                        },
+                    )
+
+                    // VKD3D Feature Level selector
+                    val featureLevels = listOf("12_2", "12_1", "12_0", "11_1", "11_0")
+                    val cfg = KeyValueSet(config.dxwrapperConfig)
+                    val currentLevel = cfg.get("vkd3dFeatureLevel", "12_1")
+                    val currentLevelIndex = featureLevels.indexOf(currentLevel).coerceAtLeast(0)
+                    SettingsListDropdown(
+                        colors = settingsTileColors(),
+                        title = { Text(text = stringResource(R.string.vkd3d_feature_level)) },
+                        value = currentLevelIndex,
+                        items = featureLevels,
+                        onItemSelected = {
+                            val selected = featureLevels[it]
+                            val currentConfig = KeyValueSet(config.dxwrapperConfig)
+                            currentConfig.put("vkd3dFeatureLevel", selected)
+                            config = config.copy(dxwrapperConfig = currentConfig.toString())
+                        },
+                    )
+                }
+            }
+        }
 
         var graphicsDriverVersionIndex by rememberSaveable {
             // Find the version in the list that matches the configured version
@@ -449,11 +561,6 @@ fun ContainerConfigDialog(
             }
             mutableIntStateOf(driverIndex)
         }
-        var dxWrapperIndex by rememberSaveable {
-            val driverIndex = dxWrappers.indexOfFirst { StringUtils.parseIdentifier(it) == config.dxwrapper }
-            mutableIntStateOf(if (driverIndex >= 0) driverIndex else 0)
-        }
-
         fun currentDxvkContext(): Pair<Boolean, List<String>> {
             val driverType    = StringUtils.parseIdentifier(graphicsDrivers[graphicsDriverIndex])
             val isVortekLike  = config.containerVariant.equals(Container.GLIBC) && driverType in listOf("vortek", "adreno", "sd-8-elite")
@@ -466,12 +573,6 @@ fun ContainerConfigDialog(
 
             val effectiveList = if (isVKD3D) emptyList() else constrained
             return isVortekLike to effectiveList
-        }
-        // VKD3D version control (forced depending on driver)
-        fun vkd3dForcedVersion(): String {
-            val driverType = StringUtils.parseIdentifier(graphicsDrivers[graphicsDriverIndex])
-            val isVortekLike = config.containerVariant.equals(Container.GLIBC) && driverType == "vortek" || driverType == "adreno" || driverType == "sd-8-elite"
-            return if (isVortekLike) "2.6" else "2.14.1"
         }
         // Keep dxwrapperConfig in sync when VKD3D selected
         LaunchedEffect(graphicsDriverIndex, dxWrapperIndex) {
@@ -488,7 +589,6 @@ fun ContainerConfigDialog(
                 config = config.copy(dxwrapperConfig = kvs.toString())
             }
         }
-        var dxvkVersionIndex by rememberSaveable { mutableIntStateOf(0) }
 
         LaunchedEffect(versionsLoaded, dxvkVersionsAll, graphicsDriverIndex, dxWrapperIndex, config.dxwrapperConfig) {
             if (!versionsLoaded) return@LaunchedEffect
@@ -1054,6 +1154,7 @@ fun ContainerConfigDialog(
                                             config = config.copy(graphicsDriverConfig = cfg.toString())
                                         },
                                     )
+                                    DxWrapperSection()
                                     // Bionic: Exposed Vulkan Extensions (same UI as Vortek)
                                     SettingsMultiListDropdown(
                                         colors = settingsTileColors(),
@@ -1195,41 +1296,47 @@ fun ContainerConfigDialog(
                                             colors = settingsTileColors(),
                                             title = { Text(text = stringResource(R.string.sharpness_effect)) },
                                             value = sharpnessEffectIndex.coerceIn(0, sharpnessEffects.lastIndex.coerceAtLeast(0)),
-                                            items = sharpnessEffects,
+                                            items = sharpnessDisplayItems,
                                             onItemSelected = { idx ->
                                                 sharpnessEffectIndex = idx
                                                 config = config.copy(sharpnessEffect = sharpnessEffects[idx])
                                             },
                                         )
-                                        Column(
-                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                        ) {
-                                            Text(text = stringResource(R.string.sharpness_level))
-                                            Slider(
-                                                value = sharpnessLevel.toFloat(),
-                                                onValueChange = { newValue ->
-                                                    val clamped = newValue.roundToInt().coerceIn(0, 100)
-                                                    sharpnessLevel = clamped
-                                                    config = config.copy(sharpnessLevel = clamped)
-                                                },
-                                                valueRange = 0f..100f,
-                                            )
-                                            Text(text = "${sharpnessLevel}%")
-                                        }
-                                        Column(
-                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                        ) {
-                                            Text(text = stringResource(R.string.sharpness_denoise))
-                                            Slider(
-                                                value = sharpnessDenoise.toFloat(),
-                                                onValueChange = { newValue ->
-                                                    val clamped = newValue.roundToInt().coerceIn(0, 100)
-                                                    sharpnessDenoise = clamped
-                                                    config = config.copy(sharpnessDenoise = clamped)
-                                                },
-                                                valueRange = 0f..100f,
-                                            )
-                                            Text(text = "${sharpnessDenoise}%")
+                                        val selectedBoost = sharpnessEffects
+                                            .getOrNull(sharpnessEffectIndex)
+                                            ?.equals("None", ignoreCase = true)
+                                            ?.not() ?: false
+                                        if (selectedBoost) {
+                                            Column(
+                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                            ) {
+                                                Text(text = stringResource(R.string.sharpness_level))
+                                                Slider(
+                                                    value = sharpnessLevel.toFloat(),
+                                                    onValueChange = { newValue ->
+                                                        val clamped = newValue.roundToInt().coerceIn(0, 100)
+                                                        sharpnessLevel = clamped
+                                                        config = config.copy(sharpnessLevel = clamped)
+                                                    },
+                                                    valueRange = 0f..100f,
+                                                )
+                                                Text(text = "${sharpnessLevel}%")
+                                            }
+                                            Column(
+                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                            ) {
+                                                Text(text = stringResource(R.string.sharpness_denoise))
+                                                Slider(
+                                                    value = sharpnessDenoise.toFloat(),
+                                                    onValueChange = { newValue ->
+                                                        val clamped = newValue.roundToInt().coerceIn(0, 100)
+                                                        sharpnessDenoise = clamped
+                                                        config = config.copy(sharpnessDenoise = clamped)
+                                                    },
+                                                    valueRange = 0f..100f,
+                                                )
+                                                Text(text = "${sharpnessDenoise}%")
+                                            }
                                         }
                                     }
                                 } else {
@@ -1258,6 +1365,7 @@ fun ContainerConfigDialog(
                                             config = config.copy(graphicsDriverVersion = selectedVersion)
                                         },
                                     )
+                                    DxWrapperSection()
                                     // Vortek/Adreno specific settings
                                     run {
                                         val driverType = StringUtils.parseIdentifier(graphicsDrivers[graphicsDriverIndex])
@@ -1334,98 +1442,6 @@ fun ContainerConfigDialog(
                                                 },
                                             )
                                         }
-                                    }
-                                }
-                                // TODO: add way to pick DXVK version
-                                SettingsListDropdown(
-                                    colors = settingsTileColors(),
-                                    title = { Text(text = stringResource(R.string.dx_wrapper)) },
-                                    value = dxWrapperIndex,
-                                    items = dxWrappers,
-                                    onItemSelected = {
-                                        dxWrapperIndex = it
-                                        config = config.copy(dxwrapper = StringUtils.parseIdentifier(dxWrappers[it]))
-                                    },
-                                )
-                                // DXVK Version Dropdown (conditionally visible and constrained)
-                                run {
-                                    val driverType = StringUtils.parseIdentifier(graphicsDrivers[graphicsDriverIndex])
-                                    val isVortekLike = config.containerVariant.equals(Container.GLIBC) && driverType == "vortek" || driverType == "adreno" || driverType == "sd-8-elite"
-                                    val isVKD3D = StringUtils.parseIdentifier(dxWrappers[dxWrapperIndex]) == "vkd3d"
-                                    val items =
-                                        if (!inspectionMode && isVortekLike && GPUHelper.vkGetApiVersion() < GPUHelper.vkMakeVersion(
-                                                1,
-                                                3,
-                                                0
-                                            )
-                                        ) listOf("1.10.3", "1.10.9-sarek", "1.9.2", "async-1.10.3") else dxvkVersionsAll
-                                    if (!isVKD3D) {
-                                        SettingsListDropdown(
-                                            colors = settingsTileColors(),
-                                            title = { Text(text = stringResource(R.string.dxvk_version)) },
-                                            value = dxvkVersionIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0)),
-                                            items = items,
-                                            onItemSelected = {
-                                                dxvkVersionIndex = it
-                                                val version = StringUtils.parseIdentifier(items[it])
-                                                val currentConfig = KeyValueSet(config.dxwrapperConfig)
-                                                currentConfig.put("version", version)
-                                                val envVarsSet = EnvVars(config.envVars)
-                                                if (version.contains("async", ignoreCase = true)) currentConfig.put("async", "1")
-                                                else currentConfig.put("async", "0")
-                                                if (version.contains("gplasync", ignoreCase = true)) currentConfig.put("asyncCache", "1")
-                                                else currentConfig.put("asyncCache", "0")
-                                                config =
-                                                    config.copy(dxwrapperConfig = currentConfig.toString(), envVars = envVarsSet.toString())
-                                            },
-                                        )
-                                    } else {
-                                        // Ensure default version for vortek-like when hidden
-                                        val version = if (isVortekLike) "1.10.3" else "2.4.1"
-                                        val currentConfig = KeyValueSet(config.dxwrapperConfig)
-                                        currentConfig.put("version", version)
-                                        config = config.copy(dxwrapperConfig = currentConfig.toString())
-                                    }
-                                }
-                                // VKD3D Version UI (visible only when VKD3D selected)
-                                run {
-                                    val isVKD3D = StringUtils.parseIdentifier(dxWrappers[dxWrapperIndex]) == "vkd3d"
-                                    if (isVKD3D) {
-                                        val label = "VKD3D Version"
-                                        val availableVersions = vkd3dVersions
-                                        val selectedVersion =
-                                            KeyValueSet(config.dxwrapperConfig).get("vkd3dVersion").ifEmpty { vkd3dForcedVersion() }
-                                        val selectedIndex = availableVersions.indexOf(selectedVersion).coerceAtLeast(0)
-
-                                        SettingsListDropdown(
-                                            colors = settingsTileColors(),
-                                            title = { Text(text = label) },
-                                            value = selectedIndex,
-                                            items = availableVersions,
-                                            onItemSelected = { idx ->
-                                                val currentConfig = KeyValueSet(config.dxwrapperConfig)
-                                                currentConfig.put("vkd3dVersion", availableVersions[idx])
-                                                config = config.copy(dxwrapperConfig = currentConfig.toString())
-                                            },
-                                        )
-
-                                        // VKD3D Feature Level selector
-                                        val featureLevels = listOf("12_2", "12_1", "12_0", "11_1", "11_0")
-                                        val cfg = KeyValueSet(config.dxwrapperConfig)
-                                        val currentLevel = cfg.get("vkd3dFeatureLevel", "12_1")
-                                        val currentLevelIndex = featureLevels.indexOf(currentLevel).coerceAtLeast(0)
-                                        SettingsListDropdown(
-                                            colors = settingsTileColors(),
-                                            title = { Text(text = stringResource(R.string.vkd3d_feature_level)) },
-                                            value = currentLevelIndex,
-                                            items = featureLevels,
-                                            onItemSelected = {
-                                                val selected = featureLevels[it]
-                                                val currentConfig = KeyValueSet(config.dxwrapperConfig)
-                                                currentConfig.put("vkd3dFeatureLevel", selected)
-                                                config = config.copy(dxwrapperConfig = currentConfig.toString())
-                                            },
-                                        )
                                     }
                                 }
                                 SettingsSwitch(

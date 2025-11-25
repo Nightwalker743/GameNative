@@ -18,6 +18,11 @@ import javax.microedition.khronos.egl.EGLDisplay;
 import javax.microedition.khronos.opengles.GL10;
 
 public abstract class GPUInformation {
+
+    static {
+        System.loadLibrary("extras");
+    }
+
     private static ArrayMap<String, String> loadGPUInformation(Context context) {
         final Thread thread = Thread.currentThread();
         final ArrayMap<String, String> gpuInfo = new ArrayMap<>();

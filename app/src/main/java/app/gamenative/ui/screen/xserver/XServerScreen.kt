@@ -2321,7 +2321,7 @@ private fun extractGraphicsDriverFiles(
         }
 
         var vulkanVersion = graphicsDriverConfig.get("vulkanVersion")
-        val vulkanVersionPatch: String? = GPUInformation.getVulkanVersion(adrenoToolsDriverId, context).split("\\.")[2]
+        val vulkanVersionPatch: String? = GPUInformation.getVulkanVersion(adrenoToolsDriverId, context).split(".")[2]
         vulkanVersion = vulkanVersion + "." + vulkanVersionPatch
         envVars.put("WRAPPER_VK_VERSION", vulkanVersion)
 
