@@ -31,6 +31,7 @@ import app.gamenative.ui.data.GameDisplayInfo
 import app.gamenative.ui.enums.AppOptionMenuType
 import app.gamenative.ui.enums.DialogType
 import app.gamenative.ui.screen.library.GameMigrationDialog
+import app.gamenative.utils.BestConfigService
 import app.gamenative.utils.ContainerUtils
 import app.gamenative.utils.MarkerUtils
 import app.gamenative.utils.StorageUtils
@@ -47,6 +48,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
+import com.winlator.core.GPUInformation
 import timber.log.Timber
 import java.nio.file.Paths
 import kotlin.io.path.pathString
@@ -248,6 +250,29 @@ class SteamAppScreen : BaseAppScreen() {
             }
         }
 
+        // Fetch best config compatibility info for uninstalled games
+        var compatibilityMessage by remember { mutableStateOf<String?>(null) }
+        var compatibilityColor by remember { mutableStateOf<ULong?>(null) }
+        LaunchedEffect(isInstalled, gameId, appInfo.name) {
+            // Check if container exists
+            try {
+                val gpuName = GPUInformation.getRenderer(context)
+                val bestConfig = BestConfigService.fetchBestConfig(appInfo.name, gpuName)
+                if (bestConfig != null) {
+                    val message = BestConfigService.getCompatibilityMessage(context, bestConfig.matchType)
+                    compatibilityMessage = message.text
+                    compatibilityColor = message.color.value
+                } else {
+                    compatibilityMessage = null
+                    compatibilityColor = null
+                }
+            } catch (e: Exception) {
+                Timber.tag("SteamAppScreen").e(e, "Failed to fetch best config")
+                compatibilityMessage = null
+                compatibilityColor = null
+            }
+        }
+
         return GameDisplayInfo(
             name = appInfo.name,
             developer = appInfo.developer,
@@ -261,6 +286,8 @@ class SteamAppScreen : BaseAppScreen() {
             sizeFromStore = sizeFromStore,
             lastPlayedText = lastPlayedText,
             playtimeText = playtimeText,
+            compatibilityMessage = compatibilityMessage,
+            compatibilityColor = compatibilityColor,
         )
     }
 
@@ -684,6 +711,70 @@ class SteamAppScreen : BaseAppScreen() {
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 }
+                            }
+                        }
+                    }
+                }
+            ),
+            AppMenuOption(
+                AppOptionMenuType.UseKnownConfig,
+                onClick = {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            val container = ContainerUtils.getOrCreateContainer(context, appId)
+                            val containerData = ContainerUtils.toContainerData(container)
+                            val gameName = appInfo.name
+                            val gpuName = GPUInformation.getRenderer(context)
+
+                            val bestConfig = BestConfigService.fetchBestConfig(gameName, gpuName)
+                            if (bestConfig != null && bestConfig.matchType != "no_match") {
+                                val parsedConfig = BestConfigService.parseConfigToContainerData(
+                                    context,
+                                    bestConfig.bestConfig,
+                                    bestConfig.matchType,
+                                    true // applyKnownConfig=true to get all fields
+                                )
+
+                                if (parsedConfig != null && parsedConfig.isNotEmpty()) {
+                                    val updatedContainerData = ContainerUtils.applyBestConfigMapToContainerData(
+                                        containerData,
+                                        parsedConfig
+                                    )
+                                    ContainerUtils.applyToContainer(context, container, updatedContainerData)
+
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.best_config_applied_successfully),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                } else {
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.best_config_known_config_invalid),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            } else {
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.best_config_no_config_available),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Timber.w(e, "Failed to apply known config: ${e.message}")
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.best_config_apply_failed, e.message ?: "Unknown error"),
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             }
                         }
                     }
