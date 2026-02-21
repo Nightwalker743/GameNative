@@ -74,6 +74,8 @@ data class ContainerData(
     val disableMouseInput: Boolean = false,
     /** Touchscreen mode **/
     val touchscreenMode: Boolean = false,
+    /** Serialised JSON gesture configuration (used when touchscreenMode is true) **/
+    val gestureConfig: String = "",
     /** External display input handling: off|touchpad|keyboard|hybrid **/
     val externalDisplayMode: String = Container.DEFAULT_EXTERNAL_DISPLAY_MODE,
     /** Swap game/input between internal and external displays **/
@@ -133,6 +135,7 @@ data class ContainerData(
                     "dinputMapperType" to state.dinputMapperType,
                     "disableMouseInput" to state.disableMouseInput,
                     "touchscreenMode" to state.touchscreenMode,
+                    "gestureConfig" to state.gestureConfig,
                     "externalDisplayMode" to state.externalDisplayMode,
                     "externalDisplaySwap" to state.externalDisplaySwap,
                     "useDRI3" to state.useDRI3,
@@ -189,6 +192,7 @@ data class ContainerData(
                     dinputMapperType = savedMap["dinputMapperType"] as Byte,
                     disableMouseInput = savedMap["disableMouseInput"] as Boolean,
                     touchscreenMode = savedMap["touchscreenMode"] as Boolean,
+                    gestureConfig = (savedMap["gestureConfig"] as? String) ?: "",
                     externalDisplayMode = (savedMap["externalDisplayMode"] as? String) ?: Container.DEFAULT_EXTERNAL_DISPLAY_MODE,
                     externalDisplaySwap = (savedMap["externalDisplaySwap"] as? Boolean) ?: false,
                     useDRI3 = (savedMap["useDRI3"] as? Boolean) ?: true,

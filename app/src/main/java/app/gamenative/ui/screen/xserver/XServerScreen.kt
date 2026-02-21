@@ -789,6 +789,9 @@ fun XServerScreen(
                                 PluviaApp.touchpadView?.setTouchscreenMouseDisabled(true)
                             } else if (container.isTouchscreenMode()) {
                                 PluviaApp.touchpadView?.setTouchscreenMode(true)
+                                // Apply per-game gesture configuration
+                                val gestureConfig = app.gamenative.data.TouchGestureConfig.fromJson(container.getGestureConfig())
+                                PluviaApp.touchpadView?.setGestureConfig(gestureConfig)
                             }
                             Timber.d("WinHandler configured: preferredInputApi=%s, dinputMapperType=0x%02x", PreferredInputApi.values()[container.inputType], container.dinputMapperType)
                             // Timber.d("1 Container drives: ${container.drives}")
@@ -1196,8 +1199,29 @@ fun XServerScreen(
                                     newElement.setText(element.text)
                                     newElement.setIconId(element.iconId.toInt())
                                     newElement.setToggleSwitch(element.isToggleSwitch)
-                                    for (i in 0 until 4) {
+                                    // Copy range button properties — must set binding count
+                                    // BEFORE copying bindings, because setBindingCount resets
+                                    // the bindings array to NONE.
+                                    if (element.type == com.winlator.inputcontrols.ControlElement.Type.RANGE_BUTTON) {
+                                        newElement.setRange(element.range)
+                                        newElement.setOrientation(element.orientation)
+                                        newElement.setBindingCount(element.bindingCount)
+                                        newElement.isScrollLocked = element.isScrollLocked
+                                    }
+                                    for (i in 0 until element.bindingCount) {
                                         newElement.setBindingAt(i, element.getBindingAt(i))
+                                    }
+                                    // Copy shooter mode properties
+                                    if (element.type == com.winlator.inputcontrols.ControlElement.Type.SHOOTER_MODE) {
+                                        newElement.shooterMovementType = element.shooterMovementType
+                                        newElement.shooterLookSensitivity = element.shooterLookSensitivity
+                                        newElement.shooterJoystickSize = element.shooterJoystickSize
+                                    }
+                                    // Copy dynamic joystick properties
+                                    if (element.type == com.winlator.inputcontrols.ControlElement.Type.DYNAMIC_JOYSTICK) {
+                                        newElement.dynamicJoystickMovementType = element.dynamicJoystickMovementType
+                                        newElement.dynamicJoystickSize = element.dynamicJoystickSize
+                                        newElement.djMouseLookSensitivity = element.djMouseLookSensitivity
                                     }
                                     currentProfile.addElement(newElement)
                                 }

@@ -23,6 +23,8 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.util.Log;
 
+import androidx.core.graphics.ColorUtils;
+
 import app.gamenative.R;
 import com.winlator.inputcontrols.Binding;
 import com.winlator.inputcontrols.ControlElement;
@@ -31,12 +33,14 @@ import com.winlator.inputcontrols.ExternalController;
 import com.winlator.inputcontrols.ExternalControllerBinding;
 import com.winlator.inputcontrols.GamepadState;
 import com.winlator.math.Mathf;
+import com.winlator.winhandler.MouseEventFlags;
 import com.winlator.winhandler.WinHandler;
 import com.winlator.xserver.Pointer;
 import com.winlator.xserver.XServer;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -57,10 +61,23 @@ public class InputControlsView extends View {
     private float overlayOpacity = DEFAULT_OVERLAY_OPACITY;
     private TouchpadView touchpadView;
     private XServer xServer;
-    private final Bitmap[] icons = new Bitmap[17];
+    private final Bitmap[] icons = new Bitmap[40];
     private Timer mouseMoveTimer;
     private final PointF mouseMoveOffset = new PointF();
     private boolean showTouchscreenControls = true;
+
+    // Shooter mode state
+    private boolean shooterModeActive = false;
+    // Dynamic joystick (left side in shooter mode)
+    private int joystickPointerId = -1;
+    private float joystickCenterX, joystickCenterY;
+    private float joystickCurrentX, joystickCurrentY;
+    private final boolean[] joystickStates = new boolean[4];
+    // Look-around (right side or fire button look-through)
+    private int lookPointerId = -1;
+    private float lookLastX, lookLastY;
+    private float lookAccumX, lookAccumY;
+    private ControlElement lookFireElement = null;
 
     @SuppressLint("ResourceType")
     public InputControlsView(Context context) {
@@ -71,6 +88,10 @@ public class InputControlsView extends View {
         setBackgroundColor(0x00000000);
         setPointerIcon(PointerIcon.load(getResources(), R.drawable.hidden_pointer_arrow));
         setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    public boolean isEditMode() {
+        return editMode;
     }
 
     public void setEditMode(boolean editMode) {
@@ -107,6 +128,11 @@ public class InputControlsView extends View {
         if (profile != null) {
             if (!profile.isElementsLoaded()) profile.loadElements(this);
             if (showTouchscreenControls) for (ControlElement element : profile.getElements()) element.draw(canvas);
+        }
+
+        // Draw dynamic joystick when shooter mode is active and joystick is spawned
+        if (shooterModeActive && joystickPointerId != -1) {
+            drawShooterJoystick(canvas);
         }
 
         super.onDraw(canvas);
@@ -313,6 +339,228 @@ public class InputControlsView extends View {
         }
     }
 
+    // ========== Shooter Mode Methods ==========
+
+    public boolean isShooterModeActive() {
+        return shooterModeActive;
+    }
+
+    public void setShooterModeActive(boolean active) {
+        this.shooterModeActive = active;
+        if (!active) {
+            releaseShooterJoystick();
+            releaseShooterLook();
+        }
+        invalidate();
+    }
+
+    private ControlElement getShooterModeElement() {
+        if (profile != null) {
+            for (ControlElement element : profile.getElements()) {
+                if (element.getType() == ControlElement.Type.SHOOTER_MODE) return element;
+            }
+        }
+        return null;
+    }
+
+    private boolean isFireButton(ControlElement element) {
+        if (element.getType() != ControlElement.Type.BUTTON) return false;
+        Binding binding = element.getBindingAt(0);
+        return binding == Binding.MOUSE_LEFT_BUTTON || binding == Binding.MOUSE_RIGHT_BUTTON;
+    }
+
+    private Binding[] getJoystickBindings(String movementType) {
+        switch (movementType) {
+            case "arrow_keys":
+                return new Binding[]{Binding.KEY_UP, Binding.KEY_RIGHT, Binding.KEY_DOWN, Binding.KEY_LEFT};
+            case "gamepad_left_stick":
+                return new Binding[]{Binding.GAMEPAD_LEFT_THUMB_UP, Binding.GAMEPAD_LEFT_THUMB_RIGHT,
+                                     Binding.GAMEPAD_LEFT_THUMB_DOWN, Binding.GAMEPAD_LEFT_THUMB_LEFT};
+            case "wasd":
+            default:
+                return new Binding[]{Binding.KEY_W, Binding.KEY_D, Binding.KEY_S, Binding.KEY_A};
+        }
+    }
+
+    private void releaseShooterJoystick() {
+        if (joystickPointerId != -1) {
+            ControlElement smElement = getShooterModeElement();
+            if (smElement != null) {
+                Binding[] bindings = getJoystickBindings(smElement.getShooterMovementType());
+                for (int i = 0; i < 4; i++) {
+                    if (joystickStates[i]) {
+                        handleInputEvent(bindings[i], false);
+                    }
+                }
+            }
+            joystickPointerId = -1;
+            Arrays.fill(joystickStates, false);
+            invalidate();
+        }
+    }
+
+    private void releaseShooterLook() {
+        if (lookPointerId != -1) {
+            if (lookFireElement != null) {
+                lookFireElement.handleTouchUp(lookPointerId);
+                lookFireElement = null;
+            }
+            lookPointerId = -1;
+            lookAccumX = 0;
+            lookAccumY = 0;
+        }
+    }
+
+    private void handleShooterJoystickMove(float x, float y) {
+        ControlElement smElement = getShooterModeElement();
+        if (smElement == null) return;
+
+        float joystickSizeMultiplier = smElement.getShooterJoystickSize();
+        float radius = snappingSize * 6 * joystickSizeMultiplier;
+        if (radius <= 0) return;
+
+        float localX = x - joystickCenterX;
+        float localY = y - joystickCenterY;
+
+        float distance = (float)Math.sqrt(localX * localX + localY * localY);
+        if (distance > radius) {
+            float angle = (float)Math.atan2(localY, localX);
+            localX = (float)(Math.cos(angle) * radius);
+            localY = (float)(Math.sin(angle) * radius);
+        }
+
+        joystickCurrentX = joystickCenterX + localX;
+        joystickCurrentY = joystickCenterY + localY;
+
+        float deltaX = Mathf.clamp(localX / radius, -1, 1);
+        float deltaY = Mathf.clamp(localY / radius, -1, 1);
+
+        String movementType = smElement.getShooterMovementType();
+        Binding[] bindings = getJoystickBindings(movementType);
+
+        boolean[] newStates = {
+            deltaY <= -ControlElement.STICK_DEAD_ZONE,   // up
+            deltaX >= ControlElement.STICK_DEAD_ZONE,     // right
+            deltaY >= ControlElement.STICK_DEAD_ZONE,     // down
+            deltaX <= -ControlElement.STICK_DEAD_ZONE     // left
+        };
+
+        for (int i = 0; i < 4; i++) {
+            float value = (i == 1 || i == 3) ? deltaX : deltaY;
+            if (bindings[i].isGamepad()) {
+                value = Mathf.clamp(Math.max(0, Math.abs(value) - 0.01f) * Mathf.sign(value) * ControlElement.STICK_SENSITIVITY, -1, 1);
+                handleInputEvent(bindings[i], true, value);
+                joystickStates[i] = true;
+            } else {
+                if (newStates[i] != joystickStates[i]) {
+                    handleInputEvent(bindings[i], newStates[i]);
+                    joystickStates[i] = newStates[i];
+                }
+            }
+        }
+
+        invalidate();
+    }
+
+    private void drawShooterJoystick(Canvas canvas) {
+        ControlElement smElement = getShooterModeElement();
+        if (smElement == null) return;
+
+        float joystickSizeMultiplier = smElement.getShooterJoystickSize();
+        float radius = snappingSize * 6 * joystickSizeMultiplier;
+        float strokeWidth = snappingSize * 0.25f;
+        int primaryColor = getPrimaryColor();
+
+        // Draw outer circle
+        paint.setColor(primaryColor);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(strokeWidth);
+        canvas.drawCircle(joystickCenterX, joystickCenterY, radius, paint);
+
+        // Draw inner thumb
+        float thumbRadius = snappingSize * 3.5f * joystickSizeMultiplier;
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(ColorUtils.setAlphaComponent(primaryColor, 50));
+        canvas.drawCircle(joystickCurrentX, joystickCurrentY, thumbRadius, paint);
+
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setColor(primaryColor);
+        canvas.drawCircle(joystickCurrentX, joystickCurrentY, thumbRadius + strokeWidth * 0.5f, paint);
+    }
+
+    private boolean handleShooterTouchDown(int pointerId, float x, float y) {
+        boolean handled = false;
+        for (ControlElement element : profile.getElements()) {
+            if (element.handleTouchDown(pointerId, x, y)) {
+                performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
+                handled = true;
+                // If this is a fire button, also track for look-around
+                if (isFireButton(element) && lookPointerId == -1) {
+                    lookPointerId = pointerId;
+                    lookLastX = x;
+                    lookLastY = y;
+                    lookAccumX = 0;
+                    lookAccumY = 0;
+                    lookFireElement = element;
+                }
+                break;
+            }
+        }
+        if (!handled) {
+            int screenMidX = getWidth() / 2;
+            if (x < screenMidX && joystickPointerId == -1) {
+                // Left side: spawn dynamic joystick
+                joystickPointerId = pointerId;
+                joystickCenterX = x;
+                joystickCenterY = y;
+                joystickCurrentX = x;
+                joystickCurrentY = y;
+                handled = true;
+                invalidate();
+            } else if (x >= screenMidX && lookPointerId == -1) {
+                // Right side: start look-around
+                lookPointerId = pointerId;
+                lookLastX = x;
+                lookLastY = y;
+                lookAccumX = 0;
+                lookAccumY = 0;
+                lookFireElement = null;
+                handled = true;
+            }
+        }
+        return handled;
+    }
+
+    private boolean handleShooterTouchMovePointer(int pid, float x, float y) {
+        if (pid == joystickPointerId) {
+            handleShooterJoystickMove(x, y);
+            return true;
+        }
+        if (pid == lookPointerId) {
+            float dx = x - lookLastX;
+            float dy = y - lookLastY;
+            lookLastX = x;
+            lookLastY = y;
+            ControlElement smElement = getShooterModeElement();
+            float sensitivity = smElement != null ? smElement.getShooterLookSensitivity() : 1.0f;
+            float scaledDx = dx * sensitivity;
+            float scaledDy = dy * sensitivity;
+            int moveX = Mathf.roundPoint(scaledDx);
+            int moveY = Mathf.roundPoint(scaledDy);
+            if (moveX != 0 || moveY != 0) {
+                if (xServer.isRelativeMouseMovement()) {
+                    xServer.getWinHandler().mouseEvent(MouseEventFlags.MOVE, moveX, moveY, 0);
+                } else {
+                    xServer.injectPointerMoveDelta(moveX, moveY);
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    // ========== End Shooter Mode Methods ==========
+
     @Override
     public boolean onGenericMotionEvent(MotionEvent event) {
         if (!editMode && profile != null) {
@@ -381,6 +629,11 @@ public class InputControlsView extends View {
                     float x = event.getX(actionIndex);
                     float y = event.getY(actionIndex);
 
+                    // Shooter mode intercept
+                    if (shooterModeActive && handleShooterTouchDown(pointerId, x, y)) {
+                        break;
+                    }
+
                     touchpadView.setPointerButtonLeftEnabled(true);
                     for (ControlElement element : profile.getElements()) {
                         if (element.handleTouchDown(pointerId, x, y)) {
@@ -399,6 +652,18 @@ public class InputControlsView extends View {
                         float x = event.getX(i);
                         float y = event.getY(i);
 
+                        // Shooter mode intercept per pointer
+                        if (shooterModeActive) {
+                            int pid = event.getPointerId(i);
+                            if (handleShooterTouchMovePointer(pid, x, y)) continue;
+                            // Non-intercepted pointer in shooter mode: try elements with correct ID
+                            handled = false;
+                            for (ControlElement element : profile.getElements()) {
+                                if (element.handleTouchMove(pid, x, y)) handled = true;
+                            }
+                            continue;
+                        }
+
                         handled = false;
                         for (ControlElement element : profile.getElements()) {
                             if (element.handleTouchMove(i, x, y)) handled = true;
@@ -410,6 +675,18 @@ public class InputControlsView extends View {
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_POINTER_UP:
                 case MotionEvent.ACTION_CANCEL:
+                    // Shooter mode intercept
+                    if (shooterModeActive) {
+                        if (pointerId == joystickPointerId) {
+                            releaseShooterJoystick();
+                            handled = true;
+                        }
+                        if (pointerId == lookPointerId) {
+                            lookPointerId = -1;
+                            lookFireElement = null;
+                            handled = true;
+                        }
+                    }
                     for (ControlElement element : profile.getElements()) if (element.handleTouchUp(pointerId)) handled = true;
                     if (!handled) touchpadView.onTouchEvent(event);
                     break;

@@ -267,6 +267,15 @@ public class ControlsProfile implements Comparable<ControlsProfile> {
                 element.setIconId(elementJSONObject.getInt("iconId"));
                 if (elementJSONObject.has("range")) element.setRange(ControlElement.Range.valueOf(elementJSONObject.getString("range")));
                 if (elementJSONObject.has("orientation")) element.setOrientation((byte)elementJSONObject.getInt("orientation"));
+                if (elementJSONObject.has("scrollLocked")) element.setScrollLocked(elementJSONObject.getBoolean("scrollLocked"));
+
+                if (elementJSONObject.has("shooterMovementType")) element.setShooterMovementType(elementJSONObject.getString("shooterMovementType"));
+                if (elementJSONObject.has("shooterLookSensitivity")) element.setShooterLookSensitivity((float)elementJSONObject.getDouble("shooterLookSensitivity"));
+                if (elementJSONObject.has("shooterJoystickSize")) element.setShooterJoystickSize((float)elementJSONObject.getDouble("shooterJoystickSize"));
+
+                if (elementJSONObject.has("dynamicJoystickMovementType")) element.setDynamicJoystickMovementType(elementJSONObject.getString("dynamicJoystickMovementType"));
+                if (elementJSONObject.has("dynamicJoystickSize")) element.setDynamicJoystickSize((float)elementJSONObject.getDouble("dynamicJoystickSize"));
+                if (elementJSONObject.has("djMouseLookSensitivity")) element.setDjMouseLookSensitivity((float)elementJSONObject.getDouble("djMouseLookSensitivity"));
 
                 boolean hasGamepadBinding = true;
                 JSONArray bindingsJSONArray = elementJSONObject.getJSONArray("bindings");

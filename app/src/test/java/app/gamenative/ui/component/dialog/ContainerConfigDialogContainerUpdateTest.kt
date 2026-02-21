@@ -165,6 +165,7 @@ class ContainerConfigDialogContainerUpdateTest {
             dinputMapperType = 2,
             disableMouseInput = true,
             touchscreenMode = true,
+            gestureConfig = "{\"longPressEnabled\":true,\"twoFingerTapAction\":\"middle_click\"}",
             startupSelection = Container.STARTUP_SELECTION_AGGRESSIVE,
             cpuList = "0,2,4,6",
             cpuListWoW64 = "1,3,5,7",
@@ -204,6 +205,7 @@ class ContainerConfigDialogContainerUpdateTest {
         assertEquals(mutated.sdlControllerAPI, container.isSdlControllerAPI)
         assertEquals(mutated.disableMouseInput, container.isDisableMouseInput)
         assertEquals(mutated.touchscreenMode, container.isTouchscreenMode)
+        assertEquals(mutated.gestureConfig, container.gestureConfig)
 
         // Steam type
         assertEquals(mutated.steamType, container.getSteamType())
@@ -304,6 +306,7 @@ class ContainerConfigDialogContainerUpdateTest {
             dinputMapperType = 2,
             disableMouseInput = true,
             touchscreenMode = true,
+            gestureConfig = "{\"longPressEnabled\":true,\"twoFingerTapAction\":\"middle_click\"}",
             startupSelection = Container.STARTUP_SELECTION_AGGRESSIVE,
             cpuList = "0,2,4,6",
             cpuListWoW64 = "1,3,5,7",
@@ -344,6 +347,7 @@ class ContainerConfigDialogContainerUpdateTest {
         assertEquals(mutated.sdlControllerAPI, container.isSdlControllerAPI)
         assertEquals(mutated.disableMouseInput, container.isDisableMouseInput)
         assertEquals(mutated.touchscreenMode, container.isTouchscreenMode)
+        assertEquals(mutated.gestureConfig, container.gestureConfig)
 
         // Steam type
         assertEquals(mutated.steamType, container.getSteamType())
