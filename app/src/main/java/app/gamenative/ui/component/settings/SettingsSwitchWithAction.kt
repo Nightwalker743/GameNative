@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import com.alorma.compose.settings.ui.SettingsMenuLink
@@ -33,13 +32,13 @@ fun SettingsSwitchWithAction(
         icon = icon,
         subtitle = subtitle,
         action = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                action?.invoke()
+            Row {
                 Switch(
                     enabled = enabled,
                     checked = state,
                     onCheckedChange = onCheckedChange,
                 )
+                action?.invoke()
             }
         },
         colors = colors,
