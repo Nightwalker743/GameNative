@@ -109,6 +109,8 @@
     <string name="custom_game_folder_picker_error">Failed to resolve folder path</string>
     <string name="container_config_drive_letter_missing">Drive letter is missing</string>
     <string name="container_config_invalid_drive_path">Invalid drive path</string>
+    <string name="custom_game_exe_selection_title">Executable Selection Required</string>
+    <string name="custom_game_exe_selection_message">This game has multiple executables. Please open Custom Game Settings to select which one to launch.</string>
     <string name="custom_game_settings">Custom Game Settings</string>
     <string name="custom_game_delete_title">Delete Game</string>
     <string name="custom_game_delete_message">Are you sure you want to uninstall %1$s?</string>
@@ -285,26 +287,16 @@
     <string name="preset_right_stick">Right Stick</string>
 
     <!-- Shooter Mode -->
-    <string name="shooter_mode_settings">Shooter Mode Settings</string>
+    <string name="shooter_mode_settings">Dynamic Joysticks Settings</string>
     <string name="movement_type">Movement Type</string>
     <string name="movement_type_subtitle">Joystick output for left side movement</string>
     <string name="look_sensitivity">Look Sensitivity</string>
-    <string name="look_sensitivity_value">%.1fx</string>
     <string name="look_sensitivity_subtitle">Mouse look sensitivity multiplier</string>
     <string name="joystick_size">Joystick Size</string>
-    <string name="joystick_size_value">%.1fx</string>
     <string name="joystick_size_subtitle">Dynamic joystick size multiplier</string>
     <string name="movement_wasd">WASD</string>
     <string name="movement_arrow_keys">Arrow Keys</string>
     <string name="movement_gamepad_left_stick">Gamepad Left Stick</string>
-
-    <!-- Dynamic Joystick -->
-    <string name="dj_settings">Dynamic Joystick Settings</string>
-    <string name="dj_movement_type_subtitle">Input type for joystick movement</string>
-    <string name="dj_movement_gamepad_right_stick">Gamepad Right Stick</string>
-    <string name="dj_movement_mouse_look">Mouse Look</string>
-    <string name="dj_mouse_look_sensitivity">Mouse Look Sensitivity</string>
-    <string name="dj_mouse_look_sensitivity_subtitle">Sensitivity multiplier for mouse look movement</string>
 
     <!-- Physical Controller Config -->
     <string name="physical_controller_config">Physical Controller Bindings Editor</string>

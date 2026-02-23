@@ -78,13 +78,11 @@ fun ControllerTabContent(state: ContainerConfigState, default: Boolean) {
             onClick = { state.config.value = config.copy(touchscreenMode = !config.touchscreenMode) },
             action = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (config.touchscreenMode) {
-                        IconButton(onClick = { showGestureDialog = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = stringResource(R.string.gesture_settings),
-                            )
-                        }
+                    IconButton(onClick = { showGestureDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = stringResource(R.string.gesture_settings),
+                        )
                     }
                     Switch(
                         checked = config.touchscreenMode,

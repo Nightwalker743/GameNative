@@ -164,25 +164,6 @@ fun ElementEditorDialog(
     }
     val originalToggleSwitch by remember { mutableStateOf(element.isToggleSwitch) }
 
-    // Dynamic joystick settings state
-    val djMovementTypeOptions = listOf("wasd", "arrow_keys", "gamepad_left_stick", "gamepad_right_stick", "mouse_look")
-    val djMovementTypeLabels = listOf(
-        stringResource(R.string.movement_wasd),
-        stringResource(R.string.movement_arrow_keys),
-        stringResource(R.string.movement_gamepad_left_stick),
-        stringResource(R.string.dj_movement_gamepad_right_stick),
-        stringResource(R.string.dj_movement_mouse_look)
-    )
-    var currentDjMovementTypeIndex by remember {
-        mutableIntStateOf(djMovementTypeOptions.indexOf(element.dynamicJoystickMovementType).coerceAtLeast(0))
-    }
-    var currentDjSize by remember { mutableFloatStateOf(element.dynamicJoystickSize) }
-    var currentDjMouseLookSensitivity by remember { mutableFloatStateOf(element.djMouseLookSensitivity) }
-    // Store original dynamic joystick values for cancel/restore
-    val originalDjMovementType by remember { mutableStateOf(element.dynamicJoystickMovementType) }
-    val originalDjSize by remember { mutableFloatStateOf(element.dynamicJoystickSize) }
-    val originalDjMouseLookSensitivity by remember { mutableFloatStateOf(element.djMouseLookSensitivity) }
-
     // Get types array for saving
     val types = remember { ControlElement.Type.values() }
 
@@ -306,13 +287,6 @@ fun ElementEditorDialog(
                                 element.setToggleSwitch(currentToggleSwitch)
                             }
 
-                            // Save dynamic joystick properties
-                            if (types[currentTypeIndex] == ControlElement.Type.DYNAMIC_JOYSTICK) {
-                                element.dynamicJoystickMovementType = djMovementTypeOptions[currentDjMovementTypeIndex]
-                                element.dynamicJoystickSize = currentDjSize
-                                element.djMouseLookSensitivity = currentDjMouseLookSensitivity
-                            }
-
                             // Save to disk
                             view.profile?.save()
 
@@ -377,7 +351,10 @@ fun ElementEditorDialog(
 
                     // Element Type
                     val types = ControlElement.Type.values()
-                    val typeNames = types.map { it.name.replace("_", " ") }
+                    val typeNames = types.map {
+                        if (it == ControlElement.Type.SHOOTER_MODE) "DYNAMIC JOYSTICKS"
+                        else it.name.replace("_", " ")
+                    }
                     SettingsListDropdown(
                         colors = settingsTileColors(),
                         title = { Text(stringResource(R.string.element_type)) },
@@ -419,10 +396,6 @@ fun ElementEditorDialog(
                         ControlElement.Type.SHOOTER_MODE -> {
                             // Shooter Mode is always rendered as CIRCLE
                             listOf(ControlElement.Shape.CIRCLE)
-                        }
-                        ControlElement.Type.DYNAMIC_JOYSTICK -> {
-                            // Dynamic Joystick supports all shapes for the activation zone
-                            ControlElement.Shape.values().toList()
                         }
                         ControlElement.Type.BUTTON -> {
                             // Buttons fully support all shapes
@@ -500,8 +473,7 @@ fun ElementEditorDialog(
                                 enabled = false,
                                 onClick = {}
                             )
-                        } else if (element.type == ControlElement.Type.SHOOTER_MODE ||
-                                   element.type == ControlElement.Type.DYNAMIC_JOYSTICK) {
+                        } else if (element.type == ControlElement.Type.SHOOTER_MODE) {
                             // Bindings auto-generated for these types
                             SettingsMenuLink(
                                 colors = settingsTileColors(),
@@ -740,88 +712,6 @@ fun ElementEditorDialog(
                     }
                 }
 
-                // Dynamic Joystick Settings Section (only for DYNAMIC_JOYSTICK type)
-                if (types[currentTypeIndex] == ControlElement.Type.DYNAMIC_JOYSTICK) {
-                    SettingsGroup(title = { Text(stringResource(R.string.dj_settings)) }) {
-                        // Movement Type dropdown
-                        SettingsListDropdown(
-                            colors = settingsTileColors(),
-                            title = { Text(stringResource(R.string.movement_type)) },
-                            subtitle = { Text(stringResource(R.string.dj_movement_type_subtitle)) },
-                            value = currentDjMovementTypeIndex,
-                            items = djMovementTypeLabels,
-                            onItemSelected = { index ->
-                                currentDjMovementTypeIndex = index
-                                hasUnsavedChanges = true
-                            }
-                        )
-
-                        // Joystick Size slider
-                        SettingsMenuLink(
-                            colors = settingsTileColors(),
-                            title = { Text(stringResource(R.string.joystick_size)) },
-                            subtitle = { Text(stringResource(R.string.joystick_size_subtitle)) },
-                            onClick = {}
-                        )
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                                .padding(bottom = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Slider(
-                                value = currentDjSize,
-                                onValueChange = {
-                                    currentDjSize = it
-                                    hasUnsavedChanges = true
-                                },
-                                valueRange = 0.5f..3.0f,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = String.format(Locale.US, "%.1fx", currentDjSize),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        // Mouse Look Sensitivity slider (only visible when mouse_look is selected)
-                        if (djMovementTypeOptions[currentDjMovementTypeIndex] == "mouse_look") {
-                            SettingsMenuLink(
-                                colors = settingsTileColors(),
-                                title = { Text(stringResource(R.string.dj_mouse_look_sensitivity)) },
-                                subtitle = { Text(stringResource(R.string.dj_mouse_look_sensitivity_subtitle)) },
-                                onClick = {}
-                            )
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp)
-                                    .padding(bottom = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Slider(
-                                    value = currentDjMouseLookSensitivity,
-                                    onValueChange = {
-                                        currentDjMouseLookSensitivity = it
-                                        hasUnsavedChanges = true
-                                    },
-                                    valueRange = 0.1f..5.0f,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Text(
-                                    text = String.format(Locale.US, "%.1fx", currentDjMouseLookSensitivity),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-
                 // Properties Section
                 SettingsGroup(title = { Text(stringResource(R.string.properties)) }) {
                     SettingsMenuLink(
@@ -926,12 +816,6 @@ fun ElementEditorDialog(
                     if (types[currentTypeIndex] == ControlElement.Type.BUTTON) {
                         element.setToggleSwitch(currentToggleSwitch)
                     }
-                    // Save dynamic joystick properties
-                    if (types[currentTypeIndex] == ControlElement.Type.DYNAMIC_JOYSTICK) {
-                        element.dynamicJoystickMovementType = djMovementTypeOptions[currentDjMovementTypeIndex]
-                        element.dynamicJoystickSize = currentDjSize
-                        element.djMouseLookSensitivity = currentDjMouseLookSensitivity
-                    }
                     view.profile?.save()
                     view.invalidate()
                     showExitConfirmation = false
@@ -964,10 +848,6 @@ fun ElementEditorDialog(
                     element.isScrollLocked = originalScrollLocked
                     // Restore original button properties
                     element.setToggleSwitch(originalToggleSwitch)
-                    // Restore original dynamic joystick properties
-                    element.dynamicJoystickMovementType = originalDjMovementType
-                    element.dynamicJoystickSize = originalDjSize
-                    element.djMouseLookSensitivity = originalDjMouseLookSensitivity
                     view.invalidate()
                     showExitConfirmation = false
                     onDismiss()

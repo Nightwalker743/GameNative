@@ -1279,12 +1279,6 @@ fun XServerScreen(
                                         newElement.shooterLookSensitivity = element.shooterLookSensitivity
                                         newElement.shooterJoystickSize = element.shooterJoystickSize
                                     }
-                                    // Copy dynamic joystick properties
-                                    if (element.type == com.winlator.inputcontrols.ControlElement.Type.DYNAMIC_JOYSTICK) {
-                                        newElement.dynamicJoystickMovementType = element.dynamicJoystickMovementType
-                                        newElement.dynamicJoystickSize = element.dynamicJoystickSize
-                                        newElement.djMouseLookSensitivity = element.djMouseLookSensitivity
-                                    }
                                     currentProfile.addElement(newElement)
                                 }
 

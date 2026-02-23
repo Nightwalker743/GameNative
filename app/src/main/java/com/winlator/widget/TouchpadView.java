@@ -640,7 +640,6 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
     // ── Two-finger move (pan / pinch) ────────────────────────────────
     private void handleTsTwoFingerMove(MotionEvent event) {
         if (event.getPointerCount() < 2) return;
-        twoFingerTapPossible = false; // they moved, so it's not a tap
 
         float x0 = event.getX(0), y0 = event.getY(0);
         float x1 = event.getX(1), y1 = event.getY(1);
@@ -662,6 +661,8 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
             accumulatedPinchDelta += framePinchDelta;
             accumulatedPanDelta += framePanDelta;
             if (accumulatedPinchDelta + accumulatedPanDelta > 40f) {
+                // Enough movement to lock into a gesture — no longer a tap
+                twoFingerTapPossible = false;
                 if (accumulatedPinchDelta > accumulatedPanDelta && gestureConfig.getPinchEnabled()) {
                     twoFingerGestureMode = TWO_FINGER_GESTURE_ZOOM;
                 } else if (gestureConfig.getTwoFingerDragEnabled()) {
@@ -699,6 +700,11 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
     private void handleTsPointerUp(MotionEvent event) {
         // Two-finger tap detection
         if (twoFingerTapPossible && !twoFingerDragging && gestureConfig.getTwoFingerTapEnabled()) {
+            // Move cursor to midpoint between the two fingers
+            float midX = (twoFingerLastX0 + twoFingerLastX1) / 2f;
+            float midY = (twoFingerLastY0 + twoFingerLastY1) / 2f;
+            float[] pt = XForm.transformPoint(xform, midX, midY);
+            moveCursorTo((int) pt[0], (int) pt[1]);
             injectClick(gestureConfig.getTwoFingerTapAction());
             injectRelease(gestureConfig.getTwoFingerTapAction());
         }

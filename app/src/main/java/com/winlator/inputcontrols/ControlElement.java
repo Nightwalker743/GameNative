@@ -29,7 +29,7 @@ public class ControlElement {
     public static final byte TRACKPAD_ACCELERATION_THRESHOLD = 4;
     public static final short BUTTON_MIN_TIME_TO_KEEP_PRESSED = 300;
     public enum Type {
-        BUTTON, D_PAD, RANGE_BUTTON, STICK, TRACKPAD, SHOOTER_MODE, DYNAMIC_JOYSTICK;
+        BUTTON, D_PAD, RANGE_BUTTON, STICK, TRACKPAD, SHOOTER_MODE;
 
         public static String[] names() {
             Type[] types = values();
@@ -88,14 +88,6 @@ public class ControlElement {
     private String shooterMovementType = "wasd";
     private float shooterLookSensitivity = 1.0f;
     private float shooterJoystickSize = 1.0f;
-    // Dynamic joystick fields
-    private String dynamicJoystickMovementType = "wasd";
-    private float dynamicJoystickSize = 1.0f;
-    private float djMouseLookSensitivity = 1.0f;
-    private float djCenterX, djCenterY;
-    private float djCurrentX, djCurrentY;
-    private boolean djActive = false;
-    private final boolean[] djStates = new boolean[4];
 
     public ControlElement(InputControlsView inputControlsView) {
         this.inputControlsView = inputControlsView;
@@ -132,12 +124,6 @@ public class ControlElement {
             shooterMovementType = "wasd";
             shooterLookSensitivity = 1.0f;
             shooterJoystickSize = 1.0f;
-        }
-        else if (type == Type.DYNAMIC_JOYSTICK) {
-            shape = Shape.ROUND_RECT;
-            dynamicJoystickMovementType = "wasd";
-            dynamicJoystickSize = 1.0f;
-            djMouseLookSensitivity = 1.0f;
         }
 
         text = "";
@@ -214,34 +200,6 @@ public class ControlElement {
 
     public void setScrollLocked(boolean scrollLocked) {
         this.scrollLocked = scrollLocked;
-    }
-
-    public String getDynamicJoystickMovementType() {
-        return dynamicJoystickMovementType;
-    }
-
-    public void setDynamicJoystickMovementType(String type) {
-        this.dynamicJoystickMovementType = type;
-    }
-
-    public float getDynamicJoystickSize() {
-        return dynamicJoystickSize;
-    }
-
-    public void setDynamicJoystickSize(float size) {
-        this.dynamicJoystickSize = size;
-    }
-
-    public float getDjMouseLookSensitivity() {
-        return djMouseLookSensitivity;
-    }
-
-    public void setDjMouseLookSensitivity(float sensitivity) {
-        this.djMouseLookSensitivity = sensitivity;
-    }
-
-    public boolean isDjActive() {
-        return djActive;
     }
 
     public Binding getBindingAt(int index) {
@@ -391,24 +349,6 @@ public class ControlElement {
             case SHOOTER_MODE: {
                 halfWidth = snappingSize * 3;
                 halfHeight = snappingSize * 3;
-                break;
-            }
-            case DYNAMIC_JOYSTICK: {
-                switch (shape) {
-                    case RECT:
-                    case ROUND_RECT:
-                        halfWidth = snappingSize * 12;
-                        halfHeight = snappingSize * 8;
-                        break;
-                    case SQUARE:
-                        halfWidth = snappingSize * 10;
-                        halfHeight = snappingSize * 10;
-                        break;
-                    case CIRCLE:
-                        halfWidth = snappingSize * 10;
-                        halfHeight = snappingSize * 10;
-                        break;
-                }
                 break;
             }
         }
@@ -680,93 +620,12 @@ public class ControlElement {
                 if (iconId > 0) {
                     drawIcon(canvas, cx, cy, boundingBox.width(), boundingBox.height(), iconId);
                 } else {
-                    String displayText = (text != null && !text.isEmpty()) ? text : "SM";
+                    String displayText = (text != null && !text.isEmpty()) ? text : "DJ";
                     paint.setTextSize(Math.min(getTextSizeForWidth(paint, displayText, boundingBox.width() - strokeWidth * 2), snappingSize * 2 * scale));
                     paint.setTextAlign(Paint.Align.CENTER);
                     paint.setStyle(Paint.Style.FILL);
                     paint.setColor(primaryColor);
                     canvas.drawText(displayText, cx, (cy - ((paint.descent() + paint.ascent()) * 0.5f)), paint);
-                }
-                break;
-            }
-            case DYNAMIC_JOYSTICK: {
-                float cx = boundingBox.centerX();
-                float cy = boundingBox.centerY();
-
-                // Only draw activation zone in edit mode
-                if (inputControlsView.isEditMode()) {
-                    // Draw zone fill
-                    paint.setStyle(Paint.Style.FILL);
-                    paint.setColor(ColorUtils.setAlphaComponent(primaryColor, 25));
-                    switch (shape) {
-                        case CIRCLE:
-                            canvas.drawCircle(cx, cy, boundingBox.width() * 0.5f, paint);
-                            break;
-                        case RECT:
-                            canvas.drawRect(boundingBox, paint);
-                            break;
-                        case ROUND_RECT: {
-                            float r = boundingBox.height() * 0.15f;
-                            canvas.drawRoundRect(boundingBox.left, boundingBox.top, boundingBox.right, boundingBox.bottom, r, r, paint);
-                            break;
-                        }
-                        case SQUARE: {
-                            float r = snappingSize * 0.75f * scale;
-                            canvas.drawRoundRect(boundingBox.left, boundingBox.top, boundingBox.right, boundingBox.bottom, r, r, paint);
-                            break;
-                        }
-                    }
-                    // Draw zone outline
-                    paint.setStyle(Paint.Style.STROKE);
-                    paint.setColor(ColorUtils.setAlphaComponent(primaryColor, 100));
-                    paint.setStrokeWidth(strokeWidth);
-                    switch (shape) {
-                        case CIRCLE:
-                            canvas.drawCircle(cx, cy, boundingBox.width() * 0.5f, paint);
-                            break;
-                        case RECT:
-                            canvas.drawRect(boundingBox, paint);
-                            break;
-                        case ROUND_RECT: {
-                            float r = boundingBox.height() * 0.15f;
-                            canvas.drawRoundRect(boundingBox.left, boundingBox.top, boundingBox.right, boundingBox.bottom, r, r, paint);
-                            break;
-                        }
-                        case SQUARE: {
-                            float r = snappingSize * 0.75f * scale;
-                            canvas.drawRoundRect(boundingBox.left, boundingBox.top, boundingBox.right, boundingBox.bottom, r, r, paint);
-                            break;
-                        }
-                    }
-
-                    // Draw label text in center (only when joystick is NOT active)
-                    if (!djActive) {
-                        String displayText = (text != null && !text.isEmpty()) ? text : "DJ";
-                        paint.setStyle(Paint.Style.FILL);
-                        paint.setColor(ColorUtils.setAlphaComponent(primaryColor, 120));
-                        float maxTextWidth = boundingBox.width() - strokeWidth * 4;
-                        paint.setTextSize(Math.min(getTextSizeForWidth(paint, displayText, maxTextWidth), snappingSize * 3 * scale));
-                        paint.setTextAlign(Paint.Align.CENTER);
-                        canvas.drawText(displayText, cx, (cy - ((paint.descent() + paint.ascent()) * 0.5f)), paint);
-                    }
-                }
-
-                // Draw dynamic joystick when active
-                if (djActive) {
-                    float djRadius = snappingSize * 6 * dynamicJoystickSize;
-                    // Outer circle
-                    paint.setColor(primaryColor);
-                    paint.setStyle(Paint.Style.STROKE);
-                    paint.setStrokeWidth(strokeWidth);
-                    canvas.drawCircle(djCenterX, djCenterY, djRadius, paint);
-                    // Inner thumb
-                    float thumbRadius = snappingSize * 3.5f * dynamicJoystickSize;
-                    paint.setStyle(Paint.Style.FILL);
-                    paint.setColor(ColorUtils.setAlphaComponent(primaryColor, 50));
-                    canvas.drawCircle(djCurrentX, djCurrentY, thumbRadius, paint);
-                    paint.setStyle(Paint.Style.STROKE);
-                    paint.setColor(primaryColor);
-                    canvas.drawCircle(djCurrentX, djCurrentY, thumbRadius + strokeWidth * 0.5f, paint);
                 }
                 break;
             }
@@ -815,11 +674,6 @@ public class ControlElement {
                 elementJSONObject.put("shooterJoystickSize", (double) shooterJoystickSize);
             }
 
-            if (type == Type.DYNAMIC_JOYSTICK) {
-                elementJSONObject.put("dynamicJoystickMovementType", dynamicJoystickMovementType);
-                elementJSONObject.put("dynamicJoystickSize", (double) dynamicJoystickSize);
-                elementJSONObject.put("djMouseLookSensitivity", (double) djMouseLookSensitivity);
-            }
             return elementJSONObject;
         }
         catch (JSONException e) {
@@ -829,104 +683,6 @@ public class ControlElement {
 
     public boolean containsPoint(float x, float y) {
         return getBoundingBox().contains((int)(x + 0.5f), (int)(y + 0.5f));
-    }
-
-    private Binding[] getDjBindings() {
-        switch (dynamicJoystickMovementType) {
-            case "arrow_keys":
-                return new Binding[]{Binding.KEY_UP, Binding.KEY_RIGHT, Binding.KEY_DOWN, Binding.KEY_LEFT};
-            case "gamepad_left_stick":
-                return new Binding[]{Binding.GAMEPAD_LEFT_THUMB_UP, Binding.GAMEPAD_LEFT_THUMB_RIGHT,
-                                     Binding.GAMEPAD_LEFT_THUMB_DOWN, Binding.GAMEPAD_LEFT_THUMB_LEFT};
-            case "gamepad_right_stick":
-                return new Binding[]{Binding.GAMEPAD_RIGHT_THUMB_UP, Binding.GAMEPAD_RIGHT_THUMB_RIGHT,
-                                     Binding.GAMEPAD_RIGHT_THUMB_DOWN, Binding.GAMEPAD_RIGHT_THUMB_LEFT};
-            case "mouse_look":
-                return new Binding[]{Binding.MOUSE_MOVE_UP, Binding.MOUSE_MOVE_RIGHT,
-                                     Binding.MOUSE_MOVE_DOWN, Binding.MOUSE_MOVE_LEFT};
-            case "wasd":
-            default:
-                return new Binding[]{Binding.KEY_W, Binding.KEY_D, Binding.KEY_S, Binding.KEY_A};
-        }
-    }
-
-    private void handleDynamicJoystickMove(float x, float y) {
-        int snappingSize = inputControlsView.getSnappingSize();
-        float radius = snappingSize * 6 * dynamicJoystickSize;
-        if (radius <= 0) return;
-
-        float localX = x - djCenterX;
-        float localY = y - djCenterY;
-
-        float distance = (float)Math.sqrt(localX * localX + localY * localY);
-        if (distance > radius) {
-            float angle = (float)Math.atan2(localY, localX);
-            localX = (float)(Math.cos(angle) * radius);
-            localY = (float)(Math.sin(angle) * radius);
-        }
-
-        djCurrentX = djCenterX + localX;
-        djCurrentY = djCenterY + localY;
-
-        float deltaX = Mathf.clamp(localX / radius, -1, 1);
-        float deltaY = Mathf.clamp(localY / radius, -1, 1);
-
-        Binding[] bindings = getDjBindings();
-
-        if ("mouse_look".equals(dynamicJoystickMovementType)) {
-            // Mouse look mode: use timer-based mouse movement (like STICK with Mouse bindings)
-            boolean[] newStates = {
-                deltaY <= -STICK_DEAD_ZONE,   // up
-                deltaX >= STICK_DEAD_ZONE,     // right
-                deltaY >= STICK_DEAD_ZONE,     // down
-                deltaX <= -STICK_DEAD_ZONE     // left
-            };
-
-            for (int i = 0; i < 4; i++) {
-                float value = (i == 1 || i == 3) ? deltaX : deltaY;
-                value *= djMouseLookSensitivity;
-                boolean state = newStates[i] || newStates[(i + 2) % 4];
-                inputControlsView.handleInputEvent(bindings[i], state, value);
-                djStates[i] = state;
-            }
-        } else {
-            boolean[] newStates = {
-                deltaY <= -STICK_DEAD_ZONE,   // up
-                deltaX >= STICK_DEAD_ZONE,     // right
-                deltaY >= STICK_DEAD_ZONE,     // down
-                deltaX <= -STICK_DEAD_ZONE     // left
-            };
-
-            for (int i = 0; i < 4; i++) {
-                float value = (i == 1 || i == 3) ? deltaX : deltaY;
-                if (bindings[i].isGamepad()) {
-                    value = Mathf.clamp(Math.max(0, Math.abs(value) - 0.01f) * Mathf.sign(value) * STICK_SENSITIVITY, -1, 1);
-                    inputControlsView.handleInputEvent(bindings[i], true, value);
-                    djStates[i] = true;
-                } else {
-                    if (newStates[i] != djStates[i]) {
-                        inputControlsView.handleInputEvent(bindings[i], newStates[i]);
-                        djStates[i] = newStates[i];
-                    }
-                }
-            }
-        }
-
-        inputControlsView.invalidate();
-    }
-
-    private void releaseDynamicJoystick() {
-        if (djActive) {
-            Binding[] bindings = getDjBindings();
-            for (int i = 0; i < 4; i++) {
-                if (djStates[i]) {
-                    inputControlsView.handleInputEvent(bindings[i], false);
-                }
-            }
-            djActive = false;
-            Arrays.fill(djStates, false);
-            inputControlsView.invalidate();
-        }
     }
 
     private boolean isKeepButtonPressedAfterMinTime() {
@@ -951,17 +707,6 @@ public class ControlElement {
             }
             else if (type == Type.RANGE_BUTTON) {
                 scroller.handleTouchDown(x, y);
-                return true;
-            }
-            else if (type == Type.DYNAMIC_JOYSTICK) {
-                // Spawn dynamic joystick at touch point
-                djCenterX = x;
-                djCenterY = y;
-                djCurrentX = x;
-                djCurrentY = y;
-                djActive = true;
-                Arrays.fill(djStates, false);
-                inputControlsView.invalidate();
                 return true;
             }
             else {
@@ -1080,10 +825,6 @@ public class ControlElement {
             scroller.handleTouchMove(x, y);
             return true;
         }
-        else if (pointerId == currentPointerId && type == Type.DYNAMIC_JOYSTICK) {
-            handleDynamicJoystickMove(x, y);
-            return true;
-        }
         else return false;
     }
 
@@ -1128,9 +869,6 @@ public class ControlElement {
                 selected = !selected;
                 inputControlsView.setShooterModeActive(selected);
                 inputControlsView.invalidate();
-            }
-            else if (type == Type.DYNAMIC_JOYSTICK) {
-                releaseDynamicJoystick();
             }
             currentPointerId = -1;
             return true;

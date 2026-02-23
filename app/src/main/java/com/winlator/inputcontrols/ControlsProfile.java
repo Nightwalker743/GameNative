@@ -273,10 +273,6 @@ public class ControlsProfile implements Comparable<ControlsProfile> {
                 if (elementJSONObject.has("shooterLookSensitivity")) element.setShooterLookSensitivity((float)elementJSONObject.getDouble("shooterLookSensitivity"));
                 if (elementJSONObject.has("shooterJoystickSize")) element.setShooterJoystickSize((float)elementJSONObject.getDouble("shooterJoystickSize"));
 
-                if (elementJSONObject.has("dynamicJoystickMovementType")) element.setDynamicJoystickMovementType(elementJSONObject.getString("dynamicJoystickMovementType"));
-                if (elementJSONObject.has("dynamicJoystickSize")) element.setDynamicJoystickSize((float)elementJSONObject.getDouble("dynamicJoystickSize"));
-                if (elementJSONObject.has("djMouseLookSensitivity")) element.setDjMouseLookSensitivity((float)elementJSONObject.getDouble("djMouseLookSensitivity"));
-
                 boolean hasGamepadBinding = true;
                 JSONArray bindingsJSONArray = elementJSONObject.getJSONArray("bindings");
                 for (int j = 0; j < bindingsJSONArray.length(); j++) {
