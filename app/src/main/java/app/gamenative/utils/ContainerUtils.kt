@@ -5,6 +5,7 @@ import app.gamenative.PrefManager
 import app.gamenative.data.GameSource
 import app.gamenative.enums.Marker
 import app.gamenative.service.SteamService
+import app.gamenative.service.amazon.AmazonService
 import app.gamenative.service.epic.EpicService
 import app.gamenative.service.gog.GOGConstants
 import app.gamenative.service.gog.GOGService
@@ -634,6 +635,26 @@ object ContainerUtils {
                     defaultDrives
                 }
             }
+
+            GameSource.AMAZON -> {
+                // For Amazon games, map the specific game directory to A: drive
+                val appIdInt = runCatching { extractGameIdFromContainerId(appId) }.getOrNull()
+                val installPath = if (appIdInt != null) {
+                    AmazonService.getInstallPathByAppId(appIdInt)
+                } else null
+
+                if (installPath != null && installPath.isNotEmpty()) {
+                    val drive: Char = if (defaultDrives.contains("A:")) {
+                        Container.getNextAvailableDriveLetter(defaultDrives)
+                    } else {
+                        'A'
+                    }
+                    "$defaultDrives$drive:$installPath"
+                } else {
+                    Timber.w("Could not find Amazon game install path for appId: $appIdInt, using default drives")
+                    defaultDrives
+                }
+            }
         }
         Timber.d("Prepared container drives: $drives")
 
@@ -887,7 +908,11 @@ object ContainerUtils {
             GameSource.CUSTOM_GAME -> {
                 CustomGameScanner.getFolderPathFromAppId(appId)
             }
-            else -> null
+
+            GameSource.AMAZON -> {
+                val appIdInt = runCatching { extractGameIdFromContainerId(appId) }.getOrNull()
+                if (appIdInt != null) AmazonService.getInstallPathByAppId(appIdInt) else null
+            }
         }
 
         if (gameFolderPath != null) {
@@ -1017,6 +1042,7 @@ object ContainerUtils {
             containerId.startsWith("CUSTOM_GAME_") -> GameSource.CUSTOM_GAME
             containerId.startsWith("GOG_") -> GameSource.GOG
             containerId.startsWith("EPIC_") -> GameSource.EPIC
+            containerId.startsWith("AMAZON_") -> GameSource.AMAZON
             // Add other platforms here..
             else -> GameSource.STEAM // default fallback
         }
