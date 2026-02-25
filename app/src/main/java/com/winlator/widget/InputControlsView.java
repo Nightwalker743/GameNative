@@ -78,6 +78,15 @@ public class InputControlsView extends View {
     private float lookLastX, lookLastY;
     private float lookAccumX, lookAccumY;
     private ControlElement lookFireElement = null;
+    // Right dynamic joystick (for gamepad_right_stick look type)
+    private int rightJoystickPointerId = -1;
+    private float rightJoystickCenterX, rightJoystickCenterY;
+    private float rightJoystickCurrentX, rightJoystickCurrentY;
+    private final boolean[] rightJoystickStates = new boolean[4];
+
+    // Container-level shooter mode (auto-replaces STICK elements)
+    private boolean containerShooterMode = false;
+    private boolean containerShooterModeRuntime = false; // runtime toggle state
 
     @SuppressLint("ResourceType")
     public InputControlsView(Context context) {
@@ -127,12 +136,31 @@ public class InputControlsView extends View {
 
         if (profile != null) {
             if (!profile.isElementsLoaded()) profile.loadElements(this);
-            if (showTouchscreenControls) for (ControlElement element : profile.getElements()) element.draw(canvas);
+            if (showTouchscreenControls) {
+                for (ControlElement element : profile.getElements()) {
+                    // Hide STICK elements replaced by container shooter mode
+                    if (isStickHiddenByShooterMode(element)) continue;
+                    element.draw(canvas);
+                }
+            }
         }
 
-        // Draw dynamic joystick when shooter mode is active and joystick is spawned
-        if (shooterModeActive && joystickPointerId != -1) {
+        // Draw dynamic joysticks when shooter mode is active
+        boolean anyShooterActive = shooterModeActive || containerShooterModeRuntime;
+        if (anyShooterActive && joystickPointerId != -1) {
             drawShooterJoystick(canvas);
+        }
+        if (anyShooterActive && rightJoystickPointerId != -1) {
+            float sizeMultiplier = 1.0f;
+            ControlElement smElement = getShooterModeElement();
+            if (smElement != null) sizeMultiplier = smElement.getShooterJoystickSize();
+            drawDynamicJoystick(canvas, rightJoystickCenterX, rightJoystickCenterY,
+                                rightJoystickCurrentX, rightJoystickCurrentY, sizeMultiplier);
+        }
+
+        // Draw container shooter mode toggle button
+        if (containerShooterMode && !editMode) {
+            drawContainerShooterToggle(canvas);
         }
 
         super.onDraw(canvas);
@@ -350,8 +378,23 @@ public class InputControlsView extends View {
         if (!active) {
             releaseShooterJoystick();
             releaseShooterLook();
+            releaseRightJoystick();
         }
         invalidate();
+    }
+
+    public void setContainerShooterMode(boolean enabled) {
+        this.containerShooterMode = enabled;
+        this.containerShooterModeRuntime = enabled;
+        invalidate();
+    }
+
+    /** Check if a STICK element should be hidden because container shooter mode replaces it. */
+    private boolean isStickHiddenByShooterMode(ControlElement element) {
+        if (!containerShooterModeRuntime) return false;
+        if (element.getType() != ControlElement.Type.STICK) return false;
+        Binding b0 = element.getBindingAt(0);
+        return b0 == Binding.GAMEPAD_LEFT_THUMB_UP || b0 == Binding.GAMEPAD_RIGHT_THUMB_UP;
     }
 
     private ControlElement getShooterModeElement() {
@@ -385,12 +428,16 @@ public class InputControlsView extends View {
     private void releaseShooterJoystick() {
         if (joystickPointerId != -1) {
             ControlElement smElement = getShooterModeElement();
+            Binding[] bindings;
             if (smElement != null) {
-                Binding[] bindings = getJoystickBindings(smElement.getShooterMovementType());
-                for (int i = 0; i < 4; i++) {
-                    if (joystickStates[i]) {
-                        handleInputEvent(bindings[i], false);
-                    }
+                bindings = getJoystickBindings(smElement.getShooterMovementType());
+            } else {
+                // Container shooter mode: default to gamepad left stick
+                bindings = getJoystickBindings("gamepad_left_stick");
+            }
+            for (int i = 0; i < 4; i++) {
+                if (joystickStates[i]) {
+                    handleInputEvent(bindings[i], false);
                 }
             }
             joystickPointerId = -1;
@@ -411,11 +458,130 @@ public class InputControlsView extends View {
         }
     }
 
-    private void handleShooterJoystickMove(float x, float y) {
-        ControlElement smElement = getShooterModeElement();
-        if (smElement == null) return;
+    private void releaseRightJoystick() {
+        if (rightJoystickPointerId != -1) {
+            Binding[] bindings = getRightJoystickBindings();
+            for (int i = 0; i < 4; i++) {
+                if (rightJoystickStates[i]) {
+                    handleInputEvent(bindings[i], false);
+                }
+            }
+            rightJoystickPointerId = -1;
+            Arrays.fill(rightJoystickStates, false);
+            invalidate();
+        }
+    }
 
-        float joystickSizeMultiplier = smElement.getShooterJoystickSize();
+    private Binding[] getRightJoystickBindings() {
+        return new Binding[]{
+            Binding.GAMEPAD_RIGHT_THUMB_UP, Binding.GAMEPAD_RIGHT_THUMB_RIGHT,
+            Binding.GAMEPAD_RIGHT_THUMB_DOWN, Binding.GAMEPAD_RIGHT_THUMB_LEFT
+        };
+    }
+
+    private void handleRightJoystickMove(float x, float y) {
+        float sizeMultiplier = 1.0f;
+        ControlElement smElement = getShooterModeElement();
+        if (smElement != null) sizeMultiplier = smElement.getShooterJoystickSize();
+        float radius = snappingSize * 6 * sizeMultiplier;
+        if (radius <= 0) return;
+
+        float localX = x - rightJoystickCenterX;
+        float localY = y - rightJoystickCenterY;
+
+        float distance = (float)Math.sqrt(localX * localX + localY * localY);
+        if (distance > radius) {
+            float angle = (float)Math.atan2(localY, localX);
+            localX = (float)(Math.cos(angle) * radius);
+            localY = (float)(Math.sin(angle) * radius);
+        }
+
+        rightJoystickCurrentX = rightJoystickCenterX + localX;
+        rightJoystickCurrentY = rightJoystickCenterY + localY;
+
+        float deltaX = Mathf.clamp(localX / radius, -1, 1);
+        float deltaY = Mathf.clamp(localY / radius, -1, 1);
+
+        Binding[] bindings = getRightJoystickBindings();
+
+        boolean[] newStates = {
+            deltaY <= -ControlElement.STICK_DEAD_ZONE,
+            deltaX >= ControlElement.STICK_DEAD_ZONE,
+            deltaY >= ControlElement.STICK_DEAD_ZONE,
+            deltaX <= -ControlElement.STICK_DEAD_ZONE
+        };
+
+        for (int i = 0; i < 4; i++) {
+            float value = (i == 1 || i == 3) ? deltaX : deltaY;
+            value = Mathf.clamp(Math.max(0, Math.abs(value) - 0.01f) * Mathf.sign(value) * ControlElement.STICK_SENSITIVITY, -1, 1);
+            handleInputEvent(bindings[i], true, value);
+            rightJoystickStates[i] = true;
+        }
+        invalidate();
+    }
+
+    private void drawDynamicJoystick(Canvas canvas, float centerX, float centerY, float currentX, float currentY, float sizeMultiplier) {
+        float radius = snappingSize * 6 * sizeMultiplier;
+        float strokeWidth = snappingSize * 0.25f;
+        int primaryColor = getPrimaryColor();
+
+        paint.setColor(primaryColor);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(strokeWidth);
+        canvas.drawCircle(centerX, centerY, radius, paint);
+
+        float thumbRadius = snappingSize * 3.5f * sizeMultiplier;
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(ColorUtils.setAlphaComponent(primaryColor, 50));
+        canvas.drawCircle(currentX, currentY, thumbRadius, paint);
+
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setColor(primaryColor);
+        canvas.drawCircle(currentX, currentY, thumbRadius + strokeWidth * 0.5f, paint);
+    }
+
+    /** Get the bounding rect for the container shooter mode toggle button at top center. */
+    private android.graphics.RectF getToggleButtonRect() {
+        float btnW = snappingSize * 12;
+        float btnH = snappingSize * 4;
+        float cx = getWidth() / 2f;
+        return new android.graphics.RectF(cx - btnW / 2, snappingSize * 0.5f, cx + btnW / 2, snappingSize * 0.5f + btnH);
+    }
+
+    private void drawContainerShooterToggle(Canvas canvas) {
+        android.graphics.RectF rect = getToggleButtonRect();
+        float radius = snappingSize * 0.5f;
+        int primaryColor = getPrimaryColor();
+
+        // Background
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(ColorUtils.setAlphaComponent(containerShooterModeRuntime ? 0xFF0277BD : 0xFF616161,
+                        (int)(overlayOpacity * 200)));
+        canvas.drawRoundRect(rect, radius, radius, paint);
+
+        // Border
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(snappingSize * 0.125f);
+        paint.setColor(primaryColor);
+        canvas.drawRoundRect(rect, radius, radius, paint);
+
+        // Text
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(primaryColor);
+        paint.setTextSize(snappingSize * 1.8f);
+        paint.setTextAlign(Paint.Align.CENTER);
+        float textY = rect.centerY() - (paint.descent() + paint.ascent()) * 0.5f;
+        canvas.drawText(containerShooterModeRuntime ? "SM: ON" : "SM: OFF", rect.centerX(), textY, paint);
+    }
+
+    private void handleShooterJoystickMove(float x, float y) {
+        float joystickSizeMultiplier = 1.0f;
+        String movementType = "gamepad_left_stick";
+        ControlElement smElement = getShooterModeElement();
+        if (smElement != null) {
+            joystickSizeMultiplier = smElement.getShooterJoystickSize();
+            movementType = smElement.getShooterMovementType();
+        }
         float radius = snappingSize * 6 * joystickSizeMultiplier;
         if (radius <= 0) return;
 
@@ -435,7 +601,6 @@ public class InputControlsView extends View {
         float deltaX = Mathf.clamp(localX / radius, -1, 1);
         float deltaY = Mathf.clamp(localY / radius, -1, 1);
 
-        String movementType = smElement.getShooterMovementType();
         Binding[] bindings = getJoystickBindings(movementType);
 
         boolean[] newStates = {
@@ -463,45 +628,63 @@ public class InputControlsView extends View {
     }
 
     private void drawShooterJoystick(Canvas canvas) {
+        float joystickSizeMultiplier = 1.0f;
         ControlElement smElement = getShooterModeElement();
-        if (smElement == null) return;
-
-        float joystickSizeMultiplier = smElement.getShooterJoystickSize();
-        float radius = snappingSize * 6 * joystickSizeMultiplier;
-        float strokeWidth = snappingSize * 0.25f;
-        int primaryColor = getPrimaryColor();
-
-        // Draw outer circle
-        paint.setColor(primaryColor);
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(strokeWidth);
-        canvas.drawCircle(joystickCenterX, joystickCenterY, radius, paint);
-
-        // Draw inner thumb
-        float thumbRadius = snappingSize * 3.5f * joystickSizeMultiplier;
-        paint.setStyle(Paint.Style.FILL);
-        paint.setColor(ColorUtils.setAlphaComponent(primaryColor, 50));
-        canvas.drawCircle(joystickCurrentX, joystickCurrentY, thumbRadius, paint);
-
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setColor(primaryColor);
-        canvas.drawCircle(joystickCurrentX, joystickCurrentY, thumbRadius + strokeWidth * 0.5f, paint);
+        if (smElement != null) joystickSizeMultiplier = smElement.getShooterJoystickSize();
+        drawDynamicJoystick(canvas, joystickCenterX, joystickCenterY, joystickCurrentX, joystickCurrentY, joystickSizeMultiplier);
     }
 
     private boolean handleShooterTouchDown(int pointerId, float x, float y) {
         boolean handled = false;
+
+        // Check container shooter mode toggle button first
+        if (containerShooterMode) {
+            android.graphics.RectF toggleRect = getToggleButtonRect();
+            if (toggleRect.contains(x, y)) {
+                containerShooterModeRuntime = !containerShooterModeRuntime;
+                if (!containerShooterModeRuntime) {
+                    releaseShooterJoystick();
+                    releaseRightJoystick();
+                }
+                performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
+                invalidate();
+                return true;
+            }
+        }
+
+        // If runtime is off (and no SHOOTER_MODE element active), only the toggle button above should handle
+        if (!shooterModeActive && !containerShooterModeRuntime) {
+            return false;
+        }
+
         for (ControlElement element : profile.getElements()) {
+            // Skip hidden sticks in container shooter mode
+            if (isStickHiddenByShooterMode(element)) continue;
             if (element.handleTouchDown(pointerId, x, y)) {
                 performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
                 handled = true;
-                // If this is a fire button, also track for look-around
-                if (isFireButton(element) && lookPointerId == -1) {
-                    lookPointerId = pointerId;
-                    lookLastX = x;
-                    lookLastY = y;
-                    lookAccumX = 0;
-                    lookAccumY = 0;
-                    lookFireElement = element;
+                // Also track this pointer for look-around so the user can
+                // press any button and still look/aim with the same finger.
+                ControlElement smElement = getShooterModeElement();
+                boolean useRightStick = (smElement != null && "gamepad_right_stick".equals(smElement.getShooterLookType()))
+                                     || (containerShooterModeRuntime && smElement == null);
+                if (useRightStick) {
+                    if (rightJoystickPointerId == -1) {
+                        rightJoystickPointerId = pointerId;
+                        rightJoystickCenterX = x;
+                        rightJoystickCenterY = y;
+                        rightJoystickCurrentX = x;
+                        rightJoystickCurrentY = y;
+                    }
+                } else {
+                    if (lookPointerId == -1) {
+                        lookPointerId = pointerId;
+                        lookLastX = x;
+                        lookLastY = y;
+                        lookAccumX = 0;
+                        lookAccumY = 0;
+                        lookFireElement = element;
+                    }
                 }
                 break;
             }
@@ -517,15 +700,30 @@ public class InputControlsView extends View {
                 joystickCurrentY = y;
                 handled = true;
                 invalidate();
-            } else if (x >= screenMidX && lookPointerId == -1) {
-                // Right side: start look-around
-                lookPointerId = pointerId;
-                lookLastX = x;
-                lookLastY = y;
-                lookAccumX = 0;
-                lookAccumY = 0;
-                lookFireElement = null;
-                handled = true;
+            } else if (x >= screenMidX) {
+                // Right side: check look type
+                ControlElement smElement = getShooterModeElement();
+                boolean useRightStick = (smElement != null && "gamepad_right_stick".equals(smElement.getShooterLookType()))
+                                     || (containerShooterModeRuntime && smElement == null);
+                if (useRightStick && rightJoystickPointerId == -1) {
+                    // Right side: spawn dynamic right joystick
+                    rightJoystickPointerId = pointerId;
+                    rightJoystickCenterX = x;
+                    rightJoystickCenterY = y;
+                    rightJoystickCurrentX = x;
+                    rightJoystickCurrentY = y;
+                    handled = true;
+                    invalidate();
+                } else if (!useRightStick && lookPointerId == -1) {
+                    // Right side: mouse look
+                    lookPointerId = pointerId;
+                    lookLastX = x;
+                    lookLastY = y;
+                    lookAccumX = 0;
+                    lookAccumY = 0;
+                    lookFireElement = null;
+                    handled = true;
+                }
             }
         }
         return handled;
@@ -534,6 +732,10 @@ public class InputControlsView extends View {
     private boolean handleShooterTouchMovePointer(int pid, float x, float y) {
         if (pid == joystickPointerId) {
             handleShooterJoystickMove(x, y);
+            return true;
+        }
+        if (pid == rightJoystickPointerId) {
+            handleRightJoystickMove(x, y);
             return true;
         }
         if (pid == lookPointerId) {
@@ -629,8 +831,8 @@ public class InputControlsView extends View {
                     float x = event.getX(actionIndex);
                     float y = event.getY(actionIndex);
 
-                    // Shooter mode intercept
-                    if (shooterModeActive && handleShooterTouchDown(pointerId, x, y)) {
+                    // Shooter mode intercept (use containerShooterMode so toggle button is always reachable)
+                    if ((shooterModeActive || containerShooterMode) && handleShooterTouchDown(pointerId, x, y)) {
                         break;
                     }
 
@@ -653,7 +855,7 @@ public class InputControlsView extends View {
                         float y = event.getY(i);
 
                         // Shooter mode intercept per pointer
-                        if (shooterModeActive) {
+                        if (shooterModeActive || containerShooterModeRuntime) {
                             int pid = event.getPointerId(i);
                             if (handleShooterTouchMovePointer(pid, x, y)) continue;
                             // Non-intercepted pointer in shooter mode: try elements with correct ID
@@ -676,9 +878,13 @@ public class InputControlsView extends View {
                 case MotionEvent.ACTION_POINTER_UP:
                 case MotionEvent.ACTION_CANCEL:
                     // Shooter mode intercept
-                    if (shooterModeActive) {
+                    if (shooterModeActive || containerShooterModeRuntime) {
                         if (pointerId == joystickPointerId) {
                             releaseShooterJoystick();
+                            handled = true;
+                        }
+                        if (pointerId == rightJoystickPointerId) {
+                            releaseRightJoystick();
                             handled = true;
                         }
                         if (pointerId == lookPointerId) {

@@ -119,6 +119,8 @@ public class Container {
     private boolean disableMouseInput = false;
     // Touchscreen mode
     private boolean touchscreenMode = false;
+    // Shooter mode
+    private boolean shooterMode = true;
     // Serialised JSON gesture configuration (used when touchscreenMode is true)
     private String gestureConfig = "";
     // External display input handling
@@ -661,6 +663,8 @@ public class Container {
             data.put("disableMouseInput", disableMouseInput);
             // Touchscreen mode flag
             data.put("touchscreenMode", touchscreenMode);
+            // Shooter mode flag
+            data.put("shooterMode", shooterMode);
             // Gesture configuration JSON
             if (gestureConfig != null && !gestureConfig.isEmpty()) {
                 data.put("gestureConfig", gestureConfig);
@@ -840,6 +844,9 @@ public class Container {
                 case "touchscreenMode" :
                     setTouchscreenMode(data.getBoolean(key));
                     break;
+                case "shooterMode" :
+                    setShooterMode(data.getBoolean(key));
+                    break;
                 case "gestureConfig" :
                     setGestureConfig(data.optString(key, ""));
                     break;
@@ -985,6 +992,15 @@ public class Container {
 
     public void setTouchscreenMode(boolean touchscreenMode) {
         this.touchscreenMode = touchscreenMode;
+    }
+
+    // Shooter mode
+    public boolean isShooterMode() {
+        return shooterMode;
+    }
+
+    public void setShooterMode(boolean shooterMode) {
+        this.shooterMode = shooterMode;
     }
 
     // Gesture configuration JSON

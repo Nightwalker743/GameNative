@@ -1027,6 +1027,9 @@ fun XServerScreen(
                 // Set overlay opacity from preferences if needed
                 val opacity = PrefManager.getFloat("controls_opacity", InputControlsView.DEFAULT_OVERLAY_OPACITY)
                 setOverlayOpacity(opacity)
+
+                // Set container-level shooter mode
+                setContainerShooterMode(container.isShooterMode)
             }
             PluviaApp.inputControlsView = icView
 
@@ -1276,6 +1279,7 @@ fun XServerScreen(
                                     // Copy shooter mode properties
                                     if (element.type == com.winlator.inputcontrols.ControlElement.Type.SHOOTER_MODE) {
                                         newElement.shooterMovementType = element.shooterMovementType
+                                        newElement.shooterLookType = element.shooterLookType
                                         newElement.shooterLookSensitivity = element.shooterLookSensitivity
                                         newElement.shooterJoystickSize = element.shooterJoystickSize
                                     }

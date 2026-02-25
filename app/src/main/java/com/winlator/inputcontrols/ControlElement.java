@@ -86,6 +86,7 @@ public class ControlElement {
     private CubicBezierInterpolator interpolator;
     private Object touchTime;
     private String shooterMovementType = "wasd";
+    private String shooterLookType = "mouse";
     private float shooterLookSensitivity = 1.0f;
     private float shooterJoystickSize = 1.0f;
 
@@ -122,6 +123,7 @@ public class ControlElement {
             shape = Shape.CIRCLE;
             iconId = 7;
             shooterMovementType = "wasd";
+            shooterLookType = "mouse";
             shooterLookSensitivity = 1.0f;
             shooterJoystickSize = 1.0f;
         }
@@ -227,6 +229,14 @@ public class ControlElement {
 
     public void setShooterMovementType(String shooterMovementType) {
         this.shooterMovementType = shooterMovementType != null ? shooterMovementType : "wasd";
+    }
+
+    public String getShooterLookType() {
+        return shooterLookType;
+    }
+
+    public void setShooterLookType(String shooterLookType) {
+        this.shooterLookType = shooterLookType != null ? shooterLookType : "mouse";
     }
 
     public float getShooterLookSensitivity() {
@@ -670,6 +680,7 @@ public class ControlElement {
 
             if (type == Type.SHOOTER_MODE) {
                 elementJSONObject.put("shooterMovementType", shooterMovementType);
+                elementJSONObject.put("shooterLookType", shooterLookType);
                 elementJSONObject.put("shooterLookSensitivity", (double) shooterLookSensitivity);
                 elementJSONObject.put("shooterJoystickSize", (double) shooterJoystickSize);
             }

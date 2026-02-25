@@ -119,13 +119,22 @@ fun ElementEditorDialog(
         stringResource(R.string.movement_arrow_keys),
         stringResource(R.string.movement_gamepad_left_stick)
     )
+    val lookTypeOptions = listOf("mouse", "gamepad_right_stick")
+    val lookTypeLabels = listOf(
+        stringResource(R.string.look_type_mouse),
+        stringResource(R.string.look_type_gamepad_right_stick)
+    )
     var currentMovementTypeIndex by remember {
         mutableIntStateOf(movementTypeOptions.indexOf(element.shooterMovementType).coerceAtLeast(0))
+    }
+    var currentLookTypeIndex by remember {
+        mutableIntStateOf(lookTypeOptions.indexOf(element.shooterLookType).coerceAtLeast(0))
     }
     var currentLookSensitivity by remember { mutableFloatStateOf(element.shooterLookSensitivity) }
     var currentJoystickSize by remember { mutableFloatStateOf(element.shooterJoystickSize) }
     // Store original shooter mode values for cancel/restore
     val originalMovementType by remember { mutableStateOf(element.shooterMovementType) }
+    val originalLookType by remember { mutableStateOf(element.shooterLookType) }
     val originalLookSensitivity by remember { mutableFloatStateOf(element.shooterLookSensitivity) }
     val originalJoystickSize by remember { mutableFloatStateOf(element.shooterJoystickSize) }
 
@@ -270,6 +279,7 @@ fun ElementEditorDialog(
                             // Save shooter mode properties
                             if (types[currentTypeIndex] == ControlElement.Type.SHOOTER_MODE) {
                                 element.shooterMovementType = movementTypeOptions[currentMovementTypeIndex]
+                                element.shooterLookType = lookTypeOptions[currentLookTypeIndex]
                                 element.shooterLookSensitivity = currentLookSensitivity
                                 element.shooterJoystickSize = currentJoystickSize
                             }
@@ -649,6 +659,19 @@ fun ElementEditorDialog(
                             }
                         )
 
+                        // Look Type dropdown
+                        SettingsListDropdown(
+                            colors = settingsTileColors(),
+                            title = { Text(stringResource(R.string.look_type)) },
+                            subtitle = { Text(stringResource(R.string.look_type_subtitle)) },
+                            value = currentLookTypeIndex,
+                            items = lookTypeLabels,
+                            onItemSelected = { index ->
+                                currentLookTypeIndex = index
+                                hasUnsavedChanges = true
+                            }
+                        )
+
                         // Look Sensitivity slider
                         SettingsMenuLink(
                             colors = settingsTileColors(),
@@ -802,6 +825,7 @@ fun ElementEditorDialog(
                     // Save shooter mode properties
                     if (types[currentTypeIndex] == ControlElement.Type.SHOOTER_MODE) {
                         element.shooterMovementType = movementTypeOptions[currentMovementTypeIndex]
+                        element.shooterLookType = lookTypeOptions[currentLookTypeIndex]
                         element.shooterLookSensitivity = currentLookSensitivity
                         element.shooterJoystickSize = currentJoystickSize
                     }
@@ -839,6 +863,7 @@ fun ElementEditorDialog(
                     }
                     // Restore original shooter mode properties
                     element.shooterMovementType = originalMovementType
+                    element.shooterLookType = originalLookType
                     element.shooterLookSensitivity = originalLookSensitivity
                     element.shooterJoystickSize = originalJoystickSize
                     // Restore original range button properties

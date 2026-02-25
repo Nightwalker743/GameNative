@@ -297,6 +297,10 @@
     <string name="movement_wasd">WASD</string>
     <string name="movement_arrow_keys">Arrow Keys</string>
     <string name="movement_gamepad_left_stick">Gamepad Left Stick</string>
+    <string name="look_type">Look Type</string>
+    <string name="look_type_subtitle">Right side behavior in shooter mode</string>
+    <string name="look_type_mouse">Mouse</string>
+    <string name="look_type_gamepad_right_stick">Gamepad Right Stick</string>
 
     <!-- Physical Controller Config -->
     <string name="physical_controller_config">Physical Controller Bindings Editor</string>
@@ -577,6 +581,8 @@
     <string name="disable_mouse_input">Disable Mouse Input</string>
     <string name="touchscreen_mode">Touchscreen Mode</string>
     <string name="touchscreen_mode_description">Direct touch-to-cursor movement (ON) vs touchpad-style relative movement (OFF)</string>
+    <string name="shooter_mode_toggle">Shooter Mode</string>
+    <string name="shooter_mode_toggle_description">Auto-replace stick elements with dynamic joysticks</string>
 
     <!-- Gesture Settings Dialog -->
     <string name="gesture_settings">Gesture Settings</string>
