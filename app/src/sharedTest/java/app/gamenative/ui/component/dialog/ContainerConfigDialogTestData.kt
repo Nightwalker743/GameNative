@@ -128,7 +128,7 @@ private fun ContainerData.commonOverrides(): ContainerData {
         dinputMapperType = 2,
         disableMouseInput = true,
         touchscreenMode = true,
-        shooterMode = true,
+        shooterMode = false,
         gestureConfig = "{\"longPressEnabled\":true,\"twoFingerTapAction\":\"middle_click\"}",
         emulateKeyboardMouse = true,
         controllerEmulationBindings = buildControllerBindings(),

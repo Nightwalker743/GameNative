@@ -257,7 +257,12 @@ public class ControlsProfile implements Comparable<ControlsProfile> {
             for (int i = 0; i < elementsJSONArray.length(); i++) {
                 JSONObject elementJSONObject = elementsJSONArray.getJSONObject(i);
                 ControlElement element = new ControlElement(inputControlsView);
-                element.setType(ControlElement.Type.valueOf(elementJSONObject.getString("type")));
+                try {
+                    element.setType(ControlElement.Type.valueOf(elementJSONObject.getString("type")));
+                } catch (IllegalArgumentException e) {
+                    Log.w("ControlsProfile", "Skipping element with unknown type: " + elementJSONObject.getString("type"));
+                    continue;
+                }
                 element.setShape(ControlElement.Shape.valueOf(elementJSONObject.getString("shape")));
                 element.setToggleSwitch(elementJSONObject.getBoolean("toggleSwitch"));
                 element.setX((int)(elementJSONObject.getDouble("x") * inputControlsView.getMaxWidth()));

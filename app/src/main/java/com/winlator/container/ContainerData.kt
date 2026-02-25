@@ -195,7 +195,7 @@ data class ContainerData(
                     dinputMapperType = savedMap["dinputMapperType"] as Byte,
                     disableMouseInput = savedMap["disableMouseInput"] as Boolean,
                     touchscreenMode = savedMap["touchscreenMode"] as Boolean,
-                    shooterMode = (savedMap["shooterMode"] as? Boolean) ?: false,
+                    shooterMode = (savedMap["shooterMode"] as? Boolean) ?: true,
                     gestureConfig = (savedMap["gestureConfig"] as? String) ?: "",
                     externalDisplayMode = (savedMap["externalDisplayMode"] as? String) ?: Container.DEFAULT_EXTERNAL_DISPLAY_MODE,
                     externalDisplaySwap = (savedMap["externalDisplaySwap"] as? Boolean) ?: false,

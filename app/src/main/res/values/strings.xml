@@ -583,6 +583,8 @@
     <string name="touchscreen_mode_description">Direct touch-to-cursor movement (ON) vs touchpad-style relative movement (OFF)</string>
     <string name="shooter_mode_toggle">Shooter Mode</string>
     <string name="shooter_mode_toggle_description">Auto-replace stick elements with dynamic joysticks</string>
+    <string name="shooter_mode_on">SM: ON</string>
+    <string name="shooter_mode_off">SM: OFF</string>
 
     <!-- Gesture Settings Dialog -->
     <string name="gesture_settings">Gesture Settings</string>

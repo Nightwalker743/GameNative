@@ -571,7 +571,10 @@ public class InputControlsView extends View {
         paint.setTextSize(snappingSize * 1.8f);
         paint.setTextAlign(Paint.Align.CENTER);
         float textY = rect.centerY() - (paint.descent() + paint.ascent()) * 0.5f;
-        canvas.drawText(containerShooterModeRuntime ? "SM: ON" : "SM: OFF", rect.centerX(), textY, paint);
+        String label = getContext().getString(containerShooterModeRuntime
+                ? app.gamenative.R.string.shooter_mode_on
+                : app.gamenative.R.string.shooter_mode_off);
+        canvas.drawText(label, rect.centerX(), textY, paint);
     }
 
     private void handleShooterJoystickMove(float x, float y) {
