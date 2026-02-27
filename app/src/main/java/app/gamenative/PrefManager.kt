@@ -596,6 +596,24 @@ object PrefManager {
             setPref(LIBRARY_FILTER, AppFilter.toFlags(value))
         }
 
+    private val LIBRARY_SORT_KEY = stringPreferencesKey("library_sort_key")
+    private val LIBRARY_SORT_LEGACY = intPreferencesKey("library_sort")
+    var librarySortOption: app.gamenative.ui.enums.SortOption
+        get() {
+            // Try string key first, fall back to legacy ordinal for migration
+            val keyValue = getPref(LIBRARY_SORT_KEY, "")
+            return if (keyValue.isNotEmpty()) {
+                app.gamenative.ui.enums.SortOption.fromKey(keyValue)
+            } else {
+                val ordinal = getPref(LIBRARY_SORT_LEGACY, app.gamenative.ui.enums.SortOption.INSTALLED_FIRST.ordinal)
+                @Suppress("DEPRECATION")
+                app.gamenative.ui.enums.SortOption.fromOrdinal(ordinal)
+            }
+        }
+        set(value) {
+            setPref(LIBRARY_SORT_KEY, value.key)
+        }
+
     /**
      * Get or Set the last known Persona State. See [EPersonaState]
      */

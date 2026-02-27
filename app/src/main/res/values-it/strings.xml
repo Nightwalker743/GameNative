@@ -89,6 +89,18 @@
     <string name="destination_downloads">Download</string>
     <string name="destination_friends">Amici</string>
 
+    <!-- Library Tabs -->
+    <string name="tab_all">Tutti</string>
+    <string name="tab_steam">Steam</string>
+    <string name="tab_gog">GOG</string>
+    <string name="tab_epic">Epic</string>
+    <string name="tab_amazon">Amazon</string>
+    <string name="tab_installed">Installati</string>
+    <string name="tab_local">Personalizzato</string>
+    <string name="library_tab_with_count">%1$s (%2$d)</string>
+    <string name="library_search_close">Chiudi ricerca</string>
+    <string name="default_user_name">Utente</string>
+
     <!-- Custom Games -->
     <string name="custom_games_title">Giochi Personalizzati</string>
     <string name="custom_games_no_paths">Nessun percorso aggiunto</string>
@@ -204,6 +216,8 @@
     <string name="controller_disconnected">Disconnesso</string>
     <string name="reset_onscreen_controls">Reimposta Controlli a Schermo</string>
     <string name="open_navigation_menu">Apri Menu Navigazione</string>
+    <string name="quick_menu_title">Menu rapido</string>
+    <string name="quick_menu_back">Indietro</string>
     <string name="touchpad_help">Aiuto Touchpad</string>
     <string name="hide_controls_with_controller">Nascondi controlli a schermo con controller</string>
     <string name="hide_controls_with_controller_description">Nascondi automaticamente i controlli a schermo quando è connesso un controller fisico</string>
@@ -419,6 +433,10 @@
     <string name="update_available">Aggiornamento Disponibile</string>
     <string name="game_information">Informazioni Gioco</string>
     <string name="status">Stato</string>
+    <string name="status_online">Online</string>
+    <string name="status_away">Assente</string>
+    <string name="status_invisible">Invisibile</string>
+    <string name="system_menu_title">Sistema</string>
     <string name="size">Dimensione</string>
     <string name="location">Posizione</string>
     <string name="developer">Sviluppatore</string>
@@ -456,10 +474,18 @@
     <string name="app_filter_family">Famiglia</string>
 
     <!-- Login & Connection -->
+    <string name="connecting_to_steam">Connessione a Steam…</string>
     <string name="no_connection_to_steam">Nessuna connessione a Steam</string>
     <string name="retry_steam_connection">Riprova Connessione Steam</string>
     <string name="continue_offline">Continua Offline</string>
-
+    <string name="connection_reconnecting">Riconnessione a Steam…</string>
+    <string name="connection_disconnected">Disconnesso da Steam</string>
+    <string name="connection_disconnected_servers">Disconnesso dai server Steam</string>
+    <string name="connection_logging_in">Accesso in corso…</string>
+    <string name="connection_login_failed">Accesso fallito</string>
+    <string name="connection_session_ended">Sessione terminata</string>
+    <string name="connection_offline_mode">Modalità offline</string>
+    <string name="connection_retry">Riprova</string>
 
     <!--Game Feedback Dialog -->
     <string name="game_feedback_game_run">Come ha girato il gioco?</string>
@@ -473,6 +499,12 @@
     <string name="go_offline">Vai Offline</string>
     <string name="log_out">Disconnetti</string>
     <string name="close">Chiudi</string>
+
+    <!-- System menu platform actions -->
+    <string name="steam_sign_in">Accedi a Steam</string>
+    <string name="steam_go_online">Vai online (Steam)</string>
+    <string name="steam_go_offline">Vai offline (Steam)</string>
+    <string name="steam_sign_out">Esci da Steam</string>
 
     <!-- Container Configuration: General -->
     <string name="new_environment_variable">Nuova Variabile d\'Ambiente</string>
@@ -636,7 +668,12 @@
     <string name="settings_debug_box_logs_title">Abilita Log Box86/64</string>
     <string name="settings_debug_box_logs_subtitle">Scrivi output debug Box86 &amp; Box64 su file</string>
     <string name="settings_debug_view_crash_title">Visualizza ultimo crash</string>
+    <string name="settings_debug_view_crash_subtitle">Mostra il log di crash più recente</string>
+    <string name="settings_debug_no_crash_logs">Nessun log di crash recente trovato</string>
     <string name="settings_debug_view_log_title">Visualizza log debug gioco</string>
+    <string name="settings_debug_view_log_subtitle">Mostra l\'ultimo log di debug Wine/Box64</string>
+    <string name="settings_debug_no_wine_logs">Nessun log di debug Wine trovato</string>
+    <string name="settings_debug_no_channels_selected">Nessun canale selezionato</string>
     <string name="settings_debug_clear_prefs_title">Cancella Preferenze</string>
     <string name="settings_debug_clear_prefs_subtitle">[Chiude App] Disconnette il client e cancella i dati delle preferenze locali.</string>
     <string name="settings_debug_clear_db_title">Cancella Database Locale</string>
@@ -681,14 +718,22 @@
     <string name="login_privacy_policy">Informativa sulla Privacy</string>
     <string name="login_welcome_back">Bentornato</string>
     <string name="login_subtitle">Accedi per accedere alla tua libreria Steam</string>
+    <string name="login_tab_credentials">Credenziali</string>
+    <string name="login_tab_qr_code">Codice QR</string>
     <string name="login_username">Nome utente</string>
+    <string name="login_username_hint">Inserisci il tuo nome utente Steam</string>
     <string name="login_password">Password</string>
+    <string name="login_password_hint">Inserisci la tua password</string>
+    <string name="login_password_show">Mostra password</string>
+    <string name="login_password_hide">Nascondi password</string>
     <string name="login_remember_session">Ricorda sessione</string>
     <string name="login_sign_in">Accedi</string>
     <string name="login_qr_failed">Codice QR Fallito</string>
     <string name="login_retry_qr">Riprova Codice QR</string>
     <string name="login_qr_instructions">Apri l\'app mobile di Steam e scansiona questo codice QR per accedere istantaneamente</string>
     <string name="login_skip_steam">Salta l\'accesso a Steam</string>
+    <string name="login_or_sign_in_with">Oppure accedi con:</string>
+    <string name="login_skip_login">Salta l\'accesso</string>
 
     <!-- Generic/Reusable strings -->
     <string name="continue_action">Continua</string>
@@ -749,6 +794,7 @@
     <string name="main_thank_you_message">Supporta il gaming PC open-source su Android condividendo l\'app con i tuoi amici o diventando membro su Ko-fi.</string>
     <string name="main_join_kofi">Unisciti su Ko-fi</string>
     <string name="main_share">Condividi</string>
+    <string name="main_share_text">Scopri GameNative - gioca ai tuoi giochi Steam PC su Android, con supporto completo per i salvataggi cloud!\nhttps://gamenative.app\nUnisciti alla community: https://discord.gg/2hKv4VfZfE</string>
     <string name="main_discord_support_title">Il gioco ha funzionato?</string>
     <string name="main_discord_support_message">Unisciti al Discord per ottenere supporto per correggere il tuo gioco o migliorare le prestazioni.</string>
     <string name="main_open_discord">Apri Discord</string>
@@ -814,6 +860,7 @@
     <string name="supporters_app_icon">Icona App: Hachi</string>
     <string name="supporters_alt_icon">Icona App Alternativa: rhapsody_mdr</string>
     <string name="supporters_loading">Caricamento sostenitori…</string>
+    <string name="supporters_error">Impossibile caricare i sostenitori</string>
     <string name="supporters_members">Membri</string>
     <string name="supporters_supporters">Sostenitori</string>
     <string name="supporters_none">Nessun sostenitore ancora.</string>
@@ -833,7 +880,9 @@
     <string name="library_installing">Installazione</string>
     <string name="library_not_installed">Non installato</string>
     <string name="library_family_shared">Condiviso in Famiglia</string>
+    <string name="library_shared_short">Condiviso</string>
     <string name="library_compatible">Compatibile</string>
+    <string name="library_gpu_compatible">Compatibile GPU</string>
     <string name="library_compatibility_unknown">Compatibilità Sconosciuta</string>
     <string name="library_not_compatible">Non Compatibile</string>
 
@@ -857,6 +906,7 @@
     <string name="library_layout_list">Elenco</string>
     <string name="library_layout_capsule">Capsula</string>
     <string name="library_layout_hero">Eroe</string>
+    <string name="library_layout_carousel">Carosello</string>
     <string name="library_search_placeholder">Cerca i tuoi giochi…</string>
     <string name="library_search_description">Cerca</string>
     <string name="library_search_clear">Cancella ricerca</string>
@@ -865,7 +915,47 @@
     <string name="library_game_count">%1$d giochi • %2$d installati</string>
     <string name="library_source_steam">Steam</string>
     <string name="library_source_custom">Giochi Personalizzati</string>
+    <string name="library_source_title">Fonte</string>
     <string name="library_layout_title">Layout</string>
+    <string name="library_options">Opzioni</string>
+    <string name="back">Indietro</string>
+    <string name="cloud">Cloud</string>
+    <string name="options">Opzioni</string>
+    <string name="play_time">Tempo di gioco</string>
+
+    <!-- Options Panel -->
+    <string name="options_panel_title">Opzioni</string>
+    <string name="options_panel_close">Chiudi opzioni</string>
+    <string name="options_sort_by">Ordina per</string>
+    <string name="sort_installed_first">Installati prima</string>
+    <string name="sort_name_asc">Nome (A-Z)</string>
+    <string name="sort_name_desc">Nome (Z-A)</string>
+    <string name="sort_recently_played">Giocati di recente</string>
+    <string name="sort_size_smallest">Dimensione (più piccolo)</string>
+    <string name="sort_size_largest">Dimensione (più grande)</string>
+
+    <!-- Game Options Panel -->
+    <string name="game_options_title">Opzioni</string>
+    <string name="game_options_quick_actions">Azioni rapide</string>
+    <string name="game_options_game_management">Gestione gioco</string>
+    <string name="game_options_container">Contenitore</string>
+    <string name="game_options_cloud_saves">Salvataggi cloud</string>
+    <string name="game_options_help_info">Aiuto &amp; info</string>
+
+    <!-- System Menu -->
+    <string name="press_b_to_close">Premi B per chiudere</string>
+    <string name="menu">Menu</string>
+
+    <!-- Gamepad Actions -->
+    <string name="action_select">Seleziona</string>
+    <string name="action_refresh">Aggiorna</string>
+    <string name="action_details">Dettagli</string>
+    <string name="action_add_game">Aggiungi gioco</string>
+    <string name="action_system">Sistema</string>
+
+    <!-- Search -->
+    <string name="search_results_one">%d risultato</string>
+    <string name="search_results_many">%d risultati</string>
 
     <!-- Two Factor Auth -->
     <string name="two_factor_login">Login</string>
@@ -914,6 +1004,7 @@
 
     <!-- Settings Screen -->
     <string name="settings_title">Impostazioni</string>
+    <string name="settings_subtitle">Personalizza la tua esperienza</string>
 
     <!-- Contents Install Finish -->
     <string name="contents_install_success">Contenuto installato con successo</string>
@@ -984,11 +1075,11 @@
 
     <!-- GOG Integration -->
     <string name="gog_integration_title">Integrazione GOG (Alpha)</string>
-    <string name="gog_settings_login_title">Accedi</string>
+    <string name="gog_settings_login_title">Accedi a GOG</string>
     <string name="gog_settings_login_subtitle">Accedi al tuo account GOG</string>
     <string name="gog_login_success_title">Login Riuscito</string>
     <string name="gog_login_cancel">Annulla</string>
-    <string name="gog_settings_logout_title">Esci</string>
+    <string name="gog_settings_logout_title">Esci da GOG</string>
     <string name="gog_settings_logout_subtitle">Disconnettiti dal tuo account GOG</string>
     <string name="gog_logout_confirm_title">Logout da GOG?</string>
     <string name="gog_logout_confirm_message">Questo rimuoverà le tue credenziali GOG e cancellerà la tua libreria GOG da questo dispositivo. Puoi accedere nuovamente in qualsiasi momento.</string>
@@ -1003,7 +1094,7 @@
     <string name="epic_settings_login_subtitle">Accedi al tuo account Epic Games</string>
     <string name="epic_login_success_title">Accesso riuscito</string>
     <string name="epic_login_cancel">Annulla</string>
-    <string name="epic_settings_logout_title">Esci</string>
+    <string name="epic_settings_logout_title">Esci da Epic</string>
     <string name="epic_settings_logout_subtitle">Disconnetti il tuo account Epic Games</string>
     <string name="epic_logout_confirm_title">Uscire da Epic Games?</string>
     <string name="epic_logout_confirm_message">Questo rimuoverà le tue credenziali Epic Games e cancellerà la tua libreria Epic Games da questo dispositivo. Puoi accedere nuovamente in qualsiasi momento.</string>
@@ -1014,11 +1105,11 @@
 
     <!-- Amazon Games Integration -->
     <string name="amazon_integration_title">Integrazione Amazon Games (Alpha)</string>
-    <string name="amazon_settings_login_title">Accedi</string>
+    <string name="amazon_settings_login_title">Accedi ad Amazon Games</string>
     <string name="amazon_settings_login_subtitle">Accedi al tuo account Amazon Games</string>
     <string name="amazon_login_success_title">Accesso riuscito</string>
     <string name="amazon_login_cancel">Annulla</string>
-    <string name="amazon_settings_logout_title">Esci</string>
+    <string name="amazon_settings_logout_title">Esci da Amazon Games</string>
     <string name="amazon_settings_logout_subtitle">Esci dal tuo account Amazon Games</string>
     <string name="amazon_logout_confirm_title">Disconnettersi da Amazon Games?</string>
     <string name="amazon_logout_confirm_message">Questo rimuoverà le tue credenziali Amazon Games e cancellerà la tua libreria Amazon da questo dispositivo. Puoi accedere nuovamente in qualsiasi momento.</string>
