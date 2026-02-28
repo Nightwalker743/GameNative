@@ -576,7 +576,76 @@
     <string name="directinput_mapper_type">Тип мапера DirectInput</string>
     <string name="disable_mouse_input">Вимкнути введення мишею</string>
     <string name="touchscreen_mode">Режим сенсорного екрану</string>
-    <string name="touchscreen_mode_description">Пряме переміщення курсора (УВІМК) або відносне переміщення, як на тачпаді (ВИМК)</string>
+    <string name="touchscreen_mode_description">Для візуальних романів та ігор RTS</string>
+    <string name="shooter_mode_toggle">Режим шутера</string>
+    <string name="shooter_mode_toggle_description">Замінити джойстики на динамічні</string>
+    <string name="shooter_mode_on">Увімкнути мишу</string>
+    <string name="shooter_mode_off">Увімкнути джойстики</string>
+
+    <!-- Gesture Settings Dialog -->
+    <string name="gesture_settings">Налаштування жестів</string>
+    <string name="gesture_settings_title">Налаштування сенсорних жестів</string>
+    <string name="gesture_tap">Натискання</string>
+    <string name="gesture_tap_subtitle">Лівий клік</string>
+    <string name="gesture_drag">Перетягування</string>
+    <string name="gesture_drag_subtitle">Перетягування лівим кліком (виділення)</string>
+    <string name="gesture_long_press">Довге натискання</string>
+    <string name="gesture_long_press_delay">Затримка довгого натискання (мс)</string>
+    <string name="gesture_double_tap">Подвійне натискання</string>
+    <string name="gesture_double_tap_subtitle">Подвійний лівий клік</string>
+    <string name="gesture_double_tap_delay">Затримка подвійного натискання (мс)</string>
+    <string name="gesture_two_finger_drag">Перетягування двома пальцями</string>
+    <string name="gesture_pinch">Щипок</string>
+    <string name="gesture_two_finger_tap">Натискання двома пальцями</string>
+    <string name="gesture_action_left_click">Лівий клік</string>
+    <string name="gesture_action_right_click">Правий клік</string>
+    <string name="gesture_action_middle_click">Середній клік</string>
+    <string name="gesture_pan_middle_mouse">Панорамування середньою кнопкою</string>
+    <string name="gesture_pan_wasd">WASD</string>
+    <string name="gesture_pan_arrow_keys">Стрілки</string>
+    <string name="gesture_zoom_scroll_wheel">Коліщатко прокрутки</string>
+    <string name="gesture_zoom_plus_minus">Клавіші +/-</string>
+    <string name="gesture_zoom_page_up_down">PgUp/PgDn</string>
+    <string name="gesture_action_label">Дія</string>
+    <string name="gesture_delay_label">Затримка</string>
+
+    <!-- Shooter Mode -->
+    <string name="shooter_mode_settings">Налаштування динамічних джойстиків</string>
+    <string name="movement_type">Тип руху</string>
+    <string name="movement_type_subtitle">Вихід джойстика для руху зліва</string>
+    <string name="look_sensitivity">Чутливість огляду</string>
+    <string name="look_sensitivity_subtitle">Множник чутливості миші</string>
+    <string name="joystick_size">Розмір джойстика</string>
+    <string name="joystick_size_subtitle">Множник розміру динамічного джойстика</string>
+    <string name="movement_wasd">WASD</string>
+    <string name="movement_arrow_keys">Стрілки</string>
+    <string name="movement_gamepad_left_stick">Лівий джойстик геймпада</string>
+    <string name="look_type">Тип огляду</string>
+    <string name="look_type_subtitle">Поведінка правої сторони в режимі шутера</string>
+    <string name="look_type_mouse">Миша</string>
+    <string name="look_type_gamepad_right_stick">Правий джойстик геймпада</string>
+
+    <string name="range_button_settings">Налаштування кнопки діапазону</string>
+    <string name="range_type">Діапазон клавіш</string>
+    <string name="range_type_subtitle">Який набір клавіш перегортати</string>
+    <string name="range_orientation">Орієнтація</string>
+    <string name="range_orientation_subtitle">Напрямок кнопки діапазону</string>
+    <string name="range_orientation_horizontal">Горизонтальна</string>
+    <string name="range_orientation_vertical">Вертикальна</string>
+    <string name="range_visible_segments">Видимі сегменти</string>
+    <string name="range_visible_segments_subtitle">Кількість відображуваних сегментів: %1$d</string>
+    <string name="range_a_to_z">A – Z</string>
+    <string name="range_1_to_0">1 – 0</string>
+    <string name="range_f1_to_f12">F1 – F12</string>
+    <string name="range_lock_scrolling">Заблокувати прокрутку</string>
+    <string name="range_lock_scrolling_subtitle">Заборонити прокрутку діапазону</string>
+    <string name="button_settings">Налаштування кнопки</string>
+    <string name="button_toggleable">Перемикається</string>
+    <string name="button_toggleable_subtitle">Натисніть для вмикання, натисніть знову для вимкнення</string>
+
+    <string name="custom_game_exe_selection_title">Потрібен вибір виконуваного файлу</string>
+    <string name="custom_game_exe_selection_message">У цієї гри є кілька виконуваних файлів. Відкрийте налаштування гри, щоб вибрати, який запустити.</string>
+
     <string name="start_with_controls_hidden">Запускати з прихованими елементами керування</string>
     <string name="start_with_controls_hidden_description">Екранні елементи будуть приховані під час запуску гри. Перемикайте через меню навігації.</string>
     <string name="external_display_input">Ввід зовнішнього дисплея</string>

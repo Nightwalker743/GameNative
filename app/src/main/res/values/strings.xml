@@ -629,7 +629,7 @@
     <string name="directinput_mapper_type">DirectInput Mapper Type</string>
     <string name="disable_mouse_input">Disable Mouse Input</string>
     <string name="touchscreen_mode">Touchscreen Mode</string>
-    <string name="touchscreen_mode_description">Direct touch-to-cursor movement (ON) vs touchpad-style relative movement (OFF)</string>
+    <string name="touchscreen_mode_description">For visual novels and RTS games</string>
     <string name="shooter_mode_toggle">Shooter Mode</string>
     <string name="shooter_mode_toggle_description">Auto-replace stick elements with dynamic joysticks</string>
     <string name="shooter_mode_on">Enable Mouse</string>

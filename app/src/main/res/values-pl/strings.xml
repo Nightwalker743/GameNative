@@ -593,7 +593,76 @@
     <string name="directinput_mapper_type">Typ mapowania DirectInput</string>
     <string name="disable_mouse_input">Wyłącz wejście myszy</string>
     <string name="touchscreen_mode">Tryb ekranu dotykowego</string>
-    <string name="touchscreen_mode_description">Bezpośredni ruch dotyk-kursor (WŁ) vs relatywny ruch w stylu touchpada (WYŁ)</string>
+    <string name="touchscreen_mode_description">Dla powieści wizualnych i gier RTS</string>
+    <string name="shooter_mode_toggle">Tryb strzelanki</string>
+    <string name="shooter_mode_toggle_description">Zamień drążki na dynamiczne joysticki</string>
+    <string name="shooter_mode_on">Włącz mysz</string>
+    <string name="shooter_mode_off">Włącz drążki</string>
+
+    <!-- Gesture Settings Dialog -->
+    <string name="gesture_settings">Ustawienia gestów</string>
+    <string name="gesture_settings_title">Ustawienia gestów dotykowych</string>
+    <string name="gesture_tap">Dotknięcie</string>
+    <string name="gesture_tap_subtitle">Kliknięcie lewe</string>
+    <string name="gesture_drag">Przeciągnij palcem</string>
+    <string name="gesture_drag_subtitle">Przeciągnij lewy przycisk (zaznaczenie prostokątne)</string>
+    <string name="gesture_long_press">Długie naciśnięcie</string>
+    <string name="gesture_long_press_delay">Opóźnienie długiego naciśnięcia (ms)</string>
+    <string name="gesture_double_tap">Podwójne dotknięcie</string>
+    <string name="gesture_double_tap_subtitle">Podwójne kliknięcie lewe</string>
+    <string name="gesture_double_tap_delay">Opóźnienie podwójnego dotknięcia (ms)</string>
+    <string name="gesture_two_finger_drag">Przeciągnij dwoma palcami</string>
+    <string name="gesture_pinch">Uszczypnij</string>
+    <string name="gesture_two_finger_tap">Dotknięcie dwoma palcami</string>
+    <string name="gesture_action_left_click">Kliknięcie lewe</string>
+    <string name="gesture_action_right_click">Kliknięcie prawe</string>
+    <string name="gesture_action_middle_click">Kliknięcie środkowe</string>
+    <string name="gesture_pan_middle_mouse">Przesuwanie środkowym przyciskiem</string>
+    <string name="gesture_pan_wasd">WASD</string>
+    <string name="gesture_pan_arrow_keys">Strzałki</string>
+    <string name="gesture_zoom_scroll_wheel">Kółko przewijania</string>
+    <string name="gesture_zoom_plus_minus">Klawisze +/-</string>
+    <string name="gesture_zoom_page_up_down">PgUp/PgDn</string>
+    <string name="gesture_action_label">Akcja</string>
+    <string name="gesture_delay_label">Opóźnienie</string>
+
+    <!-- Shooter Mode -->
+    <string name="shooter_mode_settings">Ustawienia dynamicznych joysticków</string>
+    <string name="movement_type">Typ ruchu</string>
+    <string name="movement_type_subtitle">Wyjście joysticka dla ruchu po lewej</string>
+    <string name="look_sensitivity">Czułość patrzenia</string>
+    <string name="look_sensitivity_subtitle">Mnożnik czułości myszy</string>
+    <string name="joystick_size">Rozmiar joysticka</string>
+    <string name="joystick_size_subtitle">Mnożnik rozmiaru dynamicznego joysticka</string>
+    <string name="movement_wasd">WASD</string>
+    <string name="movement_arrow_keys">Strzałki</string>
+    <string name="movement_gamepad_left_stick">Lewy drążek gamepada</string>
+    <string name="look_type">Typ patrzenia</string>
+    <string name="look_type_subtitle">Zachowanie prawej strony w trybie strzelanki</string>
+    <string name="look_type_mouse">Mysz</string>
+    <string name="look_type_gamepad_right_stick">Prawy drążek gamepada</string>
+
+    <string name="range_button_settings">Ustawienia przycisku zakresu</string>
+    <string name="range_type">Zakres klawiszy</string>
+    <string name="range_type_subtitle">Który zestaw klawiszy przeglądać</string>
+    <string name="range_orientation">Orientacja</string>
+    <string name="range_orientation_subtitle">Kierunek układu przycisku zakresu</string>
+    <string name="range_orientation_horizontal">Pozioma</string>
+    <string name="range_orientation_vertical">Pionowa</string>
+    <string name="range_visible_segments">Widoczne segmenty</string>
+    <string name="range_visible_segments_subtitle">Liczba wyświetlanych segmentów klawiszy: %1$d</string>
+    <string name="range_a_to_z">A – Z</string>
+    <string name="range_1_to_0">1 – 0</string>
+    <string name="range_f1_to_f12">F1 – F12</string>
+    <string name="range_lock_scrolling">Zablokuj przewijanie</string>
+    <string name="range_lock_scrolling_subtitle">Zapobiegaj przewijaniu zakresu</string>
+    <string name="button_settings">Ustawienia przycisku</string>
+    <string name="button_toggleable">Przełączalny</string>
+    <string name="button_toggleable_subtitle">Dotknij, aby włączyć, dotknij ponownie, aby wyłączyć</string>
+
+    <string name="custom_game_exe_selection_title">Wymagany wybór pliku wykonywalnego</string>
+    <string name="custom_game_exe_selection_message">Ta gra ma wiele plików wykonywalnych. Otwórz niestandardowe ustawienia gry, aby wybrać, który uruchomić.</string>
+
     <string name="external_display_input">Wejście wyświetlacza zewnętrznego</string>
     <string name="external_display_input_subtitle">Wybierz zachowanie podłączonego wyświetlacza</string>
     <string name="external_display_mode_off">Nie używaj wyświetlacza zewnętrznego</string>

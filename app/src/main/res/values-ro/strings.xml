@@ -585,7 +585,76 @@
 	<string name="directinput_mapper_type">Tip mapper DirectInput</string>
 	<string name="disable_mouse_input">Dezactivează input-ul de mouse</string>
 	<string name="touchscreen_mode">Mod touchscreen</string>
-	<string name="touchscreen_mode_description">Mișcare directă touch-la-cursor (ON) vs mișcare relativă tip touchpad (OFF)</string>
+	<string name="touchscreen_mode_description">Pentru visual novels și jocuri RTS</string>
+	<string name="shooter_mode_toggle">Mod shooter</string>
+	<string name="shooter_mode_toggle_description">Înlocuiește stick-urile cu joystick-uri dinamice</string>
+	<string name="shooter_mode_on">Activează mouse-ul</string>
+	<string name="shooter_mode_off">Activează stick-urile</string>
+
+	<!-- Gesture Settings Dialog -->
+	<string name="gesture_settings">Setări gesturi</string>
+	<string name="gesture_settings_title">Setări gesturi touch</string>
+	<string name="gesture_tap">Atingere</string>
+	<string name="gesture_tap_subtitle">Clic stânga</string>
+	<string name="gesture_drag">Trage cu degetul</string>
+	<string name="gesture_drag_subtitle">Trage clic stânga (selecție dreptunghiulară)</string>
+	<string name="gesture_long_press">Apăsare lungă</string>
+	<string name="gesture_long_press_delay">Întârziere apăsare lungă (ms)</string>
+	<string name="gesture_double_tap">Atingere dublă</string>
+	<string name="gesture_double_tap_subtitle">Dublu clic stânga</string>
+	<string name="gesture_double_tap_delay">Întârziere atingere dublă (ms)</string>
+	<string name="gesture_two_finger_drag">Trage cu două degete</string>
+	<string name="gesture_pinch">Pinch</string>
+	<string name="gesture_two_finger_tap">Atingere două degete</string>
+	<string name="gesture_action_left_click">Clic stânga</string>
+	<string name="gesture_action_right_click">Clic dreapta</string>
+	<string name="gesture_action_middle_click">Clic mijloc</string>
+	<string name="gesture_pan_middle_mouse">Pan mouse mijloc</string>
+	<string name="gesture_pan_wasd">WASD</string>
+	<string name="gesture_pan_arrow_keys">Taste săgeți</string>
+	<string name="gesture_zoom_scroll_wheel">Roată scroll</string>
+	<string name="gesture_zoom_plus_minus">Taste +/-</string>
+	<string name="gesture_zoom_page_up_down">PgSus/PgJos</string>
+	<string name="gesture_action_label">Acțiune</string>
+	<string name="gesture_delay_label">Întârziere</string>
+
+	<!-- Shooter Mode -->
+	<string name="shooter_mode_settings">Setări joystick-uri dinamice</string>
+	<string name="movement_type">Tip mișcare</string>
+	<string name="movement_type_subtitle">Ieșire joystick pentru mișcare stânga</string>
+	<string name="look_sensitivity">Sensibilitate privire</string>
+	<string name="look_sensitivity_subtitle">Multiplicator sensibilitate mouse</string>
+	<string name="joystick_size">Dimensiune joystick</string>
+	<string name="joystick_size_subtitle">Multiplicator dimensiune joystick dinamic</string>
+	<string name="movement_wasd">WASD</string>
+	<string name="movement_arrow_keys">Taste săgeți</string>
+	<string name="movement_gamepad_left_stick">Stick stânga gamepad</string>
+	<string name="look_type">Tip privire</string>
+	<string name="look_type_subtitle">Comportament partea dreaptă în mod shooter</string>
+	<string name="look_type_mouse">Mouse</string>
+	<string name="look_type_gamepad_right_stick">Stick dreapta gamepad</string>
+
+	<string name="range_button_settings">Setări buton interval</string>
+	<string name="range_type">Interval taste</string>
+	<string name="range_type_subtitle">Ce set de taste parcurge</string>
+	<string name="range_orientation">Orientare</string>
+	<string name="range_orientation_subtitle">Direcție layout buton interval</string>
+	<string name="range_orientation_horizontal">Orizontal</string>
+	<string name="range_orientation_vertical">Vertical</string>
+	<string name="range_visible_segments">Segmente vizibile</string>
+	<string name="range_visible_segments_subtitle">Număr segmente taste afișate: %1$d</string>
+	<string name="range_a_to_z">A – Z</string>
+	<string name="range_1_to_0">1 – 0</string>
+	<string name="range_f1_to_f12">F1 – F12</string>
+	<string name="range_lock_scrolling">Blochează scroll</string>
+	<string name="range_lock_scrolling_subtitle">Împiedică parcurgerea intervalului</string>
+	<string name="button_settings">Setări buton</string>
+	<string name="button_toggleable">Comutabil</string>
+	<string name="button_toggleable_subtitle">Atinge pentru activare, atinge din nou pentru dezactivare</string>
+
+	<string name="custom_game_exe_selection_title">Selecție executabil necesară</string>
+	<string name="custom_game_exe_selection_message">Acest joc are mai multe executabile. Deschide setările personalizate ale jocului pentru a selecta care să pornească.</string>
+
 	<string name="external_display_input">Intrare afișaj extern</string>
 	<string name="external_display_input_subtitle">Alege cum ar trebui să se comporte un afișaj de prezentare conectat</string>
 	<string name="external_display_mode_off">Nu utiliza afișaj extern</string>
