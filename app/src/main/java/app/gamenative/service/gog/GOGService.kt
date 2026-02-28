@@ -276,9 +276,10 @@ class GOGService : Service() {
             appLaunchInfo: LaunchInfo?,
             envVars: com.winlator.core.envvars.EnvVars,
             guestProgramLauncherComponent: com.winlator.xenvironment.components.GuestProgramLauncherComponent,
+            gameId: Int,
         ): String {
             return getInstance()?.gogManager?.getGogWineStartCommand(
-                libraryItem, container, bootToContainer, appLaunchInfo, envVars, guestProgramLauncherComponent,
+                libraryItem, container, bootToContainer, appLaunchInfo, envVars, guestProgramLauncherComponent, gameId,
             ) ?: "\"explorer.exe\""
         }
 
@@ -287,7 +288,14 @@ class GOGService : Service() {
                 ?: Result.failure(Exception("Service not available"))
         }
 
-        fun downloadGame(context: Context, gameId: String, installPath: String): Result<DownloadInfo?> {
+        fun runScriptInterpreterIfNeeded(
+            appId: String,
+            guestProgramLauncherComponent: com.winlator.xenvironment.components.GuestProgramLauncherComponent,
+        ) {
+            getInstance()?.gogManager?.runScriptInterpreterIfNeeded(appId, guestProgramLauncherComponent)
+        }
+
+        fun downloadGame(context: Context, gameId: String, installPath: String, containerLanguage: String): Result<DownloadInfo?> {
             val instance = getInstance() ?: return Result.failure(Exception("Service not available"))
 
             // Create DownloadInfo for progress tracking
@@ -305,7 +313,7 @@ class GOGService : Service() {
 
                     val result = instance.gogDownloadManager.downloadGame(
                         gameId, File(installPath),
-                        downloadInfo, GOGConstants.GOG_DOWNLOAD_LANGUAGE, true, commonRedistDir,
+                        downloadInfo, containerLanguage, true, commonRedistDir,
                     )
 
                     if (result.isFailure) {
