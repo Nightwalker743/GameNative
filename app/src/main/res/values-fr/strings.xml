@@ -580,7 +580,76 @@
     <string name="directinput_mapper_type">Type de mappeur DirectInput</string>
     <string name="disable_mouse_input">Désactiver l\'entrée souris</string>
     <string name="touchscreen_mode">Mode écran tactile</string>
-    <string name="touchscreen_mode_description">Mouvement tactile direct vers le curseur (ON) vs mouvement relatif style pavé tactile (OFF)</string>
+    <string name="touchscreen_mode_description">Pour les visual novels et jeux de stratégie en temps réel</string>
+    <string name="shooter_mode_toggle">Mode tireur</string>
+    <string name="shooter_mode_toggle_description">Remplacer les sticks par des joysticks dynamiques</string>
+    <string name="shooter_mode_on">Activer la souris</string>
+    <string name="shooter_mode_off">Activer les sticks</string>
+
+    <!-- Gesture Settings Dialog -->
+    <string name="gesture_settings">Paramètres des gestes</string>
+    <string name="gesture_settings_title">Paramètres des gestes tactiles</string>
+    <string name="gesture_tap">Appui</string>
+    <string name="gesture_tap_subtitle">Clic gauche</string>
+    <string name="gesture_drag">Glisser le doigt</string>
+    <string name="gesture_drag_subtitle">Glisser clic gauche (sélection rectangulaire)</string>
+    <string name="gesture_long_press">Appui long</string>
+    <string name="gesture_long_press_delay">Délai appui long (ms)</string>
+    <string name="gesture_double_tap">Double appui</string>
+    <string name="gesture_double_tap_subtitle">Double clic gauche</string>
+    <string name="gesture_double_tap_delay">Délai double appui (ms)</string>
+    <string name="gesture_two_finger_drag">Glisser deux doigts</string>
+    <string name="gesture_pinch">Pincer</string>
+    <string name="gesture_two_finger_tap">Appui deux doigts</string>
+    <string name="gesture_action_left_click">Clic gauche</string>
+    <string name="gesture_action_right_click">Clic droit</string>
+    <string name="gesture_action_middle_click">Clic central</string>
+    <string name="gesture_pan_middle_mouse">Pan souris centrale</string>
+    <string name="gesture_pan_wasd">WASD</string>
+    <string name="gesture_pan_arrow_keys">Touches fléchées</string>
+    <string name="gesture_zoom_scroll_wheel">Molette de défilement</string>
+    <string name="gesture_zoom_plus_minus">Touches +/-</string>
+    <string name="gesture_zoom_page_up_down">Page haut/bas</string>
+    <string name="gesture_action_label">Action</string>
+    <string name="gesture_delay_label">Délai</string>
+
+    <!-- Shooter Mode -->
+    <string name="shooter_mode_settings">Paramètres des joysticks dynamiques</string>
+    <string name="movement_type">Type de mouvement</string>
+    <string name="movement_type_subtitle">Sortie joystick pour le mouvement à gauche</string>
+    <string name="look_sensitivity">Sensibilité du regard</string>
+    <string name="look_sensitivity_subtitle">Multiplicateur de sensibilité du regard souris</string>
+    <string name="joystick_size">Taille du joystick</string>
+    <string name="joystick_size_subtitle">Multiplicateur de taille du joystick dynamique</string>
+    <string name="movement_wasd">WASD</string>
+    <string name="movement_arrow_keys">Touches fléchées</string>
+    <string name="movement_gamepad_left_stick">Stick gauche manette</string>
+    <string name="look_type">Type de regard</string>
+    <string name="look_type_subtitle">Comportement côté droit en mode tireur</string>
+    <string name="look_type_mouse">Souris</string>
+    <string name="look_type_gamepad_right_stick">Stick droit manette</string>
+
+    <string name="range_button_settings">Paramètres du bouton de plage</string>
+    <string name="range_type">Plage de touches</string>
+    <string name="range_type_subtitle">Quel ensemble de touches parcourir</string>
+    <string name="range_orientation">Orientation</string>
+    <string name="range_orientation_subtitle">Direction du bouton de plage</string>
+    <string name="range_orientation_horizontal">Horizontal</string>
+    <string name="range_orientation_vertical">Vertical</string>
+    <string name="range_visible_segments">Segments visibles</string>
+    <string name="range_visible_segments_subtitle">Nombre de segments de touches affichés : %1$d</string>
+    <string name="range_a_to_z">A – Z</string>
+    <string name="range_1_to_0">1 – 0</string>
+    <string name="range_f1_to_f12">F1 – F12</string>
+    <string name="range_lock_scrolling">Verrouiller le défilement</string>
+    <string name="range_lock_scrolling_subtitle">Empêcher le défilement dans la plage</string>
+    <string name="button_settings">Paramètres du bouton</string>
+    <string name="button_toggleable">Bascule</string>
+    <string name="button_toggleable_subtitle">Appuyer pour activer, appuyer à nouveau pour désactiver</string>
+
+    <string name="custom_game_exe_selection_title">Sélection d\'exécutable requise</string>
+    <string name="custom_game_exe_selection_message">Ce jeu a plusieurs exécutables. Ouvrez les paramètres personnalisés du jeu pour sélectionner lequel lancer.</string>
+
     <string name="external_display_input">Entrée d\'écran externe</string>
     <string name="external_display_input_subtitle">Choisissez comment un écran de présentation connecté doit se comporter</string>
     <string name="external_display_mode_off">Ne pas utiliser l\'écran externe</string>

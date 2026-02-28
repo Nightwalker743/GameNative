@@ -594,7 +594,76 @@
     <string name="directinput_mapper_type">DirectInput 매퍼 유형</string>
     <string name="disable_mouse_input">마우스 입력 비활성화</string>
     <string name="touchscreen_mode">터치스크린 모드</string>
-    <string name="touchscreen_mode_description">직접 터치-커서 이동(ON) vs 터치패드 스타일 상대 이동(OFF)</string>
+    <string name="touchscreen_mode_description">비주얼 노벨 및 RTS 게임용</string>
+    <string name="shooter_mode_toggle">슈터 모드</string>
+    <string name="shooter_mode_toggle_description">스틱 요소를 동적 조이스틱으로 교체</string>
+    <string name="shooter_mode_on">마우스 활성화</string>
+    <string name="shooter_mode_off">스틱 활성화</string>
+
+    <!-- Gesture Settings Dialog -->
+    <string name="gesture_settings">제스처 설정</string>
+    <string name="gesture_settings_title">터치 제스처 설정</string>
+    <string name="gesture_tap">탭</string>
+    <string name="gesture_tap_subtitle">왼쪽 클릭</string>
+    <string name="gesture_drag">드래그</string>
+    <string name="gesture_drag_subtitle">왼쪽 클릭 드래그 (영역 선택)</string>
+    <string name="gesture_long_press">길게 누르기</string>
+    <string name="gesture_long_press_delay">길게 누르기 지연 (ms)</string>
+    <string name="gesture_double_tap">더블 탭</string>
+    <string name="gesture_double_tap_subtitle">더블 왼쪽 클릭</string>
+    <string name="gesture_double_tap_delay">더블 탭 지연 (ms)</string>
+    <string name="gesture_two_finger_drag">두 손가락 드래그</string>
+    <string name="gesture_pinch">핀치</string>
+    <string name="gesture_two_finger_tap">두 손가락 탭</string>
+    <string name="gesture_action_left_click">왼쪽 클릭</string>
+    <string name="gesture_action_right_click">오른쪽 클릭</string>
+    <string name="gesture_action_middle_click">가운데 클릭</string>
+    <string name="gesture_pan_middle_mouse">가운데 버튼 패닝</string>
+    <string name="gesture_pan_wasd">WASD</string>
+    <string name="gesture_pan_arrow_keys">화살표 키</string>
+    <string name="gesture_zoom_scroll_wheel">스크롤 휠</string>
+    <string name="gesture_zoom_plus_minus">+/- 키</string>
+    <string name="gesture_zoom_page_up_down">페이지 위/아래</string>
+    <string name="gesture_action_label">동작</string>
+    <string name="gesture_delay_label">지연</string>
+
+    <!-- Shooter Mode -->
+    <string name="shooter_mode_settings">동적 조이스틱 설정</string>
+    <string name="movement_type">이동 유형</string>
+    <string name="movement_type_subtitle">왼쪽 이동용 조이스틱 출력</string>
+    <string name="look_sensitivity">시선 감도</string>
+    <string name="look_sensitivity_subtitle">마우스 시선 감도 배율</string>
+    <string name="joystick_size">조이스틱 크기</string>
+    <string name="joystick_size_subtitle">동적 조이스틱 크기 배율</string>
+    <string name="movement_wasd">WASD</string>
+    <string name="movement_arrow_keys">화살표 키</string>
+    <string name="movement_gamepad_left_stick">게임패드 왼쪽 스틱</string>
+    <string name="look_type">시선 유형</string>
+    <string name="look_type_subtitle">슈터 모드에서 오른쪽 동작</string>
+    <string name="look_type_mouse">마우스</string>
+    <string name="look_type_gamepad_right_stick">게임패드 오른쪽 스틱</string>
+
+    <string name="range_button_settings">범위 버튼 설정</string>
+    <string name="range_type">키 범위</string>
+    <string name="range_type_subtitle">순환할 키 세트</string>
+    <string name="range_orientation">방향</string>
+    <string name="range_orientation_subtitle">범위 버튼 레이아웃 방향</string>
+    <string name="range_orientation_horizontal">가로</string>
+    <string name="range_orientation_vertical">세로</string>
+    <string name="range_visible_segments">표시 세그먼트</string>
+    <string name="range_visible_segments_subtitle">한 번에 표시되는 키 세그먼트 수: %1$d</string>
+    <string name="range_a_to_z">A – Z</string>
+    <string name="range_1_to_0">1 – 0</string>
+    <string name="range_f1_to_f12">F1 – F12</string>
+    <string name="range_lock_scrolling">스크롤 잠금</string>
+    <string name="range_lock_scrolling_subtitle">범위 스크롤 방지</string>
+    <string name="button_settings">버튼 설정</string>
+    <string name="button_toggleable">토글</string>
+    <string name="button_toggleable_subtitle">탭하여 활성화, 다시 탭하여 비활성화</string>
+
+    <string name="custom_game_exe_selection_title">실행 파일 선택 필요</string>
+    <string name="custom_game_exe_selection_message">이 게임에는 여러 실행 파일이 있습니다. 실행할 파일을 선택하려면 사용자 지정 게임 설정을 열어주세요.</string>
+
     <string name="external_display_input">외부 디스플레이 입력</string>
     <string name="external_display_input_subtitle">연결된 프레젠테이션 디스플레이의 동작 방식 선택</string>
     <string name="external_display_mode_off">외부 디스플레이 사용 안 함</string>

@@ -569,7 +569,76 @@
     <string name="directinput_mapper_type">Tipo de mapeador de DirectInput</string>
     <string name="disable_mouse_input">Desactivar entrada de ratón</string>
     <string name="touchscreen_mode">Modo de pantalla táctil</string>
-    <string name="touchscreen_mode_description">Movimiento absoluto (activado) vs movimiento relativo tipo touchpad (desactivado).</string>
+    <string name="touchscreen_mode_description">Para novelas visuales y juegos de estrategia en tiempo real</string>
+    <string name="shooter_mode_toggle">Modo tirador</string>
+    <string name="shooter_mode_toggle_description">Reemplazar sticks por joysticks dinámicos</string>
+    <string name="shooter_mode_on">Activar ratón</string>
+    <string name="shooter_mode_off">Activar sticks</string>
+
+    <!-- Gesture Settings Dialog -->
+    <string name="gesture_settings">Configuración de gestos</string>
+    <string name="gesture_settings_title">Configuración de gestos táctiles</string>
+    <string name="gesture_tap">Toque</string>
+    <string name="gesture_tap_subtitle">Clic izquierdo</string>
+    <string name="gesture_drag">Arrastrar dedo</string>
+    <string name="gesture_drag_subtitle">Arrastrar clic izquierdo (selección rectangular)</string>
+    <string name="gesture_long_press">Pulsación larga</string>
+    <string name="gesture_long_press_delay">Retardo pulsación larga (ms)</string>
+    <string name="gesture_double_tap">Doble toque</string>
+    <string name="gesture_double_tap_subtitle">Doble clic izquierdo</string>
+    <string name="gesture_double_tap_delay">Retardo doble toque (ms)</string>
+    <string name="gesture_two_finger_drag">Arrastrar dos dedos</string>
+    <string name="gesture_pinch">Pinch</string>
+    <string name="gesture_two_finger_tap">Toque dos dedos</string>
+    <string name="gesture_action_left_click">Clic izquierdo</string>
+    <string name="gesture_action_right_click">Clic derecho</string>
+    <string name="gesture_action_middle_click">Clic central</string>
+    <string name="gesture_pan_middle_mouse">Pan ratón central</string>
+    <string name="gesture_pan_wasd">WASD</string>
+    <string name="gesture_pan_arrow_keys">Teclas de flecha</string>
+    <string name="gesture_zoom_scroll_wheel">Rueda de desplazamiento</string>
+    <string name="gesture_zoom_plus_minus">Teclas +/-</string>
+    <string name="gesture_zoom_page_up_down">Re Pág / Av Pág</string>
+    <string name="gesture_action_label">Acción</string>
+    <string name="gesture_delay_label">Retardo</string>
+
+    <!-- Shooter Mode -->
+    <string name="shooter_mode_settings">Configuración de joysticks dinámicos</string>
+    <string name="movement_type">Tipo de movimiento</string>
+    <string name="movement_type_subtitle">Salida del joystick para movimiento lateral izquierdo</string>
+    <string name="look_sensitivity">Sensibilidad de mirada</string>
+    <string name="look_sensitivity_subtitle">Multiplicador de sensibilidad de mirada con ratón</string>
+    <string name="joystick_size">Tamaño del joystick</string>
+    <string name="joystick_size_subtitle">Multiplicador de tamaño del joystick dinámico</string>
+    <string name="movement_wasd">WASD</string>
+    <string name="movement_arrow_keys">Teclas de flecha</string>
+    <string name="movement_gamepad_left_stick">Stick izquierdo mando</string>
+    <string name="look_type">Tipo de mirada</string>
+    <string name="look_type_subtitle">Comportamiento del lado derecho en modo tirador</string>
+    <string name="look_type_mouse">Ratón</string>
+    <string name="look_type_gamepad_right_stick">Stick derecho mando</string>
+
+    <string name="range_button_settings">Configuración del botón de rango</string>
+    <string name="range_type">Rango de teclas</string>
+    <string name="range_type_subtitle">Qué conjunto de teclas recorrer</string>
+    <string name="range_orientation">Orientación</string>
+    <string name="range_orientation_subtitle">Dirección del botón de rango</string>
+    <string name="range_orientation_horizontal">Horizontal</string>
+    <string name="range_orientation_vertical">Vertical</string>
+    <string name="range_visible_segments">Segmentos visibles</string>
+    <string name="range_visible_segments_subtitle">Número de segmentos de teclas mostrados: %1$d</string>
+    <string name="range_a_to_z">A – Z</string>
+    <string name="range_1_to_0">1 – 0</string>
+    <string name="range_f1_to_f12">F1 – F12</string>
+    <string name="range_lock_scrolling">Bloquear desplazamiento</string>
+    <string name="range_lock_scrolling_subtitle">Impedir desplazamiento por el rango</string>
+    <string name="button_settings">Configuración del botón</string>
+    <string name="button_toggleable">Conmutable</string>
+    <string name="button_toggleable_subtitle">Tocar para activar, tocar de nuevo para desactivar</string>
+
+    <string name="custom_game_exe_selection_title">Selección de ejecutable requerida</string>
+    <string name="custom_game_exe_selection_message">Este juego tiene varios ejecutables. Abre la configuración personalizada del juego para seleccionar cuál ejecutar.</string>
+
     <string name="start_with_controls_hidden">Iniciar con los controles táctiles ocultos</string>
     <string name="start_with_controls_hidden_description">Los controles en pantalla se ocultarán al iniciar el juego. Se pueden activar desde el menú de navegación.</string>
     <string name="emulate_keyboard_mouse">Emular teclado y ratón</string>

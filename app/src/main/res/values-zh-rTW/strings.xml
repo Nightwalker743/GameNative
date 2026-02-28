@@ -578,7 +578,76 @@
     <string name="directinput_mapper_type">DirectInput Mapper 類型</string>
     <string name="disable_mouse_input">停用滑鼠輸入</string>
     <string name="touchscreen_mode">觸屏模式</string>
-    <string name="touchscreen_mode_description">直接觸控到游標移動 (開啟) vs 觸控板式相對移動 (關閉)</string>
+    <string name="touchscreen_mode_description">適用於視覺小說與即時戰略遊戲</string>
+    <string name="shooter_mode_toggle">射擊模式</string>
+    <string name="shooter_mode_toggle_description">以動態搖桿取代搖桿元素</string>
+    <string name="shooter_mode_on">啟用滑鼠</string>
+    <string name="shooter_mode_off">啟用搖桿</string>
+
+    <!-- Gesture Settings Dialog -->
+    <string name="gesture_settings">手勢設定</string>
+    <string name="gesture_settings_title">觸控手勢設定</string>
+    <string name="gesture_tap">點擊</string>
+    <string name="gesture_tap_subtitle">左鍵點擊</string>
+    <string name="gesture_drag">拖曳</string>
+    <string name="gesture_drag_subtitle">左鍵拖曳（框選）</string>
+    <string name="gesture_long_press">長按</string>
+    <string name="gesture_long_press_delay">長按延遲（毫秒）</string>
+    <string name="gesture_double_tap">雙擊</string>
+    <string name="gesture_double_tap_subtitle">左鍵雙擊</string>
+    <string name="gesture_double_tap_delay">雙擊延遲（毫秒）</string>
+    <string name="gesture_two_finger_drag">雙指拖曳</string>
+    <string name="gesture_pinch">捏合</string>
+    <string name="gesture_two_finger_tap">雙指點擊</string>
+    <string name="gesture_action_left_click">左鍵點擊</string>
+    <string name="gesture_action_right_click">右鍵點擊</string>
+    <string name="gesture_action_middle_click">中鍵點擊</string>
+    <string name="gesture_pan_middle_mouse">中鍵平移</string>
+    <string name="gesture_pan_wasd">WASD</string>
+    <string name="gesture_pan_arrow_keys">方向鍵</string>
+    <string name="gesture_zoom_scroll_wheel">滾輪</string>
+    <string name="gesture_zoom_plus_minus">+/- 鍵</string>
+    <string name="gesture_zoom_page_up_down">Page Up/Down</string>
+    <string name="gesture_action_label">操作</string>
+    <string name="gesture_delay_label">延遲</string>
+
+    <!-- Shooter Mode -->
+    <string name="shooter_mode_settings">動態搖桿設定</string>
+    <string name="movement_type">移動類型</string>
+    <string name="movement_type_subtitle">左側移動的搖桿輸出</string>
+    <string name="look_sensitivity">視角靈敏度</string>
+    <string name="look_sensitivity_subtitle">滑鼠視角靈敏度倍數</string>
+    <string name="joystick_size">搖桿大小</string>
+    <string name="joystick_size_subtitle">動態搖桿大小倍數</string>
+    <string name="movement_wasd">WASD</string>
+    <string name="movement_arrow_keys">方向鍵</string>
+    <string name="movement_gamepad_left_stick">手把左搖桿</string>
+    <string name="look_type">視角類型</string>
+    <string name="look_type_subtitle">射擊模式下右側行為</string>
+    <string name="look_type_mouse">滑鼠</string>
+    <string name="look_type_gamepad_right_stick">手把右搖桿</string>
+
+    <string name="range_button_settings">範圍按鈕設定</string>
+    <string name="range_type">按鍵範圍</string>
+    <string name="range_type_subtitle">循環使用的按鍵組</string>
+    <string name="range_orientation">方向</string>
+    <string name="range_orientation_subtitle">範圍按鈕的版面配置方向</string>
+    <string name="range_orientation_horizontal">水平</string>
+    <string name="range_orientation_vertical">垂直</string>
+    <string name="range_visible_segments">可見分段</string>
+    <string name="range_visible_segments_subtitle">一次顯示的按鍵分段數量：%1$d</string>
+    <string name="range_a_to_z">A – Z</string>
+    <string name="range_1_to_0">1 – 0</string>
+    <string name="range_f1_to_f12">F1 – F12</string>
+    <string name="range_lock_scrolling">鎖定捲動</string>
+    <string name="range_lock_scrolling_subtitle">防止在範圍內捲動</string>
+    <string name="button_settings">按鈕設定</string>
+    <string name="button_toggleable">可切換</string>
+    <string name="button_toggleable_subtitle">點擊啟用，再次點擊停用</string>
+
+    <string name="custom_game_exe_selection_title">需要選擇可執行檔</string>
+    <string name="custom_game_exe_selection_message">此遊戲有多個可執行檔。請開啟自訂遊戲設定以選擇要啟動的檔案。</string>
+
     <string name="external_display_input">外接顯示器輸入</string>
     <string name="external_display_input_subtitle">選擇已連接的簡報顯示器應如何運作</string>
     <string name="external_display_mode_off">不使用外接顯示器</string>

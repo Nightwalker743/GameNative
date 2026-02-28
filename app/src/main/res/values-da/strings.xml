@@ -404,7 +404,76 @@
     <string name="directinput_mapper_type">DirectInput-mappertype</string>
     <string name="disable_mouse_input">Deaktivér musinput</string>
     <string name="touchscreen_mode">Touchskærmstilstand</string>
-    <string name="touchscreen_mode_description">Direkte touch-til-cursor-bevægelse (TIL) vs touchpad-stil relativ bevægelse (FRA)</string>
+    <string name="touchscreen_mode_description">Til visuelle romaner og RTS-spil</string>
+    <string name="shooter_mode_toggle">Shooter-tilstand</string>
+    <string name="shooter_mode_toggle_description">Erstat stick-elementer med dynamiske joysticks</string>
+    <string name="shooter_mode_on">Aktiver mus</string>
+    <string name="shooter_mode_off">Aktiver sticks</string>
+
+    <!-- Gesture Settings Dialog -->
+    <string name="gesture_settings">Gestusindstillinger</string>
+    <string name="gesture_settings_title">Touch-gestusindstillinger</string>
+    <string name="gesture_tap">Tryk</string>
+    <string name="gesture_tap_subtitle">Venstreklik</string>
+    <string name="gesture_drag">Træk finger</string>
+    <string name="gesture_drag_subtitle">Træk venstreklik (rektangelvalg)</string>
+    <string name="gesture_long_press">Langt tryk</string>
+    <string name="gesture_long_press_delay">Forsinkelse langt tryk (ms)</string>
+    <string name="gesture_double_tap">Dobbelt tryk</string>
+    <string name="gesture_double_tap_subtitle">Dobbelt venstreklik</string>
+    <string name="gesture_double_tap_delay">Forsinkelse dobbelt tryk (ms)</string>
+    <string name="gesture_two_finger_drag">Træk med to fingre</string>
+    <string name="gesture_pinch">Knib</string>
+    <string name="gesture_two_finger_tap">Tryk med to fingre</string>
+    <string name="gesture_action_left_click">Venstreklik</string>
+    <string name="gesture_action_right_click">Højreklik</string>
+    <string name="gesture_action_middle_click">Mellemklik</string>
+    <string name="gesture_pan_middle_mouse">Pan med midterknap</string>
+    <string name="gesture_pan_wasd">WASD</string>
+    <string name="gesture_pan_arrow_keys">Piletaster</string>
+    <string name="gesture_zoom_scroll_wheel">Rullehjul</string>
+    <string name="gesture_zoom_plus_minus">+/- taster</string>
+    <string name="gesture_zoom_page_up_down">Side op/ned</string>
+    <string name="gesture_action_label">Handling</string>
+    <string name="gesture_delay_label">Forsinkelse</string>
+
+    <!-- Shooter Mode -->
+    <string name="shooter_mode_settings">Indstillinger for dynamiske joysticks</string>
+    <string name="movement_type">Bevægelsestype</string>
+    <string name="movement_type_subtitle">Joystick-output til venstre bevægelse</string>
+    <string name="look_sensitivity">Kig-følsomhed</string>
+    <string name="look_sensitivity_subtitle">Mus-kig-følsomhedsmultiplikator</string>
+    <string name="joystick_size">Joystick-størrelse</string>
+    <string name="joystick_size_subtitle">Dynamisk joystick-størrelsesmultiplikator</string>
+    <string name="movement_wasd">WASD</string>
+    <string name="movement_arrow_keys">Piletaster</string>
+    <string name="movement_gamepad_left_stick">Gamepad venstre stick</string>
+    <string name="look_type">Kig-type</string>
+    <string name="look_type_subtitle">Højre side adfærd i shooter-tilstand</string>
+    <string name="look_type_mouse">Mus</string>
+    <string name="look_type_gamepad_right_stick">Gamepad højre stick</string>
+
+    <string name="range_button_settings">Indstillinger for intervalknap</string>
+    <string name="range_type">Tastinterval</string>
+    <string name="range_type_subtitle">Hvilket sæt taster der gennemgås</string>
+    <string name="range_orientation">Orientering</string>
+    <string name="range_orientation_subtitle">Layout-retning for intervalknap</string>
+    <string name="range_orientation_horizontal">Vandret</string>
+    <string name="range_orientation_vertical">Lodret</string>
+    <string name="range_visible_segments">Synlige segmenter</string>
+    <string name="range_visible_segments_subtitle">Antal tastsegmenter vist ad gangen: %1$d</string>
+    <string name="range_a_to_z">A – Z</string>
+    <string name="range_1_to_0">1 – 0</string>
+    <string name="range_f1_to_f12">F1 – F12</string>
+    <string name="range_lock_scrolling">Lås rulning</string>
+    <string name="range_lock_scrolling_subtitle">Forhindre rulning gennem intervallet</string>
+    <string name="button_settings">Knapindstillinger</string>
+    <string name="button_toggleable">Tilskiftelig</string>
+    <string name="button_toggleable_subtitle">Tryk for at aktivere, tryk igen for at deaktivere</string>
+
+    <string name="custom_game_exe_selection_title">Valg af eksekverbar fil påkrævet</string>
+    <string name="custom_game_exe_selection_message">Dette spil har flere eksekverbare filer. Åbn brugerdefinerede spilindstillinger for at vælge, hvilken der skal startes.</string>
+
     <string name="external_display_input">Ekstern skærm-input</string>
     <string name="external_display_input_subtitle">Vælg hvordan en tilsluttet præsentationsskærm skal opføre sig</string>
     <string name="external_display_mode_off">Brug ikke ekstern skærm</string>
