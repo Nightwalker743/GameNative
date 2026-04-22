@@ -80,7 +80,7 @@ fun ElementEditorDialog(
             // Show what's actually displayed (based on first binding)
             val binding = element.getBindingAt(0)
             if (binding != null && binding != com.winlator.inputcontrols.Binding.NONE) {
-                var text = binding.toString().replace("NUMPAD ", "NP").replace("BUTTON ", "")
+                var text = binding.toString().replace("NUMPAD ", "NP").replace("BUTTON ", "").replace("SHOW KEYBOARD", "KEY")
                 if (text.length > 7) {
                     // Abbreviate long binding names (e.g., "KEY A B" -> "KAB")
                     val parts = text.split(" ")
@@ -778,7 +778,7 @@ fun ElementEditorDialog(
                         element.setText(null)
 
                         // Update currentText state to show what will actually be displayed (new binding text)
-                        val newBindingText = binding?.toString()?.replace("NUMPAD ", "NP")?.replace("BUTTON ", "") ?: ""
+                        val newBindingText = binding?.toString()?.replace("NUMPAD ", "NP")?.replace("BUTTON ", "")?.replace("SHOW KEYBOARD", "KEY") ?: ""
                         currentText = if (newBindingText.length > 7) {
                             // Abbreviate long names to match getDisplayText() logic
                             val parts = newBindingText.split(" ")

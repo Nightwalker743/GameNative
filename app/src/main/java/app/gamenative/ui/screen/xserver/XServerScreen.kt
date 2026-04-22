@@ -39,7 +39,9 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -58,6 +60,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.gamenative.R
 import app.gamenative.ui.util.SnackbarManager
@@ -370,6 +373,14 @@ fun XServerScreen(
     var showElementEditor by remember { mutableStateOf(false) }
     var elementToEdit by remember { mutableStateOf<com.winlator.inputcontrols.ControlElement?>(null) }
     var showPhysicalControllerDialog by remember { mutableStateOf(false) }
+    var showTouchGestureDialog by remember { mutableStateOf(false) }
+    var isTouchscreenModeActive by remember { mutableStateOf(container.isTouchscreenMode) }
+    var currentGestureConfig by remember {
+        mutableStateOf(app.gamenative.data.TouchGestureConfig.fromJson(container.getGestureConfig()))
+    }
+    val clickHighlightPoints = remember { mutableStateListOf<app.gamenative.ui.component.HighlightPoint>() }
+    var debugGestureName by remember { mutableStateOf("") }
+    var debugGestureKey by remember { mutableIntStateOf(0) }
     var keyboardRequestedFromOverlay by remember { mutableStateOf(false) }
     var showQuickMenu by remember { mutableStateOf(false) }
     var hasPhysicalController by remember { mutableStateOf(false) }
@@ -925,6 +936,31 @@ fun XServerScreen(
                 true
             }
 
+            QuickMenuAction.TOUCHSCREEN_MODE -> {
+                val newValue = !isTouchscreenModeActive
+                isTouchscreenModeActive = newValue
+                container.setTouchscreenMode(newValue)
+                container.saveData()
+                PluviaApp.touchpadView?.setTouchscreenMode(newValue)
+                if (newValue) {
+                    // Apply gesture config when enabling
+                    PluviaApp.touchpadView?.setGestureConfig(currentGestureConfig)
+                    // Hide cursor in touchscreen mode
+                    xServerView?.renderer?.setCursorVisible(false)
+                    PluviaApp.touchpadView?.releasePointerCapture()
+                } else {
+                    // Restore cursor when disabling touchscreen mode
+                    if (!container.isDisableMouseInput) {
+                        xServerView?.renderer?.setCursorVisible(true)
+                    }
+                }
+                PostHog.capture(
+                    event = "touchscreen_mode_toggled",
+                    properties = mapOf("enabled" to newValue),
+                )
+                false // keep menu open like performance hud toggle
+            }
+
             QuickMenuAction.PERFORMANCE_HUD -> {
                 val enabled = !isPerformanceHudEnabled
                 isPerformanceHudEnabled = enabled
@@ -1367,6 +1403,36 @@ fun XServerScreen(
                 frameLayout.addView(PluviaApp.touchpadView)
                 PluviaApp.touchpadView?.setMoveCursorToTouchpoint(PrefManager.getBoolean("move_cursor_to_touchpoint", false))
 
+                // Wire keyboard toggle callback for gesture "Show Keyboard" action
+                PluviaApp.touchpadView?.setShowKeyboardCallback {
+                    PluviaApp.touchpadView?.post {
+                        if (PluviaApp.touchpadView?.windowToken == null) return@post
+                        imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0)
+                    }
+                }
+
+                // Wire click highlight + gesture debug listener
+                PluviaApp.touchpadView?.setClickHighlightListener(object : com.winlator.widget.TouchpadView.ClickHighlightListener {
+                    override fun onClickAt(screenX: Float, screenY: Float) {
+                        PluviaApp.touchpadView?.post {
+                            if (currentGestureConfig.showClickHighlight) {
+                                clickHighlightPoints.add(
+                                    app.gamenative.ui.component.HighlightPoint(
+                                        screenX, screenY,
+                                        androidx.compose.animation.core.Animatable(0.5f),
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    override fun onGestureTriggered(gestureName: String) {
+                        PluviaApp.touchpadView?.post {
+                            debugGestureName = gestureName
+                            debugGestureKey++
+                        }
+                    }
+                })
+
                 // Add invisible IME receiver to capture system keyboard input when keyboard is on external display
                 val imeDisplayContext = context.display?.let { display ->
                     context.createDisplayContext(display)
@@ -1717,7 +1783,14 @@ fun XServerScreen(
                     Timber.d("=== Profile Loading Complete ===")
                     setProfile(targetProfile)
 
-                    physicalControllerHandler = PhysicalControllerHandler(targetProfile, xServerView.getxServer(), gameBack)
+                    physicalControllerHandler = PhysicalControllerHandler(
+                        targetProfile,
+                        xServerView.getxServer(),
+                        gameBack,
+                        onShowKeyboard = {
+                            PluviaApp.inputControlsView?.triggerShowKeyboard()
+                        },
+                    )
 
                     // Store profile for auto-show logic
                     loadedProfile = targetProfile
@@ -1731,6 +1804,20 @@ fun XServerScreen(
                 setContainerShooterMode(container.isShooterMode)
             }
             PluviaApp.inputControlsView = icView
+
+            // Wire SHOW_KEYBOARD binding callback for overlay control buttons
+            icView.setShowKeyboardCallback {
+                icView.post {
+                    if (icView.windowToken == null) return@post
+                    val isExternalDisplaySession =
+                        (icView.display?.displayId ?: android.view.Display.DEFAULT_DISPLAY) != android.view.Display.DEFAULT_DISPLAY
+                    if (isExternalDisplaySession) {
+                        imeInputReceiver?.showKeyboard() ?: imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0)
+                    } else {
+                        imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0)
+                    }
+                }
+            }
 
             xServerView.getxServer().winHandler.setInputControlsView(PluviaApp.inputControlsView)
 
@@ -1903,6 +1990,37 @@ fun XServerScreen(
     )
         }
 
+        // Click highlight overlay
+        if (currentGestureConfig.showClickHighlight && clickHighlightPoints.isNotEmpty()) {
+            app.gamenative.ui.component.ClickHighlightOverlay(points = clickHighlightPoints)
+        }
+
+        // Debug gesture name overlay (temporary)
+        if (debugGestureName.isNotEmpty()) {
+            androidx.compose.runtime.LaunchedEffect(debugGestureKey) {
+                kotlinx.coroutines.delay(1200)
+                debugGestureName = ""
+            }
+            androidx.compose.foundation.layout.Box(
+                modifier = androidx.compose.ui.Modifier
+                    .fillMaxSize()
+                    .padding(top = 48.dp),
+                contentAlignment = androidx.compose.ui.Alignment.TopCenter,
+            ) {
+                androidx.compose.material3.Text(
+                    text = debugGestureName,
+                    color = androidx.compose.ui.graphics.Color.White,
+                    fontSize = 18.sp,
+                    modifier = androidx.compose.ui.Modifier
+                        .background(
+                            androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                        )
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        }
+
         // Floating toolbar for edit mode (always visible in edit mode)
         if (isEditMode && areControlsVisible) {
             EditModeToolbar(
@@ -2024,8 +2142,16 @@ fun XServerScreen(
             performanceHudConfig = performanceHudConfig,
             onPerformanceHudConfigChanged = ::applyPerformanceHudConfig,
             hasPhysicalController = hasPhysicalController,
+            isTouchscreenModeActive = isTouchscreenModeActive,
+            onTouchGestureSettingsClick = {
+                PostHog.capture(event = "edit_touch_gestures_from_menu")
+                keepPausedForEditor = true
+                showTouchGestureDialog = true
+                dismissOverlayMenu()
+            },
             activeToggleIds = buildSet {
                 if (areControlsVisible) add(QuickMenuAction.INPUT_CONTROLS)
+                if (isTouchscreenModeActive) add(QuickMenuAction.TOUCHSCREEN_MODE)
             },
         )
 
@@ -2165,6 +2291,27 @@ fun XServerScreen(
                 }
             }
         }
+    }
+
+    // Touch Gesture Settings Dialog
+    if (showTouchGestureDialog) {
+        app.gamenative.ui.component.dialog.TouchGestureSettingsDialog(
+            gestureConfig = currentGestureConfig,
+            onDismiss = {
+                showTouchGestureDialog = false
+                keepPausedForEditor = false
+                resumeIfAllowedAfterOverlay()
+            },
+            onSave = { updatedConfig ->
+                currentGestureConfig = updatedConfig
+                container.setGestureConfig(updatedConfig.toJson())
+                container.saveData()
+                PluviaApp.touchpadView?.setGestureConfig(updatedConfig)
+                showTouchGestureDialog = false
+                keepPausedForEditor = false
+                resumeIfAllowedAfterOverlay()
+            },
+        )
     }
 
     // var ranSetup by rememberSaveable { mutableStateOf(false) }

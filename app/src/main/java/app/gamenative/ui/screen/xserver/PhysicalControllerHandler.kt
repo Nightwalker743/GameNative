@@ -23,7 +23,8 @@ import java.util.TimerTask
 class PhysicalControllerHandler(
     private var profile: ControlsProfile?,
     private val xServer: XServer?,
-    private val onOpenNavigationMenu: (() -> Unit)? = null
+    private val onOpenNavigationMenu: (() -> Unit)? = null,
+    private val onShowKeyboard: (() -> Unit)? = null
 ) {
     private val TAG = "gncontrol"
     private val mouseMoveOffset = PointF(0f, 0f)
@@ -328,6 +329,11 @@ class PhysicalControllerHandler(
                 if (isActionDown) {
                     Log.d(TAG, "Opening navigation menu from controller binding")
                     onOpenNavigationMenu?.invoke()
+                }
+            } else if (binding == Binding.SHOW_KEYBOARD) {
+                if (isActionDown) {
+                    Log.d(TAG, "Showing keyboard from controller binding")
+                    onShowKeyboard?.invoke()
                 }
             } else if (binding == Binding.MOUSE_MOVE_LEFT || binding == Binding.MOUSE_MOVE_RIGHT) {
                 // Handle horizontal mouse movement - ADD contribution from this input
