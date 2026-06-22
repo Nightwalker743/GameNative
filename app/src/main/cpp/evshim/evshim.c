@@ -5,7 +5,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <limits.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <stdarg.h>
@@ -386,7 +385,5 @@ Java_com_winlator_winhandler_WinHandler_waitForRumble(JNIEnv *env, jclass cls, j
 JNIEXPORT void JNICALL
 Java_com_winlator_winhandler_WinHandler_rumbleTeardown(JNIEnv *env, jclass cls, jint idx)
 {
-    if (idx < 0 || idx >= MAX_GAMEPADS || !shm[idx]) return;
-    atomic_fetch_add_explicit(&shm[idx]->rumble_seq, 1u, memory_order_release);
-    syscall(SYS_futex, &shm[idx]->rumble_seq, FUTEX_WAKE, INT_MAX, NULL, NULL, 0);
+    OnRumble((void *)(intptr_t)idx, 0, 0);
 }
