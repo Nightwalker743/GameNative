@@ -31,6 +31,7 @@ data class ModPlannedEntry(
     val installId: String,
     val source: File,
     val target: File,
+    val normalizedTargetKey: String = WindowsPathIdentity.absoluteKey(target),
 )
 
 object ModMaterializer {
@@ -42,10 +43,10 @@ object ModMaterializer {
         manifests: List<ModOverwriteManifest>,
     ): List<ModPlacementConflict> {
         if (conflicts.isEmpty() || manifests.isEmpty()) return conflicts
-        val manifestsByTarget = manifests.groupBy { File(it.targetPath).absolutePath }
+        val manifestsByTarget = manifests.groupBy { WindowsPathIdentity.absoluteKey(File(it.targetPath)) }
         return conflicts.filter { conflict ->
             val target = File(conflict.targetPath)
-            val matchingManifests = manifestsByTarget[target.absolutePath].orEmpty()
+            val matchingManifests = manifestsByTarget[WindowsPathIdentity.absoluteKey(target)].orEmpty()
             matchingManifests.none { manifest -> targetMatchesApprovedState(target, manifest) }
         }
     }
@@ -234,7 +235,7 @@ object ModMaterializer {
         val skipped = mutableListOf<String>()
         val handledTargets = mutableSetOf<String>()
         manifests.sortedByDescending { it.targetPath.length }.forEach { manifest ->
-            if (!handledTargets.add(manifest.targetPath)) return@forEach
+            if (!handledTargets.add(WindowsPathIdentity.absoluteKey(File(manifest.targetPath)))) return@forEach
             val target = File(manifest.targetPath)
             if (manifest.backupPath.isBlank()) return@forEach
             val backup = File(manifest.backupPath)
@@ -341,14 +342,20 @@ object ModMaterializer {
 
         val effectiveSource = stripPrefix(source, recipe.stripPrefixSegments)
         return when {
-            effectiveSource.isFile -> listOf(ModPlannedEntry(install.installId, effectiveSource, File(targetDir, effectiveSource.name)))
+            effectiveSource.isFile -> listOf(plannedEntry(install.installId, effectiveSource, targetDir, effectiveSource.name))
             recipe.includeSourceDirectory && effectiveSource != extractedRoot ->
-                listOf(ModPlannedEntry(install.installId, effectiveSource, File(targetDir, effectiveSource.name)))
+                listOf(plannedEntry(install.installId, effectiveSource, targetDir, effectiveSource.name))
             else -> effectiveSource.listFiles()
                 ?.filter { !it.name.startsWith(".") }
-                ?.map { ModPlannedEntry(install.installId, it, File(targetDir, it.name)) }
+                ?.map { plannedEntry(install.installId, it, targetDir, it.name) }
                 ?: emptyList()
         }
+    }
+
+    private fun plannedEntry(installId: String, source: File, targetRoot: File, relative: String): ModPlannedEntry {
+        val target = ModTargetResolver.resolveWithin(targetRoot, relative)
+            ?: throw IOException("Target path is invalid or case-ambiguous: $relative")
+        return ModPlannedEntry(installId, source, target)
     }
 
     private fun resolveSource(extractedRoot: File, normalizedSource: String): File {
@@ -461,7 +468,7 @@ object ModMaterializer {
             source.walkTopDown()
                 .filter { it.isFile }
                 .forEach { sourceFile ->
-                    val targetFile = File(target, sourceFile.relativeTo(source).path)
+                    val targetFile = safeChildTarget(target, sourceFile.relativeTo(source).path)
                     removeCopiedFileIfUnchanged(targetFile, sourceFile, skipped, reportChangedFiles, ignoredChangedTargets)
                 }
             if (allowOwnedDirectoryDelete || removeLegacySentinel) {
@@ -480,10 +487,14 @@ object ModMaterializer {
         ignoredChangedTargets: Set<String> = emptySet(),
     ) {
         if (!target.exists() || !target.isFile || !source.isFile) return
-        if (target.absolutePath in ignoredChangedTargets) return
+        val targetKey = WindowsPathIdentity.absoluteKey(target)
+        val ignoredKeys = ignoredChangedTargets.asSequence()
+            .map { WindowsPathIdentity.absoluteKey(File(it)) }
+            .toSet()
+        if (targetKey in ignoredKeys) return
         if (sha256(target) == sha256(source)) {
             target.delete()
-        } else if (reportChangedFiles && target.absolutePath !in ignoredChangedTargets) {
+        } else if (reportChangedFiles && targetKey !in ignoredKeys) {
             skipped += target.absolutePath
         }
     }
@@ -501,8 +512,19 @@ object ModMaterializer {
     private fun copyWithoutOverwrite(target: File, source: File, installId: String): Boolean {
         if (target.exists() || Files.isSymbolicLink(target.toPath())) return false
         target.parentFile?.mkdirs()
-        copyEntry(source, target, overwrite = false)
-        if (target.isDirectory) File(target, COPY_SENTINEL).writeText(installId)
+        if (source.isDirectory) {
+            target.mkdirs()
+            source.walkTopDown()
+                .filter { it.isFile }
+                .forEach { sourceFile ->
+                    val targetFile = safeChildTarget(target, sourceFile.relativeTo(source).path)
+                    ensureRealParentDirectories(targetFile, stopAt = target)
+                    sourceFile.copyTo(targetFile, overwrite = false)
+                }
+            File(target, COPY_SENTINEL).writeText(installId)
+        } else {
+            source.copyTo(target, overwrite = false)
+        }
         return true
     }
 
@@ -557,7 +579,8 @@ object ModMaterializer {
         allowOverwrite: Boolean,
         targetsWrittenThisApply: MutableSet<String>,
     ): CopyBackupResult {
-        if (!allowOverwrite && source.isFile && targetNeedsOverwrite(target, source) && target.absolutePath !in targetsWrittenThisApply) {
+        val targetKey = WindowsPathIdentity.absoluteKey(target)
+        if (!allowOverwrite && source.isFile && targetNeedsOverwrite(target, source) && targetKey !in targetsWrittenThisApply) {
             throw IOException("Overwrite was not confirmed for ${target.absolutePath}")
         }
         if (!allowOverwrite && source.isDirectory && Files.isSymbolicLink(target.toPath())) {
@@ -575,7 +598,8 @@ object ModMaterializer {
                 .forEach { file ->
                     val relative = file.relativeTo(source).path
                     val targetFile = safeChildTarget(target, relative)
-                    val sameApplyTarget = targetFile.absolutePath in targetsWrittenThisApply
+                    val currentTargetKey = WindowsPathIdentity.absoluteKey(targetFile)
+                    val sameApplyTarget = currentTargetKey in targetsWrittenThisApply
                     if (!allowOverwrite && !sameApplyTarget && targetNeedsOverwrite(targetFile, file)) {
                         throw IOException("Overwrite was not confirmed for ${targetFile.absolutePath}")
                     }
@@ -591,12 +615,12 @@ object ModMaterializer {
                     deleteTargetSymlinkIfPresent(targetFile)
                     ensureRealParentDirectories(targetFile, stopAt = target)
                     file.copyTo(targetFile, overwrite = true)
-                    targetsWrittenThisApply += targetFile.absolutePath
+                    targetsWrittenThisApply += currentTargetKey
                     created++
                     manifests.replaceLastForTarget(targetFile, install)
                 }
         } else {
-            val sameApplyTarget = target.absolutePath in targetsWrittenThisApply
+            val sameApplyTarget = targetKey in targetsWrittenThisApply
             val backup = if (sameApplyTarget) BackupIfNeededResult() else backupIfNeeded(install, target, source, backupRoot)
             if (backup.manifest != null) {
                 if (backup.backedUp) {
@@ -611,7 +635,7 @@ object ModMaterializer {
             deleteTargetSymlinkIfPresent(target)
             ensureRealParentDirectories(target, stopAt = target.parentFile)
             source.copyTo(target, overwrite = true)
-            targetsWrittenThisApply += target.absolutePath
+            targetsWrittenThisApply += targetKey
             created++
             manifests.replaceLastForTarget(target, install)
         }
@@ -619,7 +643,8 @@ object ModMaterializer {
     }
 
     private fun MutableList<ModOverwriteManifest>.replaceLastForTarget(target: File, install: ModInstall) {
-        val index = indexOfLast { it.targetPath == target.absolutePath }
+        val targetKey = WindowsPathIdentity.absoluteKey(target)
+        val index = indexOfLast { WindowsPathIdentity.absoluteKey(File(it.targetPath)) == targetKey }
         if (index < 0 || !target.isFile) return
         val current = this[index]
         this[index] = current.copy(
@@ -768,23 +793,8 @@ object ModMaterializer {
     }
 
     private fun safeChildTarget(root: File, relative: String): File {
-        val rootCanonical = root.canonicalFile
-        val rootPath = rootCanonical.toPath().toAbsolutePath().normalize()
-        val targetPath = rootPath.resolve(relative).normalize()
-        if (targetPath != rootPath && !targetPath.startsWith(rootPath)) {
-            throw IOException("Target path escapes destination directory: $relative")
-        }
-        return targetPath.toFile()
-    }
-
-    private fun copyEntry(source: File, target: File, overwrite: Boolean) {
-        if (source.isDirectory) {
-            if (!source.copyRecursively(target, overwrite = overwrite)) {
-                throw IOException("Failed to copy ${source.absolutePath}")
-            }
-        } else {
-            source.copyTo(target, overwrite = overwrite)
-        }
+        return ModTargetResolver.resolveWithin(root, relative)
+            ?: throw IOException("Target path escapes or is ambiguous in destination directory: $relative")
     }
 
     private fun sha256(file: File): String {

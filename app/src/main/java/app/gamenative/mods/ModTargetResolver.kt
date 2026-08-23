@@ -13,6 +13,13 @@ object ModTargetResolver {
     fun normalizeRelativePath(path: String): String =
         path.trim().replace('\\', '/').trim('/')
 
+    fun normalizedTargetKey(targetRoot: String, targetRelativePath: String): String? =
+        if (targetRoot == ModTargetRoot.CUSTOM_ABSOLUTE.name) {
+            WindowsPathIdentity.absoluteKey(File(targetRelativePath.trim().replace('\\', '/')))
+        } else {
+            WindowsPathIdentity.targetKey(targetRoot, targetRelativePath)
+        }
+
     fun roots(gameRootDir: File?, winePrefix: String): List<ResolvedModTargetRoot> {
         val result = mutableListOf<ResolvedModTargetRoot>()
         if (gameRootDir?.isDirectory == true) {
@@ -50,13 +57,17 @@ object ModTargetResolver {
             }
         }
         val root = roots(gameRootDir, winePrefix).firstOrNull { it.type == rootType }?.dir ?: return null
+        if (WindowsPathIdentity.relativeSegments(targetRelativePath) == null) return null
         val cleanRelative = normalizeRelativePath(targetRelativePath)
         val rootCanonical = root.safeCanonicalFile() ?: return null
-        val target = if (cleanRelative.isBlank()) {
-            rootCanonical
-        } else {
-            File(rootCanonical, cleanRelative).safeCanonicalFile() ?: return null
-        }
+        val target = WindowsTargetNamespace(rootCanonical).resolve(cleanRelative).takeIf { it.isValid }?.file ?: return null
+        return target.takeIf { it.isInsideOrEqual(rootCanonical) }
+    }
+
+    fun resolveWithin(root: File, relativePath: String): File? {
+        val rootCanonical = root.safeCanonicalFile() ?: return null
+        val resolution = WindowsTargetNamespace(rootCanonical).resolve(relativePath)
+        val target = resolution.takeIf { it.isValid }?.file ?: return null
         return target.takeIf { it.isInsideOrEqual(rootCanonical) }
     }
 

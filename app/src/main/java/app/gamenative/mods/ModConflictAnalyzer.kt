@@ -43,9 +43,9 @@ object ModConflictAnalyzer {
         }
 
         plannedFiles
-            .groupBy { it.target.safeCanonicalPath() }
+            .groupBy { WindowsPathIdentity.absoluteKey(it.target) }
             .filterValues { it.map { file -> file.installId }.distinct().size > 1 }
-            .map { (targetPath, files) ->
+            .map { (_, files) ->
                 val sorted = files.sortedWith(
                     compareByDescending<PlannedFile> { prioritiesByInstallId[it.installId] ?: 0 }
                         .thenByDescending { installById[it.installId]?.updatedAt ?: 0L }
@@ -53,8 +53,8 @@ object ModConflictAnalyzer {
                 )
                 val winner = sorted.first()
                 ModFileConflictReport(
-                    targetPath = targetPath,
-                    targetRelativePath = relativeTargetPath(targetPath, gameRootDir, winePrefix),
+                    targetPath = winner.target.absolutePath,
+                    targetRelativePath = relativeTargetPath(winner.target.absolutePath, gameRootDir, winePrefix),
                     winnerInstallId = winner.installId,
                     participants = sorted.map { file ->
                         val install = installById[file.installId]
@@ -87,7 +87,8 @@ object ModConflictAnalyzer {
             .filter { it.isFile }
             .mapNotNull { file ->
                 val relative = file.canonicalFile.relativeToOrNull(sourceRoot)?.path ?: return@mapNotNull null
-                PlannedFile(installId, file, File(target, relative))
+                val resolvedTarget = ModTargetResolver.resolveWithin(target, relative) ?: return@mapNotNull null
+                PlannedFile(installId, file, resolvedTarget)
             }
             .toList()
     }
@@ -109,7 +110,4 @@ object ModConflictAnalyzer {
             val fileCanonical = canonicalFile
             fileCanonical == rootCanonical || fileCanonical.path.startsWith(rootCanonical.path + File.separator)
         }.getOrDefault(false)
-
-    private fun File.safeCanonicalPath(): String =
-        runCatching { canonicalFile.absolutePath }.getOrDefault(absolutePath)
 }

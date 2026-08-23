@@ -185,7 +185,10 @@ object BethesdaPluginManager {
                 val missingFiles = buildList {
                     if (!targetPlugin.isFile) add(plugin.fileName)
                     sourcePluginSidecars(sourcePlugin).forEach { sourceSidecar ->
-                        val expectedTarget = File(targetPlugin.parentFile ?: return@forEach, sourceSidecar.name)
+                        val expectedTarget = ModTargetResolver.resolveWithin(
+                            targetPlugin.parentFile ?: return@forEach,
+                            sourceSidecar.name,
+                        ) ?: return@forEach
                         if (!expectedTarget.isFile) add(sourceSidecar.name)
                     }
                 }
@@ -300,7 +303,8 @@ object BethesdaPluginManager {
             .filter { it.isFile && it.extension.lowercase() in pluginExtensions }
             .mapNotNull { file ->
                 val relative = file.canonicalFile.relativeToOrNull(sourceRoot)?.path ?: return@mapNotNull null
-                PlannedPluginFile(file, File(target, relative))
+                val resolvedTarget = ModTargetResolver.resolveWithin(target, relative) ?: return@mapNotNull null
+                PlannedPluginFile(file, resolvedTarget)
             }
             .toList()
     }

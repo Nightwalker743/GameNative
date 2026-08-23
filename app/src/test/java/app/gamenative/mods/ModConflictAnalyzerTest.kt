@@ -60,6 +60,31 @@ class ModConflictAnalyzerTest {
         assertEquals(true, report.participants.first().wins)
     }
 
+    @Test
+    fun analyze_treatsCaseVariantWindowsTargetsAsOneConflict() = runBlocking {
+        val first = install("first", "First", "first")
+        val second = install("second", "Second", "second")
+        File(first.extractedPath, "Data/Scripts/A.pex").apply {
+            parentFile?.mkdirs()
+            writeText("first")
+        }
+        File(second.extractedPath, "Data/scripts/a.pex").apply {
+            parentFile?.mkdirs()
+            writeText("second")
+        }
+
+        val reports = ModConflictAnalyzer.analyze(
+            installs = listOf(first, second),
+            recipesByInstallId = mapOf(first.installId to listOf(recipe(first.installId)), second.installId to listOf(recipe(second.installId))),
+            prioritiesByInstallId = emptyMap(),
+            gameRootDir = gameDir,
+            winePrefix = "",
+        )
+
+        assertEquals(1, reports.size)
+        assertEquals(setOf("first", "second"), reports.single().participants.map { it.installId }.toSet())
+    }
+
     private fun install(id: String, name: String, folder: String): ModInstall {
         val extracted = File(tempDir, folder).apply { mkdirs() }
         return ModInstall(

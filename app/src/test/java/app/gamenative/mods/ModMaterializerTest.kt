@@ -101,6 +101,44 @@ class ModMaterializerTest {
     }
 
     @Test
+    fun overwriteCopy_mergesIncomingDirectoryIntoExistingWindowsCasing() = runBlocking {
+        File(extracted, "Data/scripts/example.pex").apply {
+            parentFile?.mkdirs()
+            writeText("compiled")
+        }
+        val existingScripts = File(gameDir, "Data/Scripts").apply { mkdirs() }
+        val install = install()
+        val placement = recipe(
+            sourceSubpath = "Data",
+            targetRelativePath = "Data",
+            mode = ModPlacementMode.OVERWRITE_COPY,
+        )
+
+        val result = ModMaterializer.apply(
+            install = install,
+            recipes = listOf(placement),
+            gameRootDir = gameDir,
+            winePrefix = "",
+            backupRoot = backupDir,
+            allowOverwrite = true,
+        )
+
+        assertTrue(result.errors.isEmpty())
+        assertEquals("compiled", File(existingScripts, "example.pex").readText())
+        assertEquals(
+            listOf("Scripts"),
+            File(gameDir, "Data").listFiles().orEmpty()
+                .filter { it.name.equals("scripts", ignoreCase = true) }
+                .map { it.name },
+        )
+
+        assertTrue(
+            ModMaterializer.removeAppliedFiles(install, listOf(placement), gameDir, "").isEmpty(),
+        )
+        assertFalse(File(existingScripts, "example.pex").exists())
+    }
+
+    @Test
     fun scanConflicts_overwriteCopyIgnoresSameExistingFileAndNewFilesInExistingDirectory() = runBlocking {
         File(extracted, "Data/same.ini").apply {
             parentFile?.mkdirs()
@@ -721,11 +759,15 @@ class ModMaterializerTest {
         extractedPath = extracted.absolutePath,
     )
 
-    private fun recipe(mode: ModPlacementMode) = ModPlacementRecipe(
+    private fun recipe(
+        mode: ModPlacementMode,
+        sourceSubpath: String = "",
+        targetRelativePath: String = "",
+    ) = ModPlacementRecipe(
         installId = "install",
-        sourceSubpath = "",
+        sourceSubpath = sourceSubpath,
         targetRoot = ModTargetRoot.GAME_DIR.name,
-        targetRelativePath = "",
+        targetRelativePath = targetRelativePath,
         mode = mode.name,
     )
 }

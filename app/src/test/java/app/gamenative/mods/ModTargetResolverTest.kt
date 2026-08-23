@@ -5,6 +5,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.File
@@ -85,6 +86,38 @@ class ModTargetResolverTest {
         )
 
         assertEquals(File(gameDir, "Data/Textures").canonicalFile, resolved)
+    }
+
+    @Test
+    fun resolve_reusesExistingDirectoryCasing() {
+        val scripts = File(gameDir, "Data/Scripts").apply { mkdirs() }
+
+        val resolved = ModTargetResolver.resolve(
+            targetRoot = ModTargetRoot.GAME_DIR.name,
+            targetRelativePath = "data/scripts",
+            gameRootDir = gameDir,
+            winePrefix = winePrefix.absolutePath,
+        )
+
+        assertEquals(scripts.canonicalFile, resolved)
+    }
+
+    @Test
+    fun resolve_blocksAmbiguousExistingCaseVariants() {
+        File(gameDir, "Data/Scripts").mkdirs()
+        File(gameDir, "Data/scripts").mkdirs()
+        assumeTrue(
+            File(gameDir, "Data").listFiles().orEmpty().count { it.name.equals("scripts", ignoreCase = true) } == 2,
+        )
+
+        val resolved = ModTargetResolver.resolve(
+            targetRoot = ModTargetRoot.GAME_DIR.name,
+            targetRelativePath = "Data/SCRIPTS",
+            gameRootDir = gameDir,
+            winePrefix = winePrefix.absolutePath,
+        )
+
+        assertNull(resolved)
     }
 
     @Test
