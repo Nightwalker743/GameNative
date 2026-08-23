@@ -342,7 +342,14 @@ object ModMaterializer {
 
         val effectiveSource = stripPrefix(source, recipe.stripPrefixSegments)
         return when {
-            effectiveSource.isFile -> listOf(plannedEntry(install.installId, effectiveSource, targetDir, effectiveSource.name))
+            effectiveSource.isFile -> listOf(
+                plannedEntry(
+                    install.installId,
+                    effectiveSource,
+                    targetDir,
+                    recipe.targetFileName.ifBlank { effectiveSource.name },
+                ),
+            )
             recipe.includeSourceDirectory && effectiveSource != extractedRoot ->
                 listOf(plannedEntry(install.installId, effectiveSource, targetDir, effectiveSource.name))
             else -> effectiveSource.listFiles()

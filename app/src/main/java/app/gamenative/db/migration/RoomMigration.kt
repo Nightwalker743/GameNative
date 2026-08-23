@@ -27,6 +27,18 @@ internal val ROOM_MIGRATION_V24_to_V25 = object : Migration(24, 25) {
     }
 }
 
+internal val ROOM_MIGRATION_V25_to_V26 = object : Migration(25, 26) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
+            "ALTER TABLE `mod_placement_recipe` ADD COLUMN `target_file_name` TEXT NOT NULL DEFAULT ''",
+        )
+        connection.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_mod_install_app_id_source_archive_sha256` " +
+                "ON `mod_install` (`app_id`, `source`, `archive_sha256`)",
+        )
+    }
+}
+
 private fun migrateManagedModSourcesToV25(connection: SQLiteConnection) {
     connection.execSQL(
         """

@@ -154,6 +154,7 @@ internal data class RecipeDraft(
     val sourceSubpath: String = "",
     val targetRoot: String = ModTargetRoot.GAME_DIR.name,
     val targetRelativePath: String = "",
+    val targetFileName: String = "",
     val mode: String = ModPlacementMode.SYMLINK.name,
     val stripPrefixSegments: Int = 0,
     val includeSourceDirectory: Boolean = false,

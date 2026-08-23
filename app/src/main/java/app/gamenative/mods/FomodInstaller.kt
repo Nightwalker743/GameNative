@@ -110,6 +110,8 @@ fun FomodPlugin.effectiveType(flags: Map<String, String>): FomodPluginType =
 data class FomodRecipeGenerationResult(
     val recipes: List<ModPlacementRecipe>,
     val unsupportedMappings: List<FomodFileMapping>,
+    val plan: ModInstallPlan? = null,
+    val blockingIssues: List<String> = emptyList(),
 )
 
 object FomodInstallerDetector {
@@ -373,7 +375,30 @@ object FomodRecipeGenerator {
         targetRoot: String = ModTargetRoot.GAME_DIR.name,
         targetRelativePath: String = "Data",
         mode: String = ModPlacementMode.OVERWRITE_COPY.name,
+        extractedRoot: File? = null,
     ): FomodRecipeGenerationResult {
+        if (extractedRoot != null) {
+            val evaluation = FomodSelectionEvaluator.evaluate(installer, selectedPluginKeys)
+            val plan = FomodPlanExpander.expand(installer, evaluation, extractedRoot, targetRoot, targetRelativePath)
+            val recipes = plan.files.filter { it.status == PlannedFileStatus.PLACED }.map { file ->
+                val destination = file.targetRelativePath.orEmpty()
+                ModPlacementRecipe(
+                    installId = installId,
+                    sourceSubpath = file.sourceRelativePath,
+                    targetRoot = file.targetRoot ?: targetRoot,
+                    targetRelativePath = destination.substringBeforeLast('/', missingDelimiterValue = ""),
+                    targetFileName = destination.substringAfterLast('/'),
+                    mode = mode,
+                    includeSourceDirectory = false,
+                )
+            }
+            return FomodRecipeGenerationResult(
+                recipes = recipes.distinctBy { Triple(it.sourceSubpath, it.targetRoot, it.targetRelativePath + "/" + it.targetFileName) },
+                unsupportedMappings = emptyList(),
+                plan = plan,
+                blockingIssues = plan.blockingIssues,
+            )
+        }
         val selectedPlugins = selectedPluginsForKeys(installer, selectedPluginKeys)
         val selectedFiles = selectedFiles(installer, selectedPlugins)
 
@@ -462,17 +487,13 @@ object FomodRecipeGenerator {
                     return@forEach
                 }
 
-                val sourceName = mapping.source.substringAfterLast('/')
                 val destinationName = destination.substringAfterLast('/')
-                if (!sourceName.equals(destinationName, ignoreCase = true)) {
-                    unsupported += mapping
-                    return@forEach
-                }
                 recipes += ModPlacementRecipe(
                     installId = installId,
                     sourceSubpath = joinPath(basePath, mapping.source),
                     targetRoot = targetRoot,
                     targetRelativePath = joinPath(targetRelativePath, destination.substringBeforeLast('/', missingDelimiterValue = "")),
+                    targetFileName = destinationName,
                     mode = mode,
                     includeSourceDirectory = false,
                 )

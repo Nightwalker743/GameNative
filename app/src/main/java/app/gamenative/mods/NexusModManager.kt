@@ -621,6 +621,7 @@ object NexusModManager {
                         sourceSubpath = recipe.optString("sourceSubpath"),
                         targetRoot = recipe.optString("targetRoot", ModTargetRoot.GAME_DIR.name),
                         targetRelativePath = recipe.optString("targetRelativePath"),
+                        targetFileName = recipe.optString("targetFileName"),
                         mode = recipe.optString("mode", ModPlacementMode.SYMLINK.name),
                         stripPrefixSegments = recipe.optInt("stripPrefixSegments", 0),
                         includeSourceDirectory = recipe.optBoolean("includeSourceDirectory", false),
@@ -646,6 +647,7 @@ object NexusModManager {
                     .put("sourceSubpath", recipe.sourceSubpath)
                     .put("targetRoot", recipe.targetRoot)
                     .put("targetRelativePath", recipe.targetRelativePath)
+                    .put("targetFileName", recipe.targetFileName)
                     .put("mode", recipe.mode)
                     .put("stripPrefixSegments", recipe.stripPrefixSegments)
                     .put("includeSourceDirectory", recipe.includeSourceDirectory)
@@ -667,6 +669,7 @@ object NexusModManager {
             recipe.sourceSubpath,
             recipe.targetRoot,
             normalizedRecipeTarget(recipe).lowercase(),
+            recipe.targetFileName.lowercase(),
             recipe.mode,
             recipe.stripPrefixSegments.toString(),
             recipe.includeSourceDirectory.toString(),

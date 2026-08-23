@@ -66,7 +66,8 @@ internal fun FomodSummarySection(
                 Text(stringResource(R.string.nexus_fomod_installer), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
                 OutlinedButton(
                     onClick = onConfigure,
-                    enabled = installer.steps.isNotEmpty() && installer.unsupportedWarnings.none { it.contains("C# FOMOD", ignoreCase = true) },
+                    enabled = (installer.steps.isNotEmpty() || installer.requiredFiles.isNotEmpty()) &&
+                        installer.unsupportedWarnings.isEmpty(),
                 ) {
                     Text(stringResource(R.string.nexus_configure))
                 }
@@ -288,10 +289,13 @@ internal fun FomodWizardDialog(
                                 targetRoot = baseDraft.targetRoot,
                                 targetRelativePath = baseDraft.targetRelativePath.ifBlank { "Data" },
                                 mode = ModPlacementMode.OVERWRITE_COPY.name,
+                                extractedRoot = extractedRoot,
                             )
                             pendingResult = PendingFomodResult(
                                 drafts = result.recipes.map { it.toDraft() },
-                                unsupportedCount = result.unsupportedMappings.size,
+                                unsupportedCount = result.plan?.let { plan ->
+                                    plan.unresolvedCount + plan.blockingIssues.size
+                                } ?: (result.unsupportedMappings.size + result.blockingIssues.size),
                                 selectedOptions = fomodSelectedOptionLabels(installer, selectedKeys, fallbackStepNames),
                                 conditionalRuleCount = installer.conditionalFileInstalls.size,
                             )
@@ -369,6 +373,7 @@ internal fun FomodWizardDialog(
                         pendingResult = null
                         onApply(result.drafts, result.unsupportedCount)
                     },
+                    enabled = result.unsupportedCount == 0,
                 ) {
                     Text(stringResource(R.string.nexus_fomod_apply_choices))
                 }

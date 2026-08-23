@@ -1,7 +1,9 @@
 package app.gamenative.mods
 
 import app.gamenative.data.ModPlacementMode
+import app.gamenative.data.ModInstall
 import app.gamenative.data.ModTargetRoot
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -171,7 +173,7 @@ class FomodInstallerTest {
     }
 
     @Test
-    fun generate_reportsRenamedFileMappingsAsUnsupported() {
+    fun generate_preservesRenamedFileDestination() {
         val installer = FomodInstaller(
             moduleName = "Example",
             requiredFiles = listOf(FomodFileMapping("Plugins/Source.esp", "Renamed.esp", 0, directory = false)),
@@ -184,8 +186,8 @@ class FomodInstallerTest {
             selectedPluginNames = emptySet(),
         )
 
-        assertEquals(0, result.recipes.size)
-        assertEquals("Renamed.esp", result.unsupportedMappings.single().destination)
+        assertTrue(result.unsupportedMappings.isEmpty())
+        assertEquals("Renamed.esp", result.recipes.single().targetFileName)
     }
 
     @Test
@@ -384,6 +386,103 @@ class FomodInstallerTest {
         )
 
         assertEquals(listOf("PatchA"), result.recipes.map { it.sourceSubpath })
+    }
+
+    @Test
+    fun mcmHelperShape_plansAndAppliesEverySelectedFile() = runBlocking {
+        val moduleConfig = writeModuleConfig(
+            """
+            <config>
+              <moduleName>MCM Helper fixture</moduleName>
+              <requiredInstallFiles>
+                <file source="Required/config.json" destination="MCM/Config/SkyUI_SE/config.json" />
+                <file source="Required/settings.ini" destination="MCM/Config/SkyUI_SE/settings.ini" />
+                <file source="Required/readme.txt" destination="MCM/Settings/readme.txt" />
+                <file source="Required/SKI_ConfigMenu.psc" destination="Source/Scripts/SKI_ConfigMenu.psc" />
+              </requiredInstallFiles>
+              <installSteps><installStep name="Choices"><optionalFileGroups>
+                <group name="Runtime" type="SelectExactlyOne"><plugins>
+                  <plugin name="Skyrim SE"><files><folder source="SkyrimSE" destination="" /></files></plugin>
+                  <plugin name="Skyrim VR"><files><folder source="SkyrimVR" destination="" /></files></plugin>
+                </plugins></group>
+                <group name="Plugin" type="SelectExactlyOne"><plugins>
+                  <plugin name="ESL"><files><file source="Plugins/MCMHelper.esl" destination="MCMHelper.esl" /></files></plugin>
+                  <plugin name="ESP"><files><file source="Plugins/MCMHelper.esp" destination="MCMHelper.esp" /></files></plugin>
+                </plugins></group>
+                <group name="Assets" type="SelectExactlyOne"><plugins>
+                  <plugin name="BSA"><files><file source="BSA/MCMHelper.bsa" destination="MCMHelper.bsa" /></files></plugin>
+                  <plugin name="Loose"><files><folder source="Loose" destination="" /></files></plugin>
+                </plugins></group>
+              </optionalFileGroups></installStep></installSteps>
+            </config>
+            """.trimIndent(),
+        )
+        listOf(
+            "Required/config.json",
+            "Required/settings.ini",
+            "Required/readme.txt",
+            "Required/SKI_ConfigMenu.psc",
+            "SkyrimSE/SKSE/Plugins/MCMHelper.dll",
+            "SkyrimSE/SKSE/Plugins/MCMHelper.pdb",
+            "SkyrimVR/SKSE/Plugins/MCMHelper.dll",
+            "Plugins/MCMHelper.esl",
+            "Plugins/MCMHelper.esp",
+            "BSA/MCMHelper.bsa",
+            "Loose/MCM/Config/SkyUI_SE/loose.json",
+        ).forEach { path ->
+            File(tempDir, path).apply {
+                parentFile?.mkdirs()
+                writeText(path)
+            }
+        }
+        val installer = FomodParser.parse(moduleConfig, tempDir)
+        val result = FomodRecipeGenerator.generateForPluginKeys(
+            installId = "mcm",
+            installer = installer,
+            selectedPluginKeys = setOf("0:0:0", "0:1:0", "0:2:0"),
+            extractedRoot = tempDir,
+        )
+        val expected = setOf(
+            "Data/MCM/Config/SkyUI_SE/config.json",
+            "Data/MCM/Config/SkyUI_SE/settings.ini",
+            "Data/MCM/Settings/readme.txt",
+            "Data/Source/Scripts/SKI_ConfigMenu.psc",
+            "Data/SKSE/Plugins/MCMHelper.dll",
+            "Data/SKSE/Plugins/MCMHelper.pdb",
+            "Data/MCMHelper.esl",
+            "Data/MCMHelper.bsa",
+        )
+
+        assertTrue(result.plan!!.isComplete)
+        assertEquals(
+            expected,
+            result.plan.files.filter { it.status == PlannedFileStatus.PLACED }.map { it.targetRelativePath }.toSet(),
+        )
+
+        val game = File(tempDir, "game").apply { mkdirs() }
+        val install = ModInstall(
+            installId = "mcm",
+            appId = "game",
+            modName = "MCM Helper fixture",
+            fileName = "fixture.zip",
+            archivePath = "",
+            extractedPath = tempDir.absolutePath,
+        )
+        val applied = ModMaterializer.apply(
+            install,
+            result.recipes,
+            game,
+            "",
+            File(tempDir, "backups"),
+            allowOverwrite = true,
+        )
+        assertTrue(applied.errors.isEmpty())
+        assertEquals(
+            expected,
+            game.walkTopDown().filter { it.isFile }
+                .map { it.relativeTo(game).path.replace(File.separatorChar, '/') }
+                .toSet(),
+        )
     }
 
     private fun writeModuleConfig(xml: String): File {
