@@ -12,6 +12,7 @@ import java.io.FileInputStream
 import java.io.IOException
 import java.nio.file.Files
 import java.security.MessageDigest
+import java.util.Locale
 
 data class ModPlacementConflict(
     val sourcePath: String,
@@ -57,11 +58,16 @@ data class ModMaterializationPlan(
     val operations: List<ModPlannedEntry>,
     val files: List<ModPlannedFile>,
     val errors: Map<String, String> = emptyMap(),
+    val reviewedPlan: ModInstallPlan = ModInstallPlan(
+        files = emptyList(),
+        blockingIssues = errors.values.toList(),
+        producerId = "legacy-runtime",
+    ),
 ) {
-    val isComplete: Boolean get() = errors.isEmpty()
+    val isComplete: Boolean get() = errors.isEmpty() && reviewedPlan.isComplete
     val digest: String
         get() {
-            val canonical = files.joinToString("\n") { file ->
+            val canonical = reviewedPlan.digest + "\n" + files.joinToString("\n") { file ->
                 "${file.sourceRelativePath}|${file.targetRoot}|${file.targetRelativePath}|${file.normalizedTargetKey}|${file.mode}"
             }
             return MessageDigest.getInstance("SHA-256")
@@ -92,8 +98,16 @@ object ModMaterializer {
         recipes: List<ModPlacementRecipe>,
         gameRootDir: File?,
         winePrefix: String,
+        reviewedPlan: ModInstallPlan? = null,
     ): List<ModPlacementConflict> = withContext(Dispatchers.IO) {
-        val plan = materializationPlan(install, recipes, gameRootDir, winePrefix, captureTargetHashes = false)
+        val plan = materializationPlan(
+            install,
+            recipes,
+            gameRootDir,
+            winePrefix,
+            captureTargetHashes = false,
+            reviewedPlan = reviewedPlan,
+        )
         buildList {
             plan.operations.forEach { entry ->
                 when (entry.mode) {
@@ -329,11 +343,16 @@ object ModMaterializer {
         gameRootDir: File?,
         winePrefix: String,
         captureTargetHashes: Boolean = true,
+        reviewedPlan: ModInstallPlan? = null,
     ): ModMaterializationPlan {
+        if (reviewedPlan != null) {
+            return resolveReviewedPlan(install, reviewedPlan, gameRootDir, winePrefix, captureTargetHashes)
+        }
         val operations = mutableListOf<ModPlannedEntry>()
         val errors = linkedMapOf<String, String>()
+        val targetSession = ModTargetResolver.session(gameRootDir, winePrefix)
         recipes.filter { it.enabled }.forEach { recipe ->
-            runCatching { plannedEntries(install, recipe, gameRootDir, winePrefix) }
+            runCatching { plannedEntries(install, recipe, targetSession) }
                 .onSuccess(operations::addAll)
                 .onFailure { error ->
                     val key = recipe.sourceSubpath.ifBlank { recipe.targetRelativePath.ifBlank { install.modName } }
@@ -368,21 +387,125 @@ object ModMaterializer {
                     values
                 }
             }
-        }.sortedWith(compareBy<ModPlannedFile> { it.normalizedTargetKey }.thenBy { it.sourceRelativePath.lowercase() })
+        }.sortedWith(compareBy<ModPlannedFile> { it.normalizedTargetKey }.thenBy { it.sourceRelativePath.lowercase(Locale.ROOT) })
         if (files.isEmpty()) {
             errors[install.modName] = "The reviewed placement does not contain any materialized files"
         }
-        return ModMaterializationPlan(install.installId, operations, files, errors)
+        val manualPlan = ModInstallPlan(
+            files = files.map { file ->
+                PlannedModFile(
+                    sourceRelativePath = file.sourceRelativePath,
+                    targetRoot = file.targetRoot,
+                    targetRelativePath = file.targetRelativePath,
+                    normalizedTargetKey = WindowsPathIdentity.targetKey(file.targetRoot, file.targetRelativePath),
+                    status = PlannedFileStatus.PLACED,
+                    origin = PlacementOrigin.MANUAL_RECIPE,
+                    mode = file.mode.name,
+                    sizeBytes = file.source.length(),
+                    reason = "Expanded from a saved placement recipe",
+                )
+            },
+            blockingIssues = errors.values.distinct(),
+            producerId = "manual-recipes",
+            producerVersion = 1,
+        )
+        return ModMaterializationPlan(install.installId, operations, files, errors, manualPlan)
+    }
+
+    private fun resolveReviewedPlan(
+        install: ModInstall,
+        reviewedPlan: ModInstallPlan,
+        gameRootDir: File?,
+        winePrefix: String,
+        captureTargetHashes: Boolean,
+    ): ModMaterializationPlan {
+        val errors = linkedMapOf<String, String>()
+        reviewedPlan.blockingIssues.forEachIndexed { index, issue -> errors["plan:$index"] = issue }
+        val extractedRoot = File(install.extractedPath).canonicalFile
+        val targetSession = ModTargetResolver.session(gameRootDir, winePrefix)
+        val targetHashes = mutableMapOf<String, String>()
+        val operations = mutableListOf<ModPlannedEntry>()
+        val files = mutableListOf<ModPlannedFile>()
+
+        reviewedPlan.files.filter { it.status == PlannedFileStatus.PLACED }
+            .sortedWith(compareBy<PlannedModFile> { it.normalizedTargetKey.orEmpty() }.thenBy { it.sourceRelativePath.lowercase(Locale.ROOT) })
+            .forEach { planned ->
+                val source = resolveReviewedSource(extractedRoot, planned.sourceRelativePath)
+                val targetRoot = planned.targetRoot
+                val targetRelativePath = planned.targetRelativePath
+                when {
+                    source == null || !source.isFile -> errors[planned.sourceRelativePath] = "Reviewed source file is missing or case-ambiguous"
+                    targetRoot == null || targetRelativePath == null -> errors[planned.sourceRelativePath] = "Reviewed target is missing"
+                    else -> {
+                        val logicalKey = WindowsPathIdentity.targetKey(targetRoot, targetRelativePath)
+                        if (logicalKey == null || logicalKey != planned.normalizedTargetKey) {
+                            errors[planned.sourceRelativePath] = "Reviewed target identity changed before apply"
+                            return@forEach
+                        }
+                        val target = targetSession.resolve(targetRoot, targetRelativePath)
+                        if (target == null) {
+                            errors[planned.sourceRelativePath] = "Reviewed target is unavailable or case-ambiguous"
+                            return@forEach
+                        }
+                        val mode = runCatching { ModPlacementMode.valueOf(planned.mode) }
+                            .getOrDefault(ModPlacementMode.OVERWRITE_COPY)
+                        val operation = ModPlannedEntry(
+                            installId = install.installId,
+                            source = source,
+                            target = target,
+                            mode = mode,
+                            targetRoot = targetRoot,
+                            sourceRelativePath = planned.sourceRelativePath,
+                            targetRelativePath = targetRelativePath,
+                        )
+                        operations += operation
+                        files += expandPlannedFiles(
+                            operation,
+                            WindowsTargetNamespace(target.parentFile ?: target),
+                            targetHashes,
+                            captureTargetHashes,
+                        )
+                    }
+                }
+            }
+        files.groupBy { it.normalizedTargetKey }.filterValues { it.size > 1 }.forEach { (key, contenders) ->
+            if (contenders.map { it.source.canonicalPath }.distinct().size > 1) {
+                errors[key] = "Reviewed plan contains multiple files for one Windows target"
+            }
+        }
+        if (files.size != reviewedPlan.placedCount) {
+            errors[install.modName] = "Resolved ${files.size} of ${reviewedPlan.placedCount} reviewed files"
+        }
+        return ModMaterializationPlan(
+            installId = install.installId,
+            operations = operations,
+            files = files.sortedWith(compareBy<ModPlannedFile> { it.normalizedTargetKey }.thenBy { it.sourceRelativePath.lowercase(Locale.ROOT) }),
+            errors = errors,
+            reviewedPlan = reviewedPlan,
+        )
+    }
+
+    private fun resolveReviewedSource(extractedRoot: File, sourceRelativePath: String): File? {
+        val segments = normalizedArchiveKey(sourceRelativePath)?.split('/').orEmpty()
+        val displaySegments = normalizeArchiveDisplayPath(sourceRelativePath).split('/').filter(String::isNotBlank)
+        if (segments.size != displaySegments.size) return null
+        var current = extractedRoot
+        displaySegments.forEach { segment ->
+            val matches = current.listFiles().orEmpty().filter { it.name.equals(segment, ignoreCase = true) }
+            if (matches.size != 1) return null
+            current = matches.single()
+        }
+        val source = runCatching { current.canonicalFile }.getOrNull() ?: return null
+        return source.takeIf { it.path.startsWith(extractedRoot.path + File.separator) }
     }
 
     private fun plannedEntries(
         install: ModInstall,
         recipe: ModPlacementRecipe,
-        gameRootDir: File?,
-        winePrefix: String,
+        targetSession: ModTargetResolutionSession,
     ): List<ModPlannedEntry> =
         sourceSubpathsForPlacement(recipe.sourceSubpath).flatMap { sourceSubpath ->
-            plannedEntriesForSource(install, recipe, sourceSubpath, gameRootDir, winePrefix)
+            plannedEntriesForSource(install, recipe, sourceSubpath, targetSession)
         }
 
     private fun sourceSubpathsForPlacement(sourceSubpath: String): List<String> =
@@ -392,8 +515,7 @@ object ModMaterializer {
         install: ModInstall,
         recipe: ModPlacementRecipe,
         sourceSubpath: String,
-        gameRootDir: File?,
-        winePrefix: String,
+        targetSession: ModTargetResolutionSession,
     ): List<ModPlannedEntry> {
         val extractedRoot = File(install.extractedPath).canonicalFile
         val normalizedSource = ModPlacementSources.normalize(sourceSubpath)
@@ -404,12 +526,8 @@ object ModMaterializer {
         if (!source.exists()) {
             throw IOException("Source path does not exist: $sourceSubpath")
         }
-        val targetDir = ModTargetResolver.resolve(
-            targetRoot = recipe.targetRoot,
-            targetRelativePath = recipe.targetRelativePath,
-            gameRootDir = gameRootDir,
-            winePrefix = winePrefix,
-        ) ?: throw IOException("Target root is unavailable: ${recipe.targetRoot}")
+        val targetDir = targetSession.resolve(recipe.targetRoot, recipe.targetRelativePath)
+            ?: throw IOException("Target root is unavailable: ${recipe.targetRoot}")
         val mode = runCatching { ModPlacementMode.valueOf(recipe.mode) }.getOrDefault(ModPlacementMode.SYMLINK)
 
         val effectiveSource = stripPrefix(source, recipe.stripPrefixSegments)

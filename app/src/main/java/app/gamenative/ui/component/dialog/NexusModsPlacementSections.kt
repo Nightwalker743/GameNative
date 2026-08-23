@@ -74,10 +74,13 @@ import app.gamenative.mods.FomodInstaller
 import app.gamenative.mods.FomodEnvironmentSnapshot
 import app.gamenative.mods.ModArchiveEntry
 import app.gamenative.mods.ModInstallPlan
+import app.gamenative.mods.ModOwnershipManifest
+import app.gamenative.mods.ModOwnershipPlanDiffer
 import app.gamenative.mods.ModPlacementPreset
 import app.gamenative.mods.ModPlacementSources
 import app.gamenative.mods.ModTargetResolver
 import app.gamenative.mods.PlannedFileStatus
+import app.gamenative.mods.PlacementRisk
 import app.gamenative.mods.ResolvedModTargetRoot
 import app.gamenative.ui.component.NoExtractOutlinedTextField
 import app.gamenative.utils.StorageUtils
@@ -115,10 +118,18 @@ internal fun PlacementSection(
     entries: List<ModArchiveEntry>,
     fomodInstaller: FomodInstaller?,
     fomodEnvironment: FomodEnvironmentSnapshot,
+    fomodBaseDraft: RecipeDraft,
     roots: List<ResolvedModTargetRoot>,
     drafts: List<RecipeDraft>,
     presetOptions: List<PlacementPresetOption>,
     automaticPlacement: AutomaticPlacementResult,
+    automaticPlanLoading: Boolean,
+    selectedAutomaticOptions: Map<String, String>,
+    onAutomaticOptionSelected: (String, String) -> Unit,
+    riskyAutomaticPlanApproved: Boolean,
+    onRiskyAutomaticPlanApprovalChange: (Boolean) -> Unit,
+    reviewedPlan: ModInstallPlan?,
+    previousOwnership: ModOwnershipManifest?,
     placementChoice: PlacementChoice,
     canUseLastPlacement: Boolean,
     onPlacementChoiceChange: (PlacementChoice) -> Unit,
@@ -127,7 +138,7 @@ internal fun PlacementSection(
     onUpdateDraft: (Int, RecipeDraft) -> Unit,
     onAddDraft: () -> Unit,
     onRemoveDraft: (Int) -> Unit,
-    onFomodRecipes: (List<RecipeDraft>, Int) -> Unit,
+    onFomodRecipes: (List<RecipeDraft>, ModInstallPlan?, Int) -> Unit,
     applyStatusMessage: String?,
     onExportPlan: (ModInstallPlan) -> Unit,
     onSaveAndApply: () -> Unit,
@@ -136,11 +147,18 @@ internal fun PlacementSection(
     var showFomodWizard by remember(install.installId, fomodInstaller) { mutableStateOf(false) }
     val destinationsValid = drafts.all { draft -> roots.any { it.type.name == draft.targetRoot } }
     val automaticPlan = automaticPlacement.recommended?.plan
+    val visiblePlan = if (placementChoice == PlacementChoice.AUTOMATIC) automaticPlan else reviewedPlan
+    val reconfigurationDiff = remember(previousOwnership, visiblePlan) {
+        visiblePlan?.let { ModOwnershipPlanDiffer.compare(previousOwnership, it) }
+            ?.takeIf { previousOwnership != null && it.hasChanges }
+    }
     val targetInspection = remember(automaticPlan, roots) {
         automaticPlan?.let { ModTargetResolver.inspectPlan(it, roots) }
     }
     val automaticBlocked = placementChoice == PlacementChoice.AUTOMATIC &&
+        (automaticPlanLoading ||
         (automaticPlan?.isComplete != true || targetInspection?.ambiguousPaths?.isNotEmpty() == true)
+        )
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -198,7 +216,12 @@ internal fun PlacementSection(
                     },
                 )
 
-                if (placementChoice == PlacementChoice.AUTOMATIC && automaticPlan != null) {
+                if (placementChoice == PlacementChoice.AUTOMATIC && automaticPlanLoading) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Text(stringResource(R.string.nexus_building_install_plan), style = MaterialTheme.typography.bodySmall)
+                    }
+                } else if (placementChoice == PlacementChoice.AUTOMATIC && automaticPlan != null) {
                     PlacementPlanReview(
                         automaticPlacement = automaticPlacement,
                         plan = automaticPlan,
@@ -212,6 +235,79 @@ internal fun PlacementSection(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
+                }
+
+                if (placementChoice == PlacementChoice.AUTOMATIC && automaticPlacement.optionGroups.isNotEmpty()) {
+                    automaticPlacement.optionGroups.forEach { group ->
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(stringResource(R.string.nexus_choose_package_variant), style = MaterialTheme.typography.labelLarge)
+                            Text(group.reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            group.choices.forEach { choice ->
+                                val selected = selectedAutomaticOptions[group.stableId] == choice.sourceDirectory
+                                if (selected) {
+                                    Button(
+                                        onClick = { onAutomaticOptionSelected(group.stableId, choice.sourceDirectory) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) { Text(choice.sourceDirectory) }
+                                } else {
+                                    OutlinedButton(
+                                        onClick = { onAutomaticOptionSelected(group.stableId, choice.sourceDirectory) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) { Text(choice.sourceDirectory) }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (
+                    placementChoice == PlacementChoice.AUTOMATIC &&
+                    automaticPlan?.files.orEmpty().any { it.risk == PlacementRisk.UNSAFE }
+                ) {
+                    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.errorContainer) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onRiskyAutomaticPlanApprovalChange(!riskyAutomaticPlanApproved) }
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(
+                                checked = riskyAutomaticPlanApproved,
+                                onCheckedChange = onRiskyAutomaticPlanApprovalChange,
+                            )
+                            Column {
+                                Text(
+                                    stringResource(R.string.nexus_confirm_risky_game_root_files),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                )
+                                Text(
+                                    stringResource(R.string.nexus_confirm_risky_game_root_files_description),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                reconfigurationDiff?.let { diff ->
+                    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surface) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(stringResource(R.string.nexus_reconfiguration_preview), style = MaterialTheme.typography.labelLarge)
+                            Text(
+                                stringResource(
+                                    R.string.nexus_reconfiguration_summary,
+                                    diff.added,
+                                    diff.changed,
+                                    diff.moved,
+                                    diff.stale,
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
                 }
 
                 if (placementChoice == PlacementChoice.PRESET && presetOptions.isNotEmpty()) {
@@ -320,10 +416,13 @@ internal fun PlacementSection(
             installer = fomodInstaller,
             environment = fomodEnvironment,
             extractedRoot = File(install.extractedPath),
-            baseDraft = drafts.firstOrNull() ?: RecipeDraft(),
-            onApply = { generatedDrafts, unsupportedCount ->
+            // FOMOD destinations are relative to the game's content root. Reusing the
+            // first generated mapping here recursively prefixes that mapping whenever
+            // an installer is reconfigured.
+            baseDraft = fomodBaseDraft,
+            onApply = { generatedDrafts, plan, unsupportedCount ->
                 showFomodWizard = false
-                onFomodRecipes(generatedDrafts, unsupportedCount)
+                onFomodRecipes(generatedDrafts, plan, unsupportedCount)
             },
             onDismiss = { showFomodWizard = false },
         )

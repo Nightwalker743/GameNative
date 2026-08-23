@@ -2365,4 +2365,11 @@
     <string name="nexus_plan_ambiguous_case">대소문자만 다른 모호한 항목이 이미 있습니다</string>
     <string name="nexus_plan_blocked">설치 가능한 모든 파일의 대상 위치가 확인될 때까지 자동 적용이 차단됩니다.</string>
     <string name="nexus_plan_export">진단 공유</string>
+    <string name="nexus_reconfiguration_preview">재설정 미리보기</string>
+    <string name="nexus_reconfiguration_summary">추가 %1$d • 변경 %2$d • 이동 %3$d • 이전 출력 %4$d</string>
+    <string name="nexus_choose_package_variant">패키지 변형 선택</string>
+    <string name="nexus_confirm_risky_game_root_files">게임 폴더의 이 파일을 검토했습니다</string>
+    <string name="nexus_confirm_risky_game_root_files_description">DLL, EXE 및 로더 파일은 게임 시작 방식을 바꿀 수 있습니다. 아카이브를 신뢰할 수 있고 미리보기가 설치 안내와 일치할 때만 확인하세요.</string>
+    <string name="nexus_building_install_plan">파일 배치 계획 생성 중…</string>
+    <string name="nexus_reapply_missing_files">누락된 파일 다시 적용</string>
 </resources>

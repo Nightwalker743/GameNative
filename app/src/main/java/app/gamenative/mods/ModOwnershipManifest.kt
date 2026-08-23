@@ -8,6 +8,7 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.nio.file.Files
 import java.security.MessageDigest
+import java.util.Locale
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -55,8 +56,24 @@ data class ModOwnedOperation(
 )
 
 @Serializable
+data class ModInstallDecision(
+    val sourceRelativePath: String,
+    val targetRoot: String = "",
+    val targetRelativePath: String = "",
+    val normalizedTargetKey: String = "",
+    val status: String,
+    val origin: String,
+    val mode: String,
+    val priority: Int,
+    val reason: String,
+    val outcome: String,
+    val risk: String = PlacementRisk.SAFE.name,
+    val riskApproved: Boolean = false,
+)
+
+@Serializable
 data class ModOwnershipManifest(
-    val version: Int = 1,
+    val version: Int = 2,
     val installId: String,
     val appId: String,
     val profileId: String = "",
@@ -64,6 +81,9 @@ data class ModOwnershipManifest(
     val state: ModOwnershipState = ModOwnershipState.ACTIVE,
     val files: List<ModOwnedFile>,
     val operations: List<ModOwnedOperation> = emptyList(),
+    val decisions: List<ModInstallDecision> = emptyList(),
+    val planProducerId: String = "legacy",
+    val planProducerVersion: Int = 1,
     val createdAt: Long = System.currentTimeMillis(),
 )
 
@@ -86,6 +106,96 @@ data class ModProfileOverlay(
     val conflicts: List<ModOverlayTarget>,
 )
 
+data class ModProfileOverlayTransition(
+    val current: ModProfileOverlay,
+    val desired: ModProfileOverlay,
+    val changedWinnerKeys: List<String>,
+    val currentVerification: ModDeploymentVerification,
+) {
+    val requiresRebuild: Boolean get() = changedWinnerKeys.isNotEmpty()
+    val safeToRebuild: Boolean get() = currentVerification.successful
+}
+
+enum class ModPlanChangeType {
+    ADDED,
+    CHANGED,
+    MOVED,
+    STALE,
+    UNCHANGED,
+}
+
+data class ModPlanChange(
+    val type: ModPlanChangeType,
+    val sourceRelativePath: String,
+    val previousTarget: String = "",
+    val newTarget: String = "",
+)
+
+data class ModReconfigurationDiff(val changes: List<ModPlanChange>) {
+    val added: Int get() = changes.count { it.type == ModPlanChangeType.ADDED }
+    val changed: Int get() = changes.count { it.type == ModPlanChangeType.CHANGED }
+    val moved: Int get() = changes.count { it.type == ModPlanChangeType.MOVED }
+    val stale: Int get() = changes.count { it.type == ModPlanChangeType.STALE }
+    val hasChanges: Boolean get() = changes.any { it.type != ModPlanChangeType.UNCHANGED }
+}
+
+object ModOwnershipPlanDiffer {
+    fun compare(previous: ModOwnershipManifest?, next: ModInstallPlan): ModReconfigurationDiff {
+        if (previous == null) {
+            return ModReconfigurationDiff(
+                next.files.filter { it.status == PlannedFileStatus.PLACED }.map { file ->
+                    ModPlanChange(ModPlanChangeType.ADDED, file.sourceRelativePath, newTarget = file.normalizedTargetKey.orEmpty())
+                },
+            )
+        }
+        val oldFiles = previous.files.filter { it.active }
+        val oldByTarget = oldFiles.associateBy { it.normalizedTargetKey }
+        val oldBySource = oldFiles.groupBy { it.sourceRelativePath }
+        val newFiles = next.files.filter { it.status == PlannedFileStatus.PLACED }
+        val newAbsoluteKeys = newFiles.mapNotNull { planned ->
+            oldFiles.firstOrNull {
+                it.targetRoot == planned.targetRoot && it.targetRelativePath.equals(planned.targetRelativePath, ignoreCase = true)
+            }?.normalizedTargetKey
+        }.toSet()
+        val changes = newFiles.map { planned ->
+            val logicalTarget = planned.normalizedTargetKey.orEmpty()
+            val sameSource = oldBySource[planned.sourceRelativePath].orEmpty().singleOrNull()
+            val sameTarget = oldByTarget.values.firstOrNull {
+                it.targetRoot == planned.targetRoot && it.targetRelativePath.equals(planned.targetRelativePath, ignoreCase = true)
+            }
+            when {
+                sameSource != null && sameTarget == null -> ModPlanChange(
+                    ModPlanChangeType.MOVED,
+                    planned.sourceRelativePath,
+                    sameSource.normalizedTargetKey,
+                    logicalTarget,
+                )
+                sameTarget != null && sameTarget.sourceRelativePath != planned.sourceRelativePath -> ModPlanChange(
+                    ModPlanChangeType.CHANGED,
+                    planned.sourceRelativePath,
+                    sameTarget.normalizedTargetKey,
+                    logicalTarget,
+                )
+                sameTarget != null -> ModPlanChange(
+                    ModPlanChangeType.UNCHANGED,
+                    planned.sourceRelativePath,
+                    sameTarget.normalizedTargetKey,
+                    logicalTarget,
+                )
+                else -> ModPlanChange(ModPlanChangeType.ADDED, planned.sourceRelativePath, newTarget = logicalTarget)
+            }
+        }.toMutableList()
+        oldFiles.filter { old ->
+            old.normalizedTargetKey !in newAbsoluteKeys && newFiles.none {
+                it.targetRoot == old.targetRoot && it.targetRelativePath.equals(old.targetRelativePath, ignoreCase = true)
+            } && newFiles.none { it.sourceRelativePath == old.sourceRelativePath }
+        }.forEach { old ->
+            changes += ModPlanChange(ModPlanChangeType.STALE, old.sourceRelativePath, old.normalizedTargetKey)
+        }
+        return ModReconfigurationDiff(changes)
+    }
+}
+
 object ModProfileOverlayPlanner {
     fun build(
         manifests: List<ModOwnershipManifest>,
@@ -107,11 +217,39 @@ object ModProfileOverlayPlanner {
                     contributors = ordered,
                     winner = ordered.last(),
                     identicalContents = ordered.map { it.file.installedHash }.filter(String::isNotBlank).distinct().size <= 1,
-                    hasCaseCollision = paths.map(String::lowercase).distinct().size < paths.size,
+                    hasCaseCollision = paths.map { it.lowercase(Locale.ROOT) }.distinct().size < paths.size,
                 )
             }
             .toSortedMap()
         return ModProfileOverlay(targets, targets.values.filter { it.contributors.size > 1 && !it.identicalContents })
+    }
+
+    fun transition(
+        manifests: List<ModOwnershipManifest>,
+        desiredPriorities: Map<String, Int>,
+    ): ModProfileOverlayTransition {
+        val currentPriorities = manifests
+            .filter { it.state == ModOwnershipState.ACTIVE }
+            .associate { manifest ->
+                manifest.installId to (manifest.files.filter { it.active }.maxOfOrNull { it.priority } ?: 0)
+            }
+        val current = build(manifests, currentPriorities)
+        val desired = build(manifests, desiredPriorities)
+        val changedWinnerKeys = (current.targets.keys + desired.targets.keys)
+            .filter { key ->
+                val before = current.targets[key]?.winner
+                val after = desired.targets[key]?.winner
+                before?.installId != after?.installId ||
+                    before?.file?.installedHash != after?.file?.installedHash ||
+                    before?.file?.targetPath != after?.file?.targetPath
+            }
+            .sorted()
+        return ModProfileOverlayTransition(
+            current = current,
+            desired = desired,
+            changedWinnerKeys = changedWinnerKeys,
+            currentVerification = ModDeploymentVerifier.verify(current),
+        )
     }
 }
 
@@ -209,6 +347,35 @@ object ModOwnershipStore {
                     mode = operation.mode.name,
                 )
             },
+            decisions = plan.reviewedPlan.files.map { decision ->
+                val owned = files.firstOrNull { file ->
+                    file.sourceRelativePath == decision.sourceRelativePath &&
+                        file.targetRoot == decision.targetRoot &&
+                        file.targetRelativePath == decision.targetRelativePath
+                }
+                ModInstallDecision(
+                    sourceRelativePath = decision.sourceRelativePath,
+                    targetRoot = decision.targetRoot.orEmpty(),
+                    targetRelativePath = decision.targetRelativePath.orEmpty(),
+                    normalizedTargetKey = decision.normalizedTargetKey.orEmpty(),
+                    status = decision.status.name,
+                    origin = decision.origin.name,
+                    mode = decision.mode,
+                    priority = decision.priority,
+                    reason = decision.reason,
+                    outcome = owned?.disposition?.name ?: when (decision.status) {
+                        PlannedFileStatus.INTENTIONALLY_IGNORED -> "INTENTIONALLY_SKIPPED"
+                        PlannedFileStatus.UNSUPPORTED -> "BLOCKED_UNSUPPORTED"
+                        PlannedFileStatus.MISSING -> "BLOCKED_MISSING"
+                        PlannedFileStatus.CONFLICTED -> "BLOCKED_CONFLICT"
+                        PlannedFileStatus.PLACED -> "PLANNED"
+                    },
+                    risk = decision.risk.name,
+                    riskApproved = decision.riskApproved,
+                )
+            },
+            planProducerId = plan.reviewedPlan.producerId,
+            planProducerVersion = plan.reviewedPlan.producerVersion,
         )
     }
 

@@ -70,6 +70,19 @@ class AutomaticPlacementPlannerTest {
         assertEquals(listOf("Common"), result.optionGroups.single().commonSourceDirectories)
         assertFalse(result.recommended!!.plan.isComplete)
         assertTrue(result.recommended!!.plan.blockingIssues.any { "variant" in it.lowercase() })
+
+        val group = result.optionGroups.single()
+        val selected = AutomaticPlacementPlanner.plan(
+            "Skyrim Special Edition",
+            archive("Option A/Data/textures/x.dds", "Option B/Data/textures/x.dds", "Common/Data/scripts/y.pex"),
+            selectedOptions = mapOf(group.stableId to "Option B"),
+        ).recommended!!.plan
+        assertTrue(selected.blockingIssues.toString(), selected.isComplete)
+        assertEquals(
+            setOf("Data/textures/x.dds", "Data/scripts/y.pex"),
+            selected.files.filter { it.status == PlannedFileStatus.PLACED }.map { it.targetRelativePath }.toSet(),
+        )
+        assertTrue(selected.files.any { it.sourceRelativePath.startsWith("Option A/") && it.status == PlannedFileStatus.INTENTIONALLY_IGNORED })
     }
 
     @Test
@@ -85,6 +98,25 @@ class AutomaticPlacementPlannerTest {
         )
         assertFalse(plan.isComplete)
         assertEquals(PlacementRisk.UNSAFE, plan.files.single { it.sourceRelativePath == "dinput8.dll" }.risk)
+        val approved = plan.withRiskyRootApproval(true)
+        assertTrue(approved.isComplete)
+        assertFalse(approved.withRiskyRootApproval(false).isComplete)
+    }
+
+    @Test
+    fun frameworkRules_produceCompletePlansWithoutRegressingLegacyTargets() {
+        val cases = listOf(
+            Triple("Any Unity game", archive("BepInEx/plugins/Test.dll", "BepInEx/config/Test.cfg"), setOf("BepInEx/plugins/Test.dll", "BepInEx/config/Test.cfg")),
+            Triple("Another Unity game", archive("Mods/Test.dll", "UserData/settings.cfg"), setOf("Mods/Test.dll", "UserData/settings.cfg")),
+            Triple("Any Unreal game", archive("Content/Paks/Test.pak", "Content/Paks/Test.utoc"), setOf("Content/Paks/Test.pak", "Content/Paks/Test.utoc")),
+            Triple("Cyberpunk 2077", archive("archive/pc/mod/Test.archive", "r6/scripts/Test.reds"), setOf("archive/pc/mod/Test.archive", "r6/scripts/Test.reds")),
+        )
+
+        cases.forEach { (game, entries, targets) ->
+            val plan = AutomaticPlacementPlanner.plan(game, entries).recommended!!.plan
+            assertTrue("$game: ${plan.blockingIssues}", plan.isComplete)
+            assertEquals(targets, plan.files.filter { it.status == PlannedFileStatus.PLACED }.map { it.targetRelativePath }.toSet())
+        }
     }
 
     private fun archive(vararg paths: String): List<ModArchiveEntry> =

@@ -2055,6 +2055,13 @@
     <string name="nexus_plan_ambiguous_case">ambiguous case variants already exist</string>
     <string name="nexus_plan_blocked">Automatic apply is blocked until every installable file has a proven destination.</string>
     <string name="nexus_plan_export">Share diagnostic</string>
+    <string name="nexus_reconfiguration_preview">Reconfiguration preview</string>
+    <string name="nexus_reconfiguration_summary">%1$d added • %2$d changed • %3$d moved • %4$d stale</string>
+    <string name="nexus_choose_package_variant">Choose a package variant</string>
+    <string name="nexus_confirm_risky_game_root_files">I reviewed these game-root files</string>
+    <string name="nexus_confirm_risky_game_root_files_description">DLL, EXE, and loader files can change how the game starts. Confirm only when this archive is trusted and the preview matches its installation instructions.</string>
+    <string name="nexus_building_install_plan">Building the file placement plan…</string>
+    <string name="nexus_reapply_missing_files">Reapply missing files</string>
     <string name="nexus_mod_order_applied">Mod order applied%1$s%2$s</string>
     <string name="nexus_mod_order_applied_with_errors">Mod order applied with %1$d error(s)%2$s%3$s</string>
     <string name="nexus_apply_mod_order_failed">Failed to apply mod order</string>

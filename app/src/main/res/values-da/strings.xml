@@ -2240,4 +2240,11 @@
     <string name="nexus_plan_ambiguous_case">tvetydige varianter med store/små bogstaver findes allerede</string>
     <string name="nexus_plan_blocked">Automatisk anvendelse er blokeret, indtil alle installerbare filer har en sikker destination.</string>
     <string name="nexus_plan_export">Del diagnosticering</string>
+    <string name="nexus_reconfiguration_preview">Forhåndsvisning af omkonfiguration</string>
+    <string name="nexus_reconfiguration_summary">%1$d tilføjet • %2$d ændret • %3$d flyttet • %4$d forældet</string>
+    <string name="nexus_choose_package_variant">Vælg en pakkevariant</string>
+    <string name="nexus_confirm_risky_game_root_files">Jeg har gennemgået disse filer i spilmappen</string>
+    <string name="nexus_confirm_risky_game_root_files_description">DLL-, EXE- og indlæserfiler kan ændre, hvordan spillet starter. Bekræft kun, når arkivet er betroet, og forhåndsvisningen matcher installationsvejledningen.</string>
+    <string name="nexus_building_install_plan">Opretter filplaceringsplan…</string>
+    <string name="nexus_reapply_missing_files">Genanvend manglende filer</string>
 </resources>

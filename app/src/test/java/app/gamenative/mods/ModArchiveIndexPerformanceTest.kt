@@ -23,4 +23,24 @@ class ModArchiveIndexPerformanceTest {
         assertEquals(100, archiveIndex.filesUnder("Data/Textures/Set42").size)
         assertTrue("Indexing took ${elapsed}ms", elapsed < 15_000)
     }
+
+    @Test
+    fun fiftyThousandEntries_completePlanningWithinGenerousRegressionBudget() {
+        val entries = List(50_000) { index ->
+            ModArchiveEntry(
+                path = "Data/Textures/Set${index / 100}/texture$index.dds",
+                directory = false,
+                sizeBytes = 1,
+            )
+        }
+        lateinit var plan: ModInstallPlan
+
+        val elapsed = measureTimeMillis {
+            plan = AutomaticPlacementPlanner.plan("Skyrim Special Edition", entries).recommended!!.plan
+        }
+
+        assertTrue(plan.blockingIssues.toString(), plan.isComplete)
+        assertEquals(50_000, plan.placedCount)
+        assertTrue("Planning took ${elapsed}ms", elapsed < 20_000)
+    }
 }

@@ -2368,4 +2368,11 @@
     <string name="nexus_plan_ambiguous_case">ya existen variantes ambiguas de mayúsculas y minúsculas</string>
     <string name="nexus_plan_blocked">La aplicación automática está bloqueada hasta que cada archivo instalable tenga un destino comprobado.</string>
     <string name="nexus_plan_export">Compartir diagnóstico</string>
+    <string name="nexus_reconfiguration_preview">Vista previa de la reconfiguración</string>
+    <string name="nexus_reconfiguration_summary">%1$d añadidos • %2$d cambiados • %3$d movidos • %4$d obsoletos</string>
+    <string name="nexus_choose_package_variant">Elige una variante del paquete</string>
+    <string name="nexus_confirm_risky_game_root_files">He revisado estos archivos de la carpeta del juego</string>
+    <string name="nexus_confirm_risky_game_root_files_description">Los archivos DLL, EXE y de carga pueden cambiar el inicio del juego. Confirma solo si confías en el archivo y la vista previa coincide con sus instrucciones de instalación.</string>
+    <string name="nexus_building_install_plan">Creando el plan de ubicación de archivos…</string>
+    <string name="nexus_reapply_missing_files">Reaplicar archivos que faltan</string>
 </resources>

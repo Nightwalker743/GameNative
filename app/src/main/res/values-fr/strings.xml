@@ -2370,4 +2370,11 @@
     <string name="nexus_plan_ambiguous_case">des variantes de casse ambiguës existent déjà</string>
     <string name="nexus_plan_blocked">L’application automatique est bloquée tant que chaque fichier installable n’a pas de destination vérifiée.</string>
     <string name="nexus_plan_export">Partager le diagnostic</string>
+    <string name="nexus_reconfiguration_preview">Aperçu de la reconfiguration</string>
+    <string name="nexus_reconfiguration_summary">%1$d ajoutés • %2$d modifiés • %3$d déplacés • %4$d obsolètes</string>
+    <string name="nexus_choose_package_variant">Choisir une variante du paquet</string>
+    <string name="nexus_confirm_risky_game_root_files">J’ai vérifié ces fichiers du dossier du jeu</string>
+    <string name="nexus_confirm_risky_game_root_files_description">Les fichiers DLL, EXE et de chargement peuvent modifier le démarrage du jeu. Confirmez uniquement si l’archive est fiable et si l’aperçu correspond à ses instructions d’installation.</string>
+    <string name="nexus_building_install_plan">Création du plan de placement des fichiers…</string>
+    <string name="nexus_reapply_missing_files">Réappliquer les fichiers manquants</string>
 </resources>

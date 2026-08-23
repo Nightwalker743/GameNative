@@ -2370,4 +2370,11 @@
     <string name="nexus_plan_ambiguous_case">неоднозначні варіанти регістру вже існують</string>
     <string name="nexus_plan_blocked">Автоматичне застосування заблоковано, доки для кожного встановлюваного файлу не підтверджено місце призначення.</string>
     <string name="nexus_plan_export">Поділитися діагностикою</string>
+    <string name="nexus_reconfiguration_preview">Попередній перегляд переналаштування</string>
+    <string name="nexus_reconfiguration_summary">Додано: %1$d • змінено: %2$d • переміщено: %3$d • застаріло: %4$d</string>
+    <string name="nexus_choose_package_variant">Виберіть варіант пакета</string>
+    <string name="nexus_confirm_risky_game_root_files">Ці файли в папці гри перевірено</string>
+    <string name="nexus_confirm_risky_game_root_files_description">Файли DLL, EXE та завантажувачі можуть змінити запуск гри. Підтверджуйте, лише якщо архіву можна довіряти, а попередній перегляд відповідає інструкції зі встановлення.</string>
+    <string name="nexus_building_install_plan">Створення плану розміщення файлів…</string>
+    <string name="nexus_reapply_missing_files">Повторно застосувати відсутні файли</string>
 </resources>

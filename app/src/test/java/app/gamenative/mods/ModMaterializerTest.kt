@@ -747,6 +747,24 @@ class ModMaterializerTest {
     }
 
     @Test
+    fun onePlan_coalescesNewCaseVariantTargetDirectoriesBeforeApply() = runBlocking {
+        File(extracted, "first/A.pex").apply { parentFile?.mkdirs(); writeText("a") }
+        File(extracted, "second/B.pex").apply { parentFile?.mkdirs(); writeText("b") }
+        val recipes = listOf(
+            recipe(ModPlacementMode.OVERWRITE_COPY, "first", "Data/Scripts"),
+            recipe(ModPlacementMode.OVERWRITE_COPY, "second", "Data/scripts"),
+        )
+
+        val plan = ModMaterializer.materializationPlan(install(), recipes, gameDir, "")
+        val result = ModMaterializer.apply(install(), plan, backupDir, allowOverwrite = true)
+
+        assertTrue(result.errors.toString(), result.errors.isEmpty())
+        assertEquals(1, plan.operations.map { WindowsPathIdentity.absoluteKey(it.target.parentFile!!) }.distinct().size)
+        assertEquals(listOf("Scripts"), File(gameDir, "Data").listFiles().orEmpty().map { it.name })
+        assertEquals(setOf("A.pex", "B.pex"), File(gameDir, "Data/Scripts").listFiles().orEmpty().map { it.name }.toSet())
+    }
+
+    @Test
     fun restoreBackups_replacesMatchingSymlinkWithoutChangingLinkDestination() = runBlocking {
         File(extracted, "config.ini").writeText("modded")
         val target = File(gameDir, "config.ini").apply { writeText("original") }

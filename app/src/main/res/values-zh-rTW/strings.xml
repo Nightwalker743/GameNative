@@ -2376,4 +2376,11 @@
     <string name="nexus_plan_ambiguous_case">已存在大小寫不明確的變體</string>
     <string name="nexus_plan_blocked">在每個可安裝檔案都有明確目的地之前，自動套用將被封鎖。</string>
     <string name="nexus_plan_export">分享診斷資訊</string>
+    <string name="nexus_reconfiguration_preview">重新設定預覽</string>
+    <string name="nexus_reconfiguration_summary">新增 %1$d • 變更 %2$d • 移動 %3$d • 過期 %4$d</string>
+    <string name="nexus_choose_package_variant">選擇軟體包變體</string>
+    <string name="nexus_confirm_risky_game_root_files">我已檢查這些遊戲目錄檔案</string>
+    <string name="nexus_confirm_risky_game_root_files_description">DLL、EXE 和載入器檔案可能改變遊戲的啟動方式。僅在壓縮檔可信且預覽與安裝說明一致時確認。</string>
+    <string name="nexus_building_install_plan">正在建立檔案放置計畫…</string>
+    <string name="nexus_reapply_missing_files">重新套用遺失檔案</string>
 </resources>

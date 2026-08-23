@@ -50,6 +50,7 @@ import app.gamenative.data.ModPlacementMode
 import app.gamenative.mods.FomodGroupType
 import app.gamenative.mods.FomodEnvironmentSnapshot
 import app.gamenative.mods.FomodInstaller
+import app.gamenative.mods.ModInstallPlan
 import app.gamenative.mods.FomodPluginType
 import app.gamenative.mods.FomodRecipeGenerator
 import app.gamenative.mods.effectiveType
@@ -102,7 +103,7 @@ internal fun FomodWizardDialog(
     environment: FomodEnvironmentSnapshot,
     extractedRoot: File,
     baseDraft: RecipeDraft,
-    onApply: (List<RecipeDraft>, Int) -> Unit,
+    onApply: (List<RecipeDraft>, ModInstallPlan?, Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var previewImage by remember { mutableStateOf<File?>(null) }
@@ -296,6 +297,7 @@ internal fun FomodWizardDialog(
                             )
                             pendingResult = PendingFomodResult(
                                 drafts = result.recipes.map { it.toDraft() },
+                                plan = result.plan,
                                 unsupportedCount = result.plan?.let { plan ->
                                     plan.unresolvedCount + plan.blockingIssues.size
                                 } ?: (result.unsupportedMappings.size + result.blockingIssues.size),
@@ -374,7 +376,7 @@ internal fun FomodWizardDialog(
                 TextButton(
                     onClick = {
                         pendingResult = null
-                        onApply(result.drafts, result.unsupportedCount)
+                        onApply(result.drafts, result.plan, result.unsupportedCount)
                     },
                     enabled = result.unsupportedCount == 0,
                 ) {

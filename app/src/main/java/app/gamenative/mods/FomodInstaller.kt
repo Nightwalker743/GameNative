@@ -459,7 +459,7 @@ object FomodRecipeGenerator {
     ): FomodRecipeGenerationResult {
         if (extractedRoot != null) {
             val evaluation = FomodSelectionEvaluator.evaluate(installer, selectedPluginKeys, environment)
-            val plan = FomodPlanExpander.expand(installer, evaluation, extractedRoot, targetRoot, targetRelativePath)
+            val plan = FomodPlanExpander.expand(installer, evaluation, extractedRoot, targetRoot, targetRelativePath, mode)
             val recipes = plan.files.filter { it.status == PlannedFileStatus.PLACED }.map { file ->
                 val destination = file.targetRelativePath.orEmpty()
                 ModPlacementRecipe(

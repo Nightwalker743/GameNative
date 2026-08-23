@@ -8,6 +8,7 @@ data class GenericOptionChoice(
 )
 
 data class GenericOptionGroup(
+    val stableId: String,
     val choices: List<GenericOptionChoice>,
     val commonSourceDirectories: List<String>,
     val reason: String,
@@ -48,6 +49,7 @@ object GenericOptionSetDetector {
         val common = roots.filter { it.normalizedKey !in optionRootKeys }.map { it.displayPath }.sorted()
         return groups.map { choices ->
             GenericOptionGroup(
+                stableId = choices.map { it.normalizedKey }.sorted().joinToString("|").hashCode().toUInt().toString(16),
                 choices = choices.sortedBy { it.normalizedKey }.map { root ->
                     val peers = choices.filter { it != root }
                     GenericOptionChoice(

@@ -2302,4 +2302,11 @@ https://gamenative.app
     <string name="nexus_plan_ambiguous_case">уже существуют неоднозначные варианты регистра</string>
     <string name="nexus_plan_blocked">Автоматическое применение заблокировано, пока для каждого устанавливаемого файла не подтверждено место назначения.</string>
     <string name="nexus_plan_export">Поделиться диагностикой</string>
+    <string name="nexus_reconfiguration_preview">Предпросмотр перенастройки</string>
+    <string name="nexus_reconfiguration_summary">Добавлено: %1$d • изменено: %2$d • перемещено: %3$d • устарело: %4$d</string>
+    <string name="nexus_choose_package_variant">Выберите вариант пакета</string>
+    <string name="nexus_confirm_risky_game_root_files">Эти файлы в папке игры проверены</string>
+    <string name="nexus_confirm_risky_game_root_files_description">Файлы DLL, EXE и загрузчики могут изменить запуск игры. Подтверждайте, только если архиву можно доверять, а предпросмотр совпадает с инструкцией по установке.</string>
+    <string name="nexus_building_install_plan">Создание плана размещения файлов…</string>
+    <string name="nexus_reapply_missing_files">Повторно применить отсутствующие файлы</string>
 </resources>

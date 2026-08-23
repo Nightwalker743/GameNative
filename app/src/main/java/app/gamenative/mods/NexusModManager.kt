@@ -66,12 +66,19 @@ enum class ModHealthSeverity {
     WARNING,
 }
 
+enum class ModHealthAction {
+    REAPPLY_MISSING,
+    RECONFIGURE,
+    REBUILD_PROFILE,
+}
+
 data class ModHealthIssue(
     val severity: ModHealthSeverity,
     val title: String,
     val detail: String,
     val installName: String = "",
     val installId: String = "",
+    val recommendedAction: ModHealthAction = ModHealthAction.REBUILD_PROFILE,
 )
 
 data class ModHealthReport(
@@ -89,6 +96,8 @@ data class ModHealthReport(
             append(' ')
             if (issue.installName.isNotBlank()) append("${ModDiagnosticSanitizer.text(issue.installName)}: ")
             append(ModDiagnosticSanitizer.text(issue.title))
+            append(" action=")
+            append(issue.recommendedAction.name)
             append(" [")
             append(ModDiagnosticSanitizer.text(issue.detail))
             appendLine(']')
@@ -531,7 +540,38 @@ object NexusModManager {
         preserveStatusOnError: Boolean = false,
         profileId: String = "",
         priority: Int = 0,
+        reviewedPlan: ModInstallPlan? = null,
         checkpointHook: (ModDeploymentCheckpoint) -> Unit = {},
+    ): ModPlacementResult = ModDeploymentCoordinator.withGameLock(install.appId) {
+        applyInstallLocked(
+            context = context,
+            install = install,
+            recipes = recipes,
+            gameRootDir = gameRootDir,
+            winePrefix = winePrefix,
+            allowOverwrite = allowOverwrite,
+            saveLastPlacement = saveLastPlacement,
+            preserveStatusOnError = preserveStatusOnError,
+            profileId = profileId,
+            priority = priority,
+            reviewedPlan = reviewedPlan,
+            checkpointHook = checkpointHook,
+        )
+    }
+
+    private suspend fun applyInstallLocked(
+        context: Context,
+        install: ModInstall,
+        recipes: List<ModPlacementRecipe>,
+        gameRootDir: File?,
+        winePrefix: String,
+        allowOverwrite: Boolean,
+        saveLastPlacement: Boolean,
+        preserveStatusOnError: Boolean,
+        profileId: String,
+        priority: Int,
+        reviewedPlan: ModInstallPlan?,
+        checkpointHook: (ModDeploymentCheckpoint) -> Unit,
     ): ModPlacementResult = withContext(Dispatchers.IO) {
         val dao = dao(context)
         val existingManifests = dao.getOverwriteManifests(install.installId)
@@ -540,7 +580,13 @@ object NexusModManager {
             .toSet()
         val ownershipRoot = cacheRoot(context, install.appId)
         val previousOwnership = ModOwnershipStore.read(ownershipRoot, install.installId)
-        val plan = ModMaterializer.materializationPlan(install, recipes, gameRootDir, winePrefix)
+        val plan = ModMaterializer.materializationPlan(
+            install = install,
+            recipes = recipes,
+            gameRootDir = gameRootDir,
+            winePrefix = winePrefix,
+            reviewedPlan = reviewedPlan,
+        )
         var journal = ModDeploymentJournalStore.begin(ownershipRoot, install.installId, install.appId, plan)
         checkpointHook(ModDeploymentCheckpoint.PLANNED)
         fun advance(checkpoint: ModDeploymentCheckpoint, detail: String = "") {
@@ -650,12 +696,14 @@ object NexusModManager {
         gameRootDir: File?,
         winePrefix: String,
     ): ModPlacementResult =
-        ModMaterializer.repairMissingTargets(
-            install = install,
-            recipes = recipes,
-            gameRootDir = gameRootDir,
-            winePrefix = winePrefix,
-        )
+        ModDeploymentCoordinator.withGameLock(install.appId) {
+            ModMaterializer.repairMissingTargets(
+                install = install,
+                recipes = recipes,
+                gameRootDir = gameRootDir,
+                winePrefix = winePrefix,
+            )
+        }
 
     fun lastPlacementRecipesForApp(appId: String, installId: String): List<ModPlacementRecipe> {
         val root = runCatching { JSONObject(PrefManager.nexusLastPlacementJson) }.getOrElse { JSONObject() }
@@ -712,6 +760,16 @@ object NexusModManager {
         restoreBackups: Boolean,
         gameRootDir: File? = null,
         winePrefix: String = ModContainerResolver.getWinePrefix(context, install.appId),
+    ): List<String> = ModDeploymentCoordinator.withGameLock(install.appId) {
+        disableInstallLocked(context, install, restoreBackups, gameRootDir, winePrefix)
+    }
+
+    private suspend fun disableInstallLocked(
+        context: Context,
+        install: ModInstall,
+        restoreBackups: Boolean,
+        gameRootDir: File?,
+        winePrefix: String,
     ): List<String> = withContext(Dispatchers.IO) {
         val dao = dao(context)
         if (install.status != ModInstallStatus.APPLIED.name) {
@@ -750,22 +808,24 @@ object NexusModManager {
         restoreBackups: Boolean,
         gameRootDir: File? = null,
         winePrefix: String = ModContainerResolver.getWinePrefix(context, install.appId),
-    ): List<String> = withContext(Dispatchers.IO) {
-        val skipped = disableInstall(context, install, restoreBackups, gameRootDir, winePrefix)
-        val dao = dao(context)
-        dao.deleteOverwriteManifests(install.installId)
-        dao.deleteInstall(install.installId)
-        ModOwnershipStore.delete(cacheRoot(context, install.appId), install.installId)
-        if (install.archivePath.isNotBlank()) {
-            val archiveFile = File(install.archivePath)
-            archiveFile.delete()
-            archiveFile.parentFile?.let { File(it, "${archiveFile.name}.part").delete() }
+    ): List<String> = ModDeploymentCoordinator.withGameLock(install.appId) {
+        val skipped = disableInstallLocked(context, install, restoreBackups, gameRootDir, winePrefix)
+        withContext(Dispatchers.IO) {
+            val dao = dao(context)
+            dao.deleteOverwriteManifests(install.installId)
+            dao.deleteInstall(install.installId)
+            ModOwnershipStore.delete(cacheRoot(context, install.appId), install.installId)
+            if (install.archivePath.isNotBlank()) {
+                val archiveFile = File(install.archivePath)
+                archiveFile.delete()
+                archiveFile.parentFile?.let { File(it, "${archiveFile.name}.part").delete() }
+            }
+            File(install.extractedPath).deleteRecursively()
+            File("${install.extractedPath}.tmp").deleteRecursively()
+            File("${install.extractedPath}.previous").deleteRecursively()
+            File(backupRoot(context, install.appId), install.installId).deleteRecursively()
+            skipped
         }
-        File(install.extractedPath).deleteRecursively()
-        File("${install.extractedPath}.tmp").deleteRecursively()
-        File("${install.extractedPath}.previous").deleteRecursively()
-        File(backupRoot(context, install.appId), install.installId).deleteRecursively()
-        skipped
     }
 
     suspend fun deleteInstallsForApp(
@@ -994,8 +1054,16 @@ object NexusModManager {
             title: String,
             detail: String,
             install: ModInstall? = null,
+            action: ModHealthAction = ModHealthAction.REBUILD_PROFILE,
         ) {
-            issues += ModHealthIssue(severity, title, detail, install?.modName.orEmpty(), install?.installId.orEmpty())
+            issues += ModHealthIssue(
+                severity,
+                title,
+                detail,
+                install?.modName.orEmpty(),
+                install?.installId.orEmpty(),
+                action,
+            )
         }
 
         val ownershipRoot = cacheRoot(context, appId)
@@ -1022,7 +1090,7 @@ object NexusModManager {
             val journal = journals[install.installId]
 
             if (journal?.checkpoint == ModDeploymentCheckpoint.RECOVERY_REQUIRED) {
-                add(ModHealthSeverity.ERROR, "Deployment recovery is required", journal.detail, install)
+                add(ModHealthSeverity.ERROR, "Deployment recovery is required", journal.detail, install, ModHealthAction.RECONFIGURE)
             }
 
             if (status == null) {
@@ -1045,6 +1113,7 @@ object NexusModManager {
                         "Ownership adoption is required",
                         "This historical install remains usable, but destructive cleanup is blocked until it is safely reapplied.",
                         install,
+                        ModHealthAction.RECONFIGURE,
                     )
                 } else if (ownership.state != ModOwnershipState.ACTIVE) {
                     add(ModHealthSeverity.ERROR, "Ownership state does not match the applied mod", ownership.state.name, install)
@@ -1065,6 +1134,11 @@ object NexusModManager {
                             },
                             findings.take(3).joinToString("\n") { it.targetPath },
                             install,
+                            if (type == ModVerificationIssueType.MISSING) {
+                                ModHealthAction.REAPPLY_MISSING
+                            } else {
+                                ModHealthAction.RECONFIGURE
+                            },
                         )
                     }
                 }
@@ -1076,6 +1150,7 @@ object NexusModManager {
                             "Some mod files are missing from the game folder",
                             "Apply order can restore them if the mod cache is still available.\n${missing.joinToString("\n")}",
                             install,
+                            ModHealthAction.REAPPLY_MISSING,
                         )
                     }
                 }

@@ -23,10 +23,29 @@ data class AutomaticPlacementResult(
 object AutomaticPlacementPlanner {
     private val bethesdaRule = ModPlacementRulePacks.bethesda
 
-    fun plan(gameName: String, entries: List<ModArchiveEntry>): AutomaticPlacementResult {
-        val index = ModArchiveIndex.build(entries)
-        val optionGroups = GenericOptionSetDetector.detect(index)
-        val legacy = ModPlacementPresetDetector.detect(gameName, entries).map { preset ->
+    fun plan(
+        gameName: String,
+        entries: List<ModArchiveEntry>,
+        selectedOptions: Map<String, String> = emptyMap(),
+    ): AutomaticPlacementResult {
+        val fullIndex = ModArchiveIndex.build(entries)
+        val optionGroups = GenericOptionSetDetector.detect(fullIndex)
+        val validSelections = optionGroups.mapNotNull { group ->
+            selectedOptions[group.stableId]
+                ?.takeIf { selected -> group.choices.any { it.sourceDirectory == selected } }
+                ?.let { group.stableId to it }
+        }.toMap()
+        val excludedOptionRoots = optionGroups.flatMap { group ->
+            val selected = validSelections[group.stableId]
+            if (selected == null) emptyList() else group.choices.map { it.sourceDirectory }.filterNot { it == selected }
+        }
+        val effectiveEntries = if (excludedOptionRoots.isEmpty()) {
+            entries
+        } else {
+            entries.filterNot { entry -> excludedOptionRoots.any { root -> entry.path.isUnderArchiveRoot(root) } }
+        }
+        val index = if (effectiveEntries === entries) fullIndex else ModArchiveIndex.build(effectiveEntries)
+        val legacy = ModPlacementPresetDetector.detect(gameName, effectiveEntries).map { preset ->
             candidateFromDrafts(
                 id = "legacy:${preset.id}",
                 label = preset.label,
@@ -39,8 +58,24 @@ object AutomaticPlacementPlanner {
         }
         val generated = buildList {
             bethesdaCandidate(gameName, index)?.let(::add)
+            frameworkCandidates(gameName, index).let(::addAll)
         }
-        val ranked = (generated + legacy)
+        val combined = generated.takeIf { candidates -> candidates.size > 1 }
+            ?.flatMap { it.drafts }
+            ?.distinct()
+            ?.let { drafts ->
+                candidateFromDrafts(
+                    id = "rules:combined-v1",
+                    label = "Complete mixed-layout plan",
+                    description = "Combines compatible built-in game and framework rules.",
+                    drafts = drafts,
+                    index = index,
+                    origin = PlacementOrigin.GAME_RULE,
+                    evidence = generated.flatMap { it.evidence }.distinct(),
+                )
+            }
+        val generatedCandidates = if (combined == null) generated else generated + combined
+        val ranked = (generatedCandidates + legacy)
             .distinctBy { candidate -> candidate.plan.digest }
             .sortedWith(
                 compareByDescending<AutomaticPlacementCandidate> { it.plan.isComplete }
@@ -48,7 +83,7 @@ object AutomaticPlacementPlanner {
                     .thenBy { it.id },
             )
         val baseline = legacy.firstOrNull()
-        val bestGenerated = generated.maxWithOrNull(compareBy<AutomaticPlacementCandidate> { it.score }.thenBy { it.id })
+        val bestGenerated = generatedCandidates.maxWithOrNull(compareBy<AutomaticPlacementCandidate> { it.score }.thenBy { it.id })
         val recommendedBase = when {
             bestGenerated == null -> baseline
             baseline == null -> bestGenerated
@@ -56,13 +91,35 @@ object AutomaticPlacementPlanner {
                 preservesExistingDestinations(baseline.plan, bestGenerated.plan) -> bestGenerated
             else -> baseline
         }
-        val optionMessage = optionGroups.firstOrNull()?.let { group ->
+        val optionMessage = optionGroups.firstOrNull { it.stableId !in validSelections }?.let { group ->
             "Choose one package variant: ${group.choices.joinToString { it.sourceDirectory }}"
         }
-        val reviewed = if (optionMessage == null) {
+        val withExcluded = if (excludedOptionRoots.isEmpty()) {
             ranked
         } else {
+            val excludedFiles = fullIndex.files.filter { file ->
+                excludedOptionRoots.any { root -> file.displayPath.isUnderArchiveRoot(root) }
+            }
             ranked.map { candidate ->
+                candidate.copy(
+                    plan = candidate.plan.copy(
+                        files = candidate.plan.files + excludedFiles.map { file ->
+                            PlannedModFile(
+                                sourceRelativePath = file.displayPath,
+                                status = PlannedFileStatus.INTENTIONALLY_IGNORED,
+                                origin = PlacementOrigin.GAME_RULE,
+                                sizeBytes = file.sizeBytes,
+                                reason = "Unselected package variant",
+                            )
+                        },
+                    ),
+                )
+            }
+        }
+        val reviewed = if (optionMessage == null) {
+            withExcluded
+        } else {
+            withExcluded.map { candidate ->
                 candidate.copy(
                     plan = candidate.plan.copy(blockingIssues = (candidate.plan.blockingIssues + optionMessage).distinct()),
                     evidence = candidate.evidence + optionMessage,
@@ -97,14 +154,14 @@ object AutomaticPlacementPlanner {
                 .thenBy { it.normalizedKey },
         )
         val drafts = if (bestData != null) {
-            listOf(
+            dataNodes.sortedBy { it.normalizedKey }.map { dataNode ->
                 ModPlacementPresetDraft(
-                    sourceSubpath = bestData.displayPath,
+                    sourceSubpath = dataNode.displayPath,
                     targetRelativePath = game.dataDirName,
                     mode = ModPlacementMode.OVERWRITE_COPY.name,
                     includeSourceDirectory = false,
-                ),
-            ) + riskyGameRootDrafts(index)
+                )
+            } + riskyGameRootDrafts(index)
         } else {
             val sources = index.files.mapNotNull(::bethesdaSourceForFile).distinctBy { it.lowercase(Locale.ROOT) }
             if (sources.isEmpty()) return null
@@ -118,7 +175,9 @@ object AutomaticPlacementPlanner {
             )
         }
         val evidence = buildList {
-            if (bestData != null) add("Found ${bestData.displayPath} as a Data container")
+            if (bestData != null) {
+                add("Found ${dataNodes.size} compatible Data container(s): ${dataNodes.take(3).joinToString { it.displayPath }}")
+            }
             val anchors = index.nodes.flatMapTo(mutableSetOf()) { it.semanticAnchors }.sorted()
             if (anchors.isNotEmpty()) add("Recognized Data content: ${anchors.joinToString()}")
             val loose = index.files.count {
@@ -147,6 +206,66 @@ object AutomaticPlacementPlanner {
                     includeSourceDirectory = false,
                 )
             }
+
+    private fun frameworkCandidates(gameName: String, index: ModArchiveIndex): List<AutomaticPlacementCandidate> {
+        if (index.hasFomod) return emptyList()
+        return listOf(
+            Triple(ModPlacementRulePacks.bepInEx, "BepInEx framework plan", "Recognized BepInEx package layout"),
+            Triple(ModPlacementRulePacks.melonLoader, "MelonLoader framework plan", "Recognized MelonLoader package layout"),
+            Triple(ModPlacementRulePacks.unreal, "Unreal Engine package plan", "Recognized Unreal Paks package layout"),
+            Triple(ModPlacementRulePacks.redmod, "REDmod package plan", "Recognized Cyberpunk/REDmod package layout"),
+        ).mapNotNull { (rule, label, evidence) ->
+            if (rule.gameNameTokens.isNotEmpty()) {
+                val normalizedGame = gameName.lowercase(Locale.ROOT)
+                if (rule.gameNameTokens.none(normalizedGame::contains)) return@mapNotNull null
+            }
+            val drafts = rule.directoryTargets.mapNotNull { (sourcePath, targetPath) ->
+                index.nodes
+                    .filter { node ->
+                        val sourceKey = sourcePath.lowercase(Locale.ROOT)
+                        val suffixMatch = node.normalizedKey.endsWith("/$sourceKey")
+                        val parentName = node.normalizedKey.substringBeforeLast('/', "").substringAfterLast('/')
+                        node.normalizedKey == sourceKey ||
+                            (
+                                suffixMatch &&
+                                    parentName !in setOf("bepinex", "skse", "f4se", "sfse", "content", "bin", "x64")
+                                )
+                    }
+                    .maxByOrNull { it.descendantFileCount }
+                    ?.let { node ->
+                        ModPlacementPresetDraft(
+                            sourceSubpath = node.displayPath,
+                            targetRelativePath = targetPath,
+                            mode = ModPlacementMode.OVERWRITE_COPY.name,
+                            includeSourceDirectory = false,
+                        )
+                    }
+            }.toMutableList()
+            if (rule == ModPlacementRulePacks.unreal) {
+                val loose = index.files.filter { file ->
+                    '/' !in file.displayPath &&
+                        file.displayPath.substringAfterLast('.', "").lowercase(Locale.ROOT) in rule.looseExtensions
+                }.map { it.displayPath }
+                if (loose.isNotEmpty()) {
+                    drafts += ModPlacementPresetDraft(
+                        sourceSubpath = ModPlacementSources.encode(loose),
+                        targetRelativePath = "Content/Paks",
+                        mode = ModPlacementMode.OVERWRITE_COPY.name,
+                    )
+                }
+            }
+            if (drafts.isEmpty()) return@mapNotNull null
+            candidateFromDrafts(
+                id = "rules:${rule.stableId}-v${rule.version}",
+                label = label,
+                description = evidence,
+                drafts = drafts,
+                index = index,
+                origin = PlacementOrigin.GAME_RULE,
+                evidence = listOf(evidence, "Rule ${rule.stableId}@${rule.version}"),
+            )
+        }
+    }
 
     private fun bethesdaSourceForFile(file: IndexedArchiveFile): String? {
         if (file.role != ArchiveContentRole.INSTALLABLE) return null
@@ -191,6 +310,7 @@ object AutomaticPlacementPlanner {
                         normalizedTargetKey = targetKey,
                         status = if (targetKey == null) PlannedFileStatus.UNSUPPORTED else PlannedFileStatus.PLACED,
                         origin = origin,
+                        mode = draft.mode,
                         sizeBytes = file.sizeBytes,
                         reason = evidence.firstOrNull() ?: description,
                         evidence = evidence,
@@ -239,9 +359,14 @@ object AutomaticPlacementPlanner {
             if (index.caseCollisions.isNotEmpty()) add("Archive contains case-colliding file paths")
             if (classified.any { it.status == PlannedFileStatus.UNSUPPORTED }) add("Some installable files have no proven destination")
             if (duplicateTargets.isNotEmpty()) add("Multiple files target the same Windows path")
-            if (classified.any { it.risk == PlacementRisk.UNSAFE }) add("Risky game-root installer content requires review")
+            if (classified.any { it.risk == PlacementRisk.UNSAFE }) add(ModInstallPlan.RISKY_ROOT_REVIEW_BLOCKER)
         }
-        val plan = ModInstallPlan(classified, blockingIssues = blockers)
+        val plan = ModInstallPlan(
+            files = classified,
+            blockingIssues = blockers,
+            producerId = id,
+            producerVersion = id.substringAfterLast("-v", "1").toIntOrNull() ?: 1,
+        )
         val score = (plan.coverage * 1_000).toInt() + evidence.size * 25 - blockers.size * 250
         return AutomaticPlacementCandidate(id, label, description, drafts, plan, score, evidence)
     }
@@ -255,4 +380,10 @@ object AutomaticPlacementPlanner {
 
     private fun String.removePrefixCaseInsensitive(prefix: String): String =
         if (startsWith(prefix, ignoreCase = true)) substring(prefix.length) else this
+
+    private fun String.isUnderArchiveRoot(root: String): Boolean {
+        val path = normalizeArchiveDisplayPath(this)
+        val normalizedRoot = normalizeArchiveDisplayPath(root)
+        return path.equals(normalizedRoot, ignoreCase = true) || path.startsWith("$normalizedRoot/", ignoreCase = true)
+    }
 }

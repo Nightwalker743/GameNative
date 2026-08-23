@@ -1,5 +1,7 @@
 package app.gamenative.mods
 
+import java.util.Locale
+
 data class ModPlacementRulePack(
     val stableId: String,
     val version: Int,
@@ -37,5 +39,9 @@ object ModPlacementRulePacks {
         gameNameTokens = setOf("cyberpunk", "redmod"),
     )
 
-    val archiveSemanticAnchors: Set<String> = bethesda.directoryTargets.keys
+    val builtIns: List<ModPlacementRulePack> = listOf(bethesda, bepInEx, melonLoader, unreal, redmod)
+
+    val archiveSemanticAnchors: Set<String> = builtIns.flatMapTo(mutableSetOf()) { rule ->
+        rule.directoryTargets.keys.flatMap { it.lowercase(Locale.ROOT).split('/') }
+    }
 }

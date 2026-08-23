@@ -2374,4 +2374,11 @@
     <string name="nexus_plan_ambiguous_case">există deja variante ambigue de majuscule/minuscule</string>
     <string name="nexus_plan_blocked">Aplicarea automată este blocată până când fiecare fișier instalabil are o destinație verificată.</string>
     <string name="nexus_plan_export">Partajează diagnosticul</string>
+    <string name="nexus_reconfiguration_preview">Previzualizarea reconfigurării</string>
+    <string name="nexus_reconfiguration_summary">%1$d adăugate • %2$d modificate • %3$d mutate • %4$d învechite</string>
+    <string name="nexus_choose_package_variant">Alege o variantă a pachetului</string>
+    <string name="nexus_confirm_risky_game_root_files">Am verificat aceste fișiere din dosarul jocului</string>
+    <string name="nexus_confirm_risky_game_root_files_description">Fișierele DLL, EXE și de încărcare pot schimba modul în care pornește jocul. Confirmă numai dacă arhiva este de încredere, iar previzualizarea corespunde instrucțiunilor de instalare.</string>
+    <string name="nexus_building_install_plan">Se creează planul de amplasare a fișierelor…</string>
+    <string name="nexus_reapply_missing_files">Reaplică fișierele lipsă</string>
 </resources>

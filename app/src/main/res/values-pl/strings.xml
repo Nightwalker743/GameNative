@@ -2374,4 +2374,11 @@
     <string name="nexus_plan_ambiguous_case">istnieją już niejednoznaczne warianty wielkości liter</string>
     <string name="nexus_plan_blocked">Automatyczne zastosowanie jest zablokowane, dopóki każdy plik instalacyjny nie ma potwierdzonego miejsca docelowego.</string>
     <string name="nexus_plan_export">Udostępnij diagnostykę</string>
+    <string name="nexus_reconfiguration_preview">Podgląd ponownej konfiguracji</string>
+    <string name="nexus_reconfiguration_summary">Dodano: %1$d • zmieniono: %2$d • przeniesiono: %3$d • nieaktualne: %4$d</string>
+    <string name="nexus_choose_package_variant">Wybierz wariant pakietu</string>
+    <string name="nexus_confirm_risky_game_root_files">Sprawdzono te pliki w folderze gry</string>
+    <string name="nexus_confirm_risky_game_root_files_description">Pliki DLL, EXE i moduły ładujące mogą zmienić sposób uruchamiania gry. Potwierdź tylko wtedy, gdy archiwum jest zaufane, a podgląd odpowiada instrukcji instalacji.</string>
+    <string name="nexus_building_install_plan">Tworzenie planu rozmieszczenia plików…</string>
+    <string name="nexus_reapply_missing_files">Zastosuj ponownie brakujące pliki</string>
 </resources>

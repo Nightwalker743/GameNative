@@ -20,6 +20,7 @@ import app.gamenative.data.ModTargetRoot
 import app.gamenative.mods.BethesdaPluginManager
 import app.gamenative.mods.BethesdaPluginDependencyIssue
 import app.gamenative.mods.AutomaticPlacementPlanner
+import app.gamenative.mods.AutomaticPlacementResult
 import app.gamenative.mods.ModArchiveEntry
 import app.gamenative.mods.ModDownloadInfo
 import app.gamenative.mods.ModImportProgress
@@ -220,8 +221,19 @@ internal fun automaticDraftsFor(
     gameName: String,
     entries: List<ModArchiveEntry>,
     fallback: RecipeDraft,
+    selectedOptions: Map<String, String> = emptyMap(),
 ): List<RecipeDraft> {
-    val recommendation = AutomaticPlacementPlanner.plan(gameName, entries).recommended
+    val result = AutomaticPlacementPlanner.plan(gameName, entries, selectedOptions)
+    return automaticDraftsFor(result, gameName, entries, fallback)
+}
+
+internal fun automaticDraftsFor(
+    result: AutomaticPlacementResult,
+    gameName: String,
+    entries: List<ModArchiveEntry>,
+    fallback: RecipeDraft,
+): List<RecipeDraft> {
+    val recommendation = result.recommended
     if (recommendation != null) {
         return recommendation.drafts.map { draft ->
             fallback.copy(

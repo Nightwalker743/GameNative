@@ -1,6 +1,7 @@
 package app.gamenative.mods
 
 import app.gamenative.data.ModTargetRoot
+import app.gamenative.data.ModPlacementMode
 import java.io.File
 import java.util.Locale
 
@@ -90,6 +91,7 @@ object FomodPlanExpander {
         extractedRoot: File,
         targetRoot: String = ModTargetRoot.GAME_DIR.name,
         targetRelativePath: String = "Data",
+        mode: String = ModPlacementMode.OVERWRITE_COPY.name,
     ): ModInstallPlan {
         val root = extractedRoot.canonicalFile
         val expanded = mutableListOf<ExpandedFomodFile>()
@@ -110,7 +112,7 @@ object FomodPlanExpander {
                         .forEach { file ->
                             val relative = file.canonicalFile.relativeTo(sourceRoot).path.replace(File.separatorChar, '/')
                             val destination = joinPath(targetRelativePath, expected.mapping.destination, relative)
-                            expanded += expected.expanded(file, root, targetRoot, destination)
+                            expanded += expected.expanded(file, root, targetRoot, destination, mode)
                         }
                 }
                 else -> {
@@ -119,7 +121,7 @@ object FomodPlanExpander {
                     } else {
                         joinPath(targetRelativePath, expected.mapping.destination)
                     }
-                    expanded += expected.expanded(source, root, targetRoot, destination)
+                    expanded += expected.expanded(source, root, targetRoot, destination, mode)
                 }
             }
         }
@@ -151,6 +153,8 @@ object FomodPlanExpander {
                     .thenByDescending { it.priority },
             ),
             blockingIssues = blockers.distinct(),
+            producerId = "fomod",
+            producerVersion = 1,
         )
     }
 
@@ -164,6 +168,7 @@ object FomodPlanExpander {
         extractedRoot: File,
         targetRoot: String,
         destination: String,
+        mode: String,
     ): ExpandedFomodFile {
         val targetKey = WindowsPathIdentity.targetKey(targetRoot, destination)
         return ExpandedFomodFile(
@@ -175,6 +180,7 @@ object FomodPlanExpander {
                 status = if (targetKey == null) PlannedFileStatus.UNSUPPORTED else PlannedFileStatus.PLACED,
                 origin = origin,
                 priority = mapping.priority,
+                mode = mode,
                 sizeBytes = source.length(),
                 reason = "Selected FOMOD ${origin.name.lowercase(Locale.ROOT).replace('_', ' ')} mapping",
                 risk = if (targetKey == null) PlacementRisk.REVIEW else PlacementRisk.SAFE,

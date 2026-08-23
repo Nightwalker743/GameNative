@@ -2385,4 +2385,11 @@
     <string name="nexus_plan_ambiguous_case">已存在大小写不明确的变体</string>
     <string name="nexus_plan_blocked">在每个可安装文件都有明确目标位置之前，自动应用将被阻止。</string>
     <string name="nexus_plan_export">分享诊断信息</string>
+    <string name="nexus_reconfiguration_preview">重新配置预览</string>
+    <string name="nexus_reconfiguration_summary">新增 %1$d • 更改 %2$d • 移动 %3$d • 过期 %4$d</string>
+    <string name="nexus_choose_package_variant">选择软件包变体</string>
+    <string name="nexus_confirm_risky_game_root_files">我已检查这些游戏目录文件</string>
+    <string name="nexus_confirm_risky_game_root_files_description">DLL、EXE 和加载器文件可能改变游戏的启动方式。仅当压缩包可信且预览与安装说明一致时才确认。</string>
+    <string name="nexus_building_install_plan">正在生成文件放置计划…</string>
+    <string name="nexus_reapply_missing_files">重新应用缺失文件</string>
 </resources>

@@ -1,5 +1,9 @@
 package app.gamenative.mods
 
+import java.io.File
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import kotlin.io.path.createTempDirectory
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -47,6 +51,45 @@ class FomodEnvironmentTest {
 
         assertTrue(result.mappings.isEmpty())
         assertTrue(result.blockingIssues.any { "unknown" in it.lowercase() })
+    }
+
+    @Test
+    fun environment_discoversScriptExtenderVersionAndDllArchitecture() {
+        val root = createTempDirectory("fomod-environment").toFile()
+        try {
+            File(root, "skse64_loader.exe").writeText("loader")
+            File(root, "skse64_2_02_06.dll").writeBytes(peHeader(0x8664))
+            File(root, "Data/SKSE/Plugins/Test.dll").apply {
+                parentFile?.mkdirs()
+                writeBytes(peHeader(0x8664))
+            }
+            val installer = FomodInstaller(
+                moduleName = "Environment",
+                requiredFiles = emptyList(),
+                steps = emptyList(),
+                moduleDependencies = FomodDependencyExpression(
+                    fileDependencies = listOf(FomodFileDependency("SKSE/Plugins/Test.dll", FomodRequiredFileState.ACTIVE)),
+                ),
+            )
+
+            val snapshot = FomodEnvironmentSnapshotBuilder.build(installer, "Skyrim Special Edition", root)
+
+            assertTrue(snapshot.scriptExtenders.getValue("skse").present)
+            assertEquals("2.2.6", snapshot.scriptExtenders.getValue("skse").version)
+            assertEquals(NativeBinaryArchitecture.X64, snapshot.nativeDllArchitectures["skse/plugins/test.dll"])
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    private fun peHeader(machine: Int): ByteArray = ByteArray(512).also { bytes ->
+        bytes[0] = 'M'.code.toByte()
+        bytes[1] = 'Z'.code.toByte()
+        ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).apply {
+            putInt(0x3c, 0x80)
+            putInt(0x80, 0x00004550)
+            putShort(0x84, machine.toShort())
+        }
     }
 
     private fun assertTrue(value: Boolean) = org.junit.Assert.assertTrue(value)

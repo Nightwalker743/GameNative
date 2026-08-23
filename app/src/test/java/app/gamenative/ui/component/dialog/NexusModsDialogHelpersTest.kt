@@ -2,6 +2,7 @@ package app.gamenative.ui.component.dialog
 
 import app.gamenative.data.ModInstall
 import app.gamenative.data.ModInstallStatus
+import app.gamenative.data.ModPlacementRecipe
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -68,6 +69,19 @@ class NexusModsDialogHelpersTest {
         val install = install(status = ModInstallStatus.READY)
 
         assertEquals("PROFILE_DISABLED", install.profileStatus(enabledInProfile = false))
+    }
+
+    @Test
+    fun recipeRoundTrip_preservesFomodDestinationFileName() {
+        val recipe = ModPlacementRecipe(
+            installId = "mcm-helper",
+            sourceSubpath = "Data/MCM/Config/SkyUI_SE/config.json",
+            targetRelativePath = "Data/MCM/Config/SkyUI_SE",
+            targetFileName = "config.json",
+        )
+
+        assertEquals(recipe.targetFileName, recipe.toDraft().targetFileName)
+        assertEquals(recipe.targetFileName, recipe.toDraft().toRecipe(recipe.installId).targetFileName)
     }
 
     private fun install(status: ModInstallStatus): ModInstall =

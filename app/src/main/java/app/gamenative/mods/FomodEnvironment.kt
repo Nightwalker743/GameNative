@@ -1,7 +1,22 @@
 package app.gamenative.mods
 
 import java.io.File
+import java.io.RandomAccessFile
 import java.util.Locale
+
+enum class NativeBinaryArchitecture {
+    X86,
+    X64,
+    ARM64,
+    UNKNOWN,
+}
+
+data class ScriptExtenderFact(
+    val id: String,
+    val present: Boolean,
+    val version: String? = null,
+    val path: String = "",
+)
 
 data class FomodEnvironmentSnapshot(
     val gameName: String = "",
@@ -9,6 +24,10 @@ data class FomodEnvironmentSnapshot(
     val fileFacts: Map<String, Boolean> = emptyMap(),
     val presentPlugins: Set<String> = emptySet(),
     val activePlugins: Set<String> = emptySet(),
+    val pluginMasters: Map<String, List<String>> = emptyMap(),
+    val scriptExtenders: Map<String, ScriptExtenderFact> = emptyMap(),
+    val nativeDllArchitectures: Map<String, NativeBinaryArchitecture> = emptyMap(),
+    val unsupportedRequirements: List<String> = emptyList(),
 ) {
     fun evaluate(dependency: FomodFileDependency): FomodFactState {
         val key = dependency.file.normalizedFactKey()
@@ -94,7 +113,30 @@ object FomodEnvironmentSnapshotBuilder {
         val activePlugins = pluginsFile?.takeIf(File::isFile)?.readLines().orEmpty()
             .map { it.trim().removePrefix("*").substringBefore('#').trim().lowercase(Locale.ROOT) }
             .filterTo(mutableSetOf(), String::isNotBlank)
-        return FomodEnvironmentSnapshot(gameName, gameVersion, fileFacts, presentPlugins, activePlugins)
+        val pluginMasters = presentPlugins.associateWith { plugin ->
+            val file = resolveRequestedFile(gameRootDir, plugin)
+            if (file.isFile) BethesdaPluginManager.readPluginMasters(file) else emptyList()
+        }
+        val scriptExtenders = discoverScriptExtenders(gameRootDir)
+        val nativeDllArchitectures = requestedFiles.asSequence()
+            .filter { it.endsWith(".dll", ignoreCase = true) }
+            .mapNotNull { requested ->
+                resolveRequestedFile(gameRootDir, requested).takeIf(File::isFile)?.let { file ->
+                    requested.normalizedFactKey() to readPeArchitecture(file)
+                }
+            }
+            .toMap()
+        return FomodEnvironmentSnapshot(
+            gameName = gameName,
+            gameVersion = gameVersion,
+            fileFacts = fileFacts,
+            presentPlugins = presentPlugins,
+            activePlugins = activePlugins,
+            pluginMasters = pluginMasters,
+            scriptExtenders = scriptExtenders,
+            nativeDllArchitectures = nativeDllArchitectures,
+            unsupportedRequirements = installer.unsupportedWarnings,
+        )
     }
 
     private fun resolveRequestedFile(gameRootDir: File?, requested: String): File {
@@ -105,6 +147,50 @@ object FomodEnvironmentSnapshotBuilder {
             .firstOrNull { it.exists() }
             ?: File(root, relative)
     }
+
+    private fun discoverScriptExtenders(gameRootDir: File?): Map<String, ScriptExtenderFact> {
+        val root = gameRootDir ?: return emptyMap()
+        val definitions = mapOf(
+            "skse" to listOf("skse_loader.exe", "skse64_loader.exe", "Data/SKSE"),
+            "f4se" to listOf("f4se_loader.exe", "Data/F4SE"),
+            "sfse" to listOf("sfse_loader.exe", "Data/SFSE"),
+            "nvse" to listOf("nvse_loader.exe", "Data/NVSE"),
+            "obse" to listOf("obse_loader.exe", "Data/OBSE"),
+        )
+        return definitions.mapValues { (id, candidates) ->
+            val present = candidates.mapNotNull { ModTargetResolver.resolveWithin(root, it) }.firstOrNull(File::exists)
+            val version = root.listFiles().orEmpty().asSequence()
+                .filter { it.isFile && it.name.startsWith(id, ignoreCase = true) && it.extension.equals("dll", true) }
+                .mapNotNull { file ->
+                    Regex("(?:^|_)(\\d+)[_.-](\\d+)[_.-](\\d+)(?:[_.-](\\d+))?", RegexOption.IGNORE_CASE)
+                        .find(file.nameWithoutExtension)
+                        ?.groupValues
+                        ?.drop(1)
+                        ?.filter(String::isNotBlank)
+                        ?.map { part -> part.toIntOrNull()?.toString() ?: part }
+                        ?.joinToString(".")
+                }
+                .firstOrNull()
+            ScriptExtenderFact(id, present != null, version, present?.absolutePath.orEmpty())
+        }
+    }
+
+    internal fun readPeArchitecture(file: File): NativeBinaryArchitecture = runCatching {
+        RandomAccessFile(file, "r").use { input ->
+            if (input.length() < 64L || input.readUnsignedShort() != 0x4d5a) return@use NativeBinaryArchitecture.UNKNOWN
+            input.seek(0x3c)
+            val peOffset = Integer.reverseBytes(input.readInt()).toLong() and 0xffffffffL
+            if (peOffset + 6 > input.length()) return@use NativeBinaryArchitecture.UNKNOWN
+            input.seek(peOffset)
+            if (Integer.reverseBytes(input.readInt()) != 0x00004550) return@use NativeBinaryArchitecture.UNKNOWN
+            when (java.lang.Short.toUnsignedInt(java.lang.Short.reverseBytes(input.readShort()))) {
+                0x014c -> NativeBinaryArchitecture.X86
+                0x8664 -> NativeBinaryArchitecture.X64
+                0xaa64 -> NativeBinaryArchitecture.ARM64
+                else -> NativeBinaryArchitecture.UNKNOWN
+            }
+        }
+    }.getOrDefault(NativeBinaryArchitecture.UNKNOWN)
 }
 
 private fun FomodInstaller.dependencyExpressions(): List<FomodDependencyExpression> =

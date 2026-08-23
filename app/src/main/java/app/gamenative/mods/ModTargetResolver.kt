@@ -50,24 +50,10 @@ object ModTargetResolver {
         targetRelativePath: String,
         gameRootDir: File?,
         winePrefix: String,
-    ): File? {
-        val rootType = runCatching { ModTargetRoot.valueOf(targetRoot) }.getOrNull() ?: return null
-        if (rootType == ModTargetRoot.CUSTOM_ABSOLUTE) {
-            val rawTarget = File(targetRelativePath.trim().replace('\\', '/'))
-            if (!rawTarget.isAbsolute) return null
-            val target = rawTarget.safeCanonicalFile() ?: return null
-            val allowedRoots = roots(gameRootDir, winePrefix).mapNotNull { it.dir.safeCanonicalFile() }
-            return target.takeIf { candidate ->
-                allowedRoots.any { root -> candidate.isInsideOrEqual(root) }
-            }
-        }
-        val root = roots(gameRootDir, winePrefix).firstOrNull { it.type == rootType }?.dir ?: return null
-        if (WindowsPathIdentity.relativeSegments(targetRelativePath) == null) return null
-        val cleanRelative = normalizeRelativePath(targetRelativePath)
-        val rootCanonical = root.safeCanonicalFile() ?: return null
-        val target = WindowsTargetNamespace(rootCanonical).resolve(cleanRelative).takeIf { it.isValid }?.file ?: return null
-        return target.takeIf { it.isInsideOrEqual(rootCanonical) }
-    }
+    ): File? = session(gameRootDir, winePrefix).resolve(targetRoot, targetRelativePath)
+
+    fun session(gameRootDir: File?, winePrefix: String): ModTargetResolutionSession =
+        ModTargetResolutionSession(roots(gameRootDir, winePrefix))
 
     fun resolveWithin(root: File, relativePath: String): File? {
         val rootCanonical = root.safeCanonicalFile() ?: return null
@@ -95,6 +81,48 @@ object ModTargetResolver {
 
     private fun File.safeCanonicalFile(): File? =
         runCatching { canonicalFile }.getOrNull()
+
+    private fun File.isInsideOrEqual(root: File): Boolean {
+        if (this == root) return true
+        val rootPath = root.path
+        if (rootPath == File.separator) return path.startsWith(rootPath)
+        return path.startsWith(rootPath.trimEnd(File.separatorChar) + File.separator)
+    }
+}
+
+/** Reuses one Windows-style namespace for every target in a reviewed plan. */
+class ModTargetResolutionSession internal constructor(
+    resolvedRoots: List<ResolvedModTargetRoot>,
+) {
+    private val rootsByType = resolvedRoots.mapNotNull { root ->
+        root.dir.safeCanonicalFile()?.let { canonical -> root.type to canonical }
+    }.toMap()
+    private val namespaces = rootsByType.mapValues { (_, root) -> WindowsTargetNamespace(root) }
+
+    fun resolve(targetRoot: String, targetRelativePath: String): File? {
+        val rootType = runCatching { ModTargetRoot.valueOf(targetRoot) }.getOrNull() ?: return null
+        if (rootType == ModTargetRoot.CUSTOM_ABSOLUTE) return resolveCustom(targetRelativePath)
+        val root = rootsByType[rootType] ?: return null
+        val relative = ModTargetResolver.normalizeRelativePath(targetRelativePath)
+        if (WindowsPathIdentity.relativeSegments(relative) == null) return null
+        return namespaces.getValue(rootType).resolve(relative).takeIf { it.isValid }?.file
+            ?.takeIf { it.isInsideOrEqual(root) }
+    }
+
+    private fun resolveCustom(path: String): File? {
+        val raw = File(path.trim().replace('\\', '/'))
+        if (!raw.isAbsolute) return null
+        val candidate = raw.safeCanonicalFile() ?: return null
+        val matchingRoot = rootsByType.entries
+            .filter { (_, root) -> candidate.isInsideOrEqual(root) }
+            .maxByOrNull { (_, root) -> root.path.length }
+            ?: return null
+        val relative = candidate.relativeToOrNull(matchingRoot.value)?.path.orEmpty()
+        return namespaces.getValue(matchingRoot.key).resolve(relative).takeIf { it.isValid }?.file
+            ?.takeIf { it.isInsideOrEqual(matchingRoot.value) }
+    }
+
+    private fun File.safeCanonicalFile(): File? = runCatching { canonicalFile }.getOrNull()
 
     private fun File.isInsideOrEqual(root: File): Boolean {
         if (this == root) return true

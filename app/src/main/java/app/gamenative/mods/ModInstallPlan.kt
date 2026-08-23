@@ -1,6 +1,8 @@
 package app.gamenative.mods
 
+import app.gamenative.data.ModPlacementMode
 import java.security.MessageDigest
+import java.util.Locale
 
 enum class PlannedFileStatus {
     PLACED,
@@ -33,16 +35,20 @@ data class PlannedModFile(
     val status: PlannedFileStatus,
     val origin: PlacementOrigin,
     val priority: Int = 0,
+    val mode: String = ModPlacementMode.OVERWRITE_COPY.name,
     val sizeBytes: Long = 0L,
     val reason: String,
     val evidence: List<String> = emptyList(),
     val risk: PlacementRisk = PlacementRisk.SAFE,
+    val riskApproved: Boolean = false,
 )
 
 data class ModInstallPlan(
     val files: List<PlannedModFile>,
     val warnings: List<String> = emptyList(),
     val blockingIssues: List<String> = emptyList(),
+    val producerId: String = "unknown",
+    val producerVersion: Int = 1,
 ) {
     val selectedCount: Int
         get() = files.count { it.status != PlannedFileStatus.INTENTIONALLY_IGNORED }
@@ -78,14 +84,14 @@ data class ModInstallPlan(
     val isComplete: Boolean
         get() = blockingIssues.isEmpty() &&
             unresolvedCount == 0 &&
-            files.none { it.risk == PlacementRisk.UNSAFE }
+            files.none { it.risk == PlacementRisk.UNSAFE && !it.riskApproved }
 
     val digest: String
         get() {
             val canonical = files
                 .sortedWith(
                     compareBy<PlannedModFile> { it.normalizedTargetKey.orEmpty() }
-                        .thenBy { it.sourceRelativePath.lowercase() }
+                        .thenBy { it.sourceRelativePath.lowercase(Locale.ROOT) }
                         .thenByDescending { it.priority },
                 )
                 .joinToString("\n") { file ->
@@ -97,7 +103,10 @@ data class ModInstallPlan(
                         file.status.name,
                         file.origin.name,
                         file.priority.toString(),
+                        file.mode,
                         file.sizeBytes.toString(),
+                        file.risk.name,
+                        file.riskApproved.toString(),
                     ).joinToString("|")
                 }
             return MessageDigest.getInstance("SHA-256")
@@ -107,10 +116,11 @@ data class ModInstallPlan(
 
     fun sanitizedManifest(): String = buildString {
         appendLine("plan-version: 1")
+        appendLine("producer: ${ModDiagnosticSanitizer.text(producerId)}@$producerVersion")
         appendLine("digest: $digest")
         appendLine("complete: $isComplete")
         appendLine("placed: $placedCount/$selectedCount")
-        files.sortedBy { it.sourceRelativePath.lowercase() }.forEach { file ->
+        files.sortedBy { it.sourceRelativePath.lowercase(Locale.ROOT) }.forEach { file ->
             append(file.status.name)
             append(' ')
             append(ModDiagnosticSanitizer.relativePath(file.sourceRelativePath))
@@ -128,10 +138,27 @@ data class ModInstallPlan(
             }
             append(" [")
             append(ModDiagnosticSanitizer.text(file.reason))
+            if (file.riskApproved) append("; high-risk target explicitly approved")
             appendLine(']')
         }
         warnings.sorted().forEach { appendLine("warning: ${ModDiagnosticSanitizer.text(it)}") }
         blockingIssues.sorted().forEach { appendLine("blocker: ${ModDiagnosticSanitizer.text(it)}") }
+    }
+
+    fun withRiskyRootApproval(approved: Boolean): ModInstallPlan = copy(
+        files = files.map { file ->
+            if (file.risk == PlacementRisk.UNSAFE) file.copy(riskApproved = approved) else file
+        },
+        blockingIssues = when {
+            approved -> blockingIssues.filterNot { it == RISKY_ROOT_REVIEW_BLOCKER }
+            files.none { it.risk == PlacementRisk.UNSAFE } -> blockingIssues
+            RISKY_ROOT_REVIEW_BLOCKER in blockingIssues -> blockingIssues
+            else -> blockingIssues + RISKY_ROOT_REVIEW_BLOCKER
+        },
+    )
+
+    companion object {
+        const val RISKY_ROOT_REVIEW_BLOCKER = "Risky game-root installer content requires review"
     }
 }
 

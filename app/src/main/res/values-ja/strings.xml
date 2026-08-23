@@ -2324,4 +2324,11 @@
     <string name="nexus_plan_ambiguous_case">大文字小文字だけが異なる曖昧な項目がすでに存在します</string>
     <string name="nexus_plan_blocked">インストール可能なすべてのファイルの配置先が確認されるまで、自動適用はブロックされます。</string>
     <string name="nexus_plan_export">診断情報を共有</string>
+    <string name="nexus_reconfiguration_preview">再設定のプレビュー</string>
+    <string name="nexus_reconfiguration_summary">追加 %1$d • 変更 %2$d • 移動 %3$d • 古い出力 %4$d</string>
+    <string name="nexus_choose_package_variant">パッケージのバリアントを選択</string>
+    <string name="nexus_confirm_risky_game_root_files">ゲームフォルダのこれらのファイルを確認しました</string>
+    <string name="nexus_confirm_risky_game_root_files_description">DLL、EXE、ローダーファイルはゲームの起動方法を変更することがあります。信頼できるアーカイブで、プレビューがインストール手順と一致する場合のみ確認してください。</string>
+    <string name="nexus_building_install_plan">ファイル配置プランを作成中…</string>
+    <string name="nexus_reapply_missing_files">不足しているファイルを再適用</string>
 </resources>

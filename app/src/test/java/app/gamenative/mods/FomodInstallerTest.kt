@@ -401,10 +401,10 @@ class FomodInstallerTest {
             <config>
               <moduleName>MCM Helper fixture</moduleName>
               <requiredInstallFiles>
-                <file source="Required/config.json" destination="MCM/Config/SkyUI_SE/config.json" />
-                <file source="Required/settings.ini" destination="MCM/Config/SkyUI_SE/settings.ini" />
-                <file source="Required/readme.txt" destination="MCM/Settings/readme.txt" />
-                <file source="Required/SKI_ConfigMenu.psc" destination="Source/Scripts/SKI_ConfigMenu.psc" />
+                <file source="Data/MCM/Config/SkyUI_SE/config.json" destination="MCM/Config/SkyUI_SE/config.json" />
+                <file source="Data/MCM/Config/SkyUI_SE/settings.ini" destination="MCM/Config/SkyUI_SE/settings.ini" />
+                <file source="Data/MCM/Settings/readme.txt" destination="MCM/Settings/readme.txt" />
+                <file source="Data/Source/Scripts/SKI_ConfigMenu.psc" destination="Source/Scripts/SKI_ConfigMenu.psc" />
               </requiredInstallFiles>
               <installSteps><installStep name="Choices"><optionalFileGroups>
                 <group name="Runtime" type="SelectExactlyOne"><plugins>
@@ -424,10 +424,10 @@ class FomodInstallerTest {
             """.trimIndent(),
         )
         listOf(
-            "Required/config.json",
-            "Required/settings.ini",
-            "Required/readme.txt",
-            "Required/SKI_ConfigMenu.psc",
+            "Data/MCM/Config/SkyUI_SE/config.json",
+            "Data/MCM/Config/SkyUI_SE/settings.ini",
+            "Data/MCM/Settings/readme.txt",
+            "Data/Source/Scripts/SKI_ConfigMenu.psc",
             "SkyrimSE/SKSE/Plugins/MCMHelper.dll",
             "SkyrimSE/SKSE/Plugins/MCMHelper.pdb",
             "SkyrimVR/SKSE/Plugins/MCMHelper.dll",
@@ -474,15 +474,22 @@ class FomodInstallerTest {
             archivePath = "",
             extractedPath = tempDir.absolutePath,
         )
+        val executionPlan = ModMaterializer.materializationPlan(
+            install = install,
+            recipes = result.recipes,
+            gameRootDir = game,
+            winePrefix = "",
+            reviewedPlan = result.plan,
+        )
         val applied = ModMaterializer.apply(
-            install,
-            result.recipes,
-            game,
-            "",
-            File(tempDir, "backups"),
+            install = install,
+            plan = executionPlan,
+            backupRoot = File(tempDir, "backups"),
             allowOverwrite = true,
         )
         assertTrue(applied.errors.isEmpty())
+        assertEquals(result.plan!!.placedCount, executionPlan.files.size)
+        assertEquals(result.plan.digest, executionPlan.reviewedPlan.digest)
         assertEquals(
             expected,
             game.walkTopDown().filter { it.isFile }
