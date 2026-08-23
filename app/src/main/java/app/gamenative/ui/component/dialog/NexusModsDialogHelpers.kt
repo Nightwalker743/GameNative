@@ -19,6 +19,7 @@ import app.gamenative.data.ModProfile
 import app.gamenative.data.ModTargetRoot
 import app.gamenative.mods.BethesdaPluginManager
 import app.gamenative.mods.BethesdaPluginDependencyIssue
+import app.gamenative.mods.AutomaticPlacementPlanner
 import app.gamenative.mods.ModArchiveEntry
 import app.gamenative.mods.ModDownloadInfo
 import app.gamenative.mods.ModImportProgress
@@ -218,8 +219,17 @@ internal fun automaticDraftsFor(
     entries: List<ModArchiveEntry>,
     fallback: RecipeDraft,
 ): List<RecipeDraft> {
-    val preset = placementPresetOptions(gameName, entries, fallback).firstOrNull()
-    if (preset != null) return preset.drafts
+    val recommendation = AutomaticPlacementPlanner.plan(gameName, entries).recommended
+    if (recommendation != null) {
+        return recommendation.drafts.map { draft ->
+            fallback.copy(
+                sourceSubpath = draft.sourceSubpath,
+                targetRelativePath = draft.targetRelativePath,
+                mode = draft.mode,
+                includeSourceDirectory = draft.includeSourceDirectory,
+            )
+        }
+    }
 
     val bethesdaGame = BethesdaPluginManager.detectGame(gameName)
     if (bethesdaGame != null) {

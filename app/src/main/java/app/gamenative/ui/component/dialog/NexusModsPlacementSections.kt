@@ -68,6 +68,7 @@ import app.gamenative.data.ModInstall
 import app.gamenative.data.ModInstallStatus
 import app.gamenative.data.ModPlacementMode
 import app.gamenative.data.ModTargetRoot
+import app.gamenative.mods.AutomaticPlacementPlanner
 import app.gamenative.mods.FomodInstaller
 import app.gamenative.mods.ModArchiveEntry
 import app.gamenative.mods.ModPlacementPreset
@@ -553,7 +554,19 @@ private fun PlacementDraftEditor(
             if (showManualPaths) {
                 NoExtractOutlinedTextField(
                     value = sourceManualText(draft.sourceSubpath),
-                    onValueChange = { onUpdate(draft.copy(sourceSubpath = ModPlacementSources.encode(it.lines()))) },
+                    onValueChange = { value ->
+                        val sources = value.lines().filter(String::isNotBlank)
+                        onUpdate(
+                            draft.copy(
+                                sourceSubpath = ModPlacementSources.encode(sources),
+                                includeSourceDirectory = AutomaticPlacementPlanner.inferIncludeSourceDirectory(
+                                    sources,
+                                    entries,
+                                    draft.targetRelativePath,
+                                ),
+                            ),
+                        )
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text(stringResource(R.string.nexus_source_folders_files_label)) },
                     placeholder = { Text(stringResource(R.string.nexus_source_paths_placeholder)) },
@@ -589,7 +602,16 @@ private fun PlacementDraftEditor(
                 .filter { it.isNotBlank() }
                 .toSet(),
             onSelectMultiple = { paths ->
-                onUpdate(draft.copy(sourceSubpath = ModPlacementSources.encode(paths)))
+                onUpdate(
+                    draft.copy(
+                        sourceSubpath = ModPlacementSources.encode(paths),
+                        includeSourceDirectory = AutomaticPlacementPlanner.inferIncludeSourceDirectory(
+                            paths,
+                            entries,
+                            draft.targetRelativePath,
+                        ),
+                    ),
+                )
                 showSourcePicker = false
             },
             onDismiss = { showSourcePicker = false },

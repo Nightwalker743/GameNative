@@ -24,6 +24,7 @@ object ModPlacementPresetDetector {
         "scripts",
         "interface",
         "sound",
+        "sounds",
         "seq",
         "skse",
         "f4se",
