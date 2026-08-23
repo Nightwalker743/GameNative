@@ -25,14 +25,41 @@ data class ModPlacementResult(
     val backedUp: Int,
     val errors: Map<String, String>,
     val manifests: List<ModOverwriteManifest>,
+    val warnings: List<String> = emptyList(),
 )
 
 data class ModPlannedEntry(
     val installId: String,
     val source: File,
     val target: File,
+    val mode: ModPlacementMode = ModPlacementMode.SYMLINK,
+    val targetRoot: String = "",
+    val sourceRelativePath: String = "",
+    val targetRelativePath: String = "",
     val normalizedTargetKey: String = WindowsPathIdentity.absoluteKey(target),
 )
+
+data class ModPlannedFile(
+    val installId: String,
+    val source: File,
+    val target: File,
+    val mode: ModPlacementMode,
+    val targetRoot: String,
+    val sourceRelativePath: String,
+    val targetRelativePath: String,
+    val normalizedTargetKey: String = WindowsPathIdentity.absoluteKey(target),
+    val targetExistedBefore: Boolean = target.exists() || Files.isSymbolicLink(target.toPath()),
+    val targetHashBefore: String = "",
+)
+
+data class ModMaterializationPlan(
+    val installId: String,
+    val operations: List<ModPlannedEntry>,
+    val files: List<ModPlannedFile>,
+    val errors: Map<String, String> = emptyMap(),
+) {
+    val isComplete: Boolean get() = errors.isEmpty()
+}
 
 object ModMaterializer {
     private const val COPY_SENTINEL = ".gamenative_mod_install"
@@ -57,11 +84,10 @@ object ModMaterializer {
         gameRootDir: File?,
         winePrefix: String,
     ): List<ModPlacementConflict> = withContext(Dispatchers.IO) {
+        val plan = materializationPlan(install, recipes, gameRootDir, winePrefix)
         buildList {
-            recipes.filter { it.enabled }.forEach { recipe ->
-                val mode = runCatching { ModPlacementMode.valueOf(recipe.mode) }.getOrDefault(ModPlacementMode.SYMLINK)
-                plannedEntries(install, recipe, gameRootDir, winePrefix).forEach { entry ->
-                    when (mode) {
+            plan.operations.forEach { entry ->
+                    when (entry.mode) {
                         ModPlacementMode.OVERWRITE_COPY -> addAll(overwriteConflicts(entry))
                         else -> {
                             if (entry.target.exists() || Files.isSymbolicLink(entry.target.toPath())) {
@@ -79,7 +105,6 @@ object ModMaterializer {
                             }
                         }
                     }
-                }
             }
         }
     }
@@ -134,26 +159,30 @@ object ModMaterializer {
         winePrefix: String,
         backupRoot: File,
         allowOverwrite: Boolean,
+    ): ModPlacementResult {
+        val plan = withContext(Dispatchers.IO) {
+            materializationPlan(install, recipes, gameRootDir, winePrefix)
+        }
+        return apply(install, plan, backupRoot, allowOverwrite)
+    }
+
+    suspend fun apply(
+        install: ModInstall,
+        plan: ModMaterializationPlan,
+        backupRoot: File,
+        allowOverwrite: Boolean,
     ): ModPlacementResult = withContext(Dispatchers.IO) {
         var created = 0
         var skipped = 0
         var backedUp = 0
-        val errors = linkedMapOf<String, String>()
+        val errors = linkedMapOf<String, String>().apply { putAll(plan.errors) }
         val manifests = mutableListOf<ModOverwriteManifest>()
         val targetsWrittenThisApply = mutableSetOf<String>()
 
         backupRoot.mkdirs()
-        recipes.filter { it.enabled }.forEach { recipe ->
-            val mode = runCatching { ModPlacementMode.valueOf(recipe.mode) }.getOrDefault(ModPlacementMode.SYMLINK)
-            val entries = runCatching { plannedEntries(install, recipe, gameRootDir, winePrefix) }
-                .getOrElse { e ->
-                    errors[recipe.sourceSubpath.ifBlank { recipe.targetRelativePath.ifBlank { install.modName } }] =
-                        e.message ?: e::class.simpleName.orEmpty()
-                    emptyList()
-                }
-            entries.forEach { entry ->
+        plan.operations.forEach { entry ->
                 try {
-                    when (mode) {
+                    when (entry.mode) {
                         ModPlacementMode.SYMLINK -> {
                             val result = ensureSymlink(entry.target, entry.source)
                             if (result) created++ else skipped++
@@ -179,7 +208,6 @@ object ModMaterializer {
                 } catch (e: Exception) {
                     errors[entry.target.absolutePath] = "${e::class.simpleName}: ${e.message}"
                 }
-            }
         }
 
         ModPlacementResult(created, skipped, backedUp, errors, manifests)
@@ -193,19 +221,12 @@ object ModMaterializer {
     ): ModPlacementResult = withContext(Dispatchers.IO) {
         var created = 0
         var skipped = 0
-        val errors = linkedMapOf<String, String>()
+        val plan = materializationPlan(install, recipes, gameRootDir, winePrefix)
+        val errors = linkedMapOf<String, String>().apply { putAll(plan.errors) }
 
-        recipes.filter { it.enabled }.forEach { recipe ->
-            val mode = runCatching { ModPlacementMode.valueOf(recipe.mode) }.getOrDefault(ModPlacementMode.SYMLINK)
-            val entries = runCatching { plannedEntries(install, recipe, gameRootDir, winePrefix) }
-                .getOrElse { e ->
-                    errors[recipe.sourceSubpath.ifBlank { recipe.targetRelativePath.ifBlank { install.modName } }] =
-                        e.message ?: e::class.simpleName.orEmpty()
-                    emptyList()
-                }
-            entries.forEach { entry ->
+        plan.operations.forEach { entry ->
                 try {
-                    when (mode) {
+                    when (entry.mode) {
                         ModPlacementMode.SYMLINK -> {
                             if (entry.target.exists() || Files.isSymbolicLink(entry.target.toPath())) {
                                 skipped++
@@ -225,7 +246,6 @@ object ModMaterializer {
                 } catch (e: Exception) {
                     errors[entry.target.absolutePath] = "${e::class.simpleName}: ${e.message}"
                 }
-            }
         }
 
         ModPlacementResult(created, skipped, backedUp = 0, errors = errors, manifests = emptyList())
@@ -263,11 +283,10 @@ object ModMaterializer {
         restoredOverwriteTargets: Set<String> = emptySet(),
     ): List<String> = withContext(Dispatchers.IO) {
         val skipped = mutableListOf<String>()
-        recipes.filter { it.enabled }.forEach { recipe ->
-            val mode = runCatching { ModPlacementMode.valueOf(recipe.mode) }.getOrDefault(ModPlacementMode.SYMLINK)
+        val plan = materializationPlan(install, recipes, gameRootDir, winePrefix)
+        plan.operations.forEach { entry ->
             runCatching {
-                plannedEntries(install, recipe, gameRootDir, winePrefix).forEach { entry ->
-                    when (mode) {
+                    when (entry.mode) {
                         ModPlacementMode.SYMLINK -> removeSymlink(entry.target, entry.source, skipped)
                         ModPlacementMode.COPY -> removeCopiedEntry(
                             target = entry.target,
@@ -288,10 +307,42 @@ object ModMaterializer {
                             removeLegacySentinel = true,
                         )
                     }
-                }
-            }.onFailure { skipped += "${recipe.targetRoot}:${recipe.targetRelativePath}" }
+            }.onFailure { skipped += "${entry.targetRoot}:${entry.targetRelativePath}" }
         }
+        skipped += plan.errors.keys
         skipped.distinct()
+    }
+
+    fun materializationPlan(
+        install: ModInstall,
+        recipes: List<ModPlacementRecipe>,
+        gameRootDir: File?,
+        winePrefix: String,
+    ): ModMaterializationPlan {
+        val operations = mutableListOf<ModPlannedEntry>()
+        val errors = linkedMapOf<String, String>()
+        recipes.filter { it.enabled }.forEach { recipe ->
+            runCatching { plannedEntries(install, recipe, gameRootDir, winePrefix) }
+                .onSuccess(operations::addAll)
+                .onFailure { error ->
+                    val key = recipe.sourceSubpath.ifBlank { recipe.targetRelativePath.ifBlank { install.modName } }
+                    errors[key] = error.message ?: error::class.simpleName.orEmpty()
+                }
+        }
+        val expandedFiles = operations.flatMap(::expandPlannedFiles)
+        val files = expandedFiles.groupBy { it.normalizedTargetKey }.flatMap { (targetKey, values) ->
+            val distinctSources = values.map { it.source.canonicalPath }.distinct()
+            when {
+                distinctSources.size <= 1 -> listOf(values.last())
+                values.all { it.mode == ModPlacementMode.OVERWRITE_COPY } -> listOf(values.last())
+                else -> {
+                    errors[targetKey] = "Multiple selected files target the same Windows path: " +
+                        values.joinToString { it.sourceRelativePath }
+                    values
+                }
+            }
+        }.sortedWith(compareBy<ModPlannedFile> { it.normalizedTargetKey }.thenBy { it.sourceRelativePath.lowercase() })
+        return ModMaterializationPlan(install.installId, operations, files, errors)
     }
 
     fun plannedEntries(
@@ -299,10 +350,7 @@ object ModMaterializer {
         recipes: List<ModPlacementRecipe>,
         gameRootDir: File?,
         winePrefix: String,
-    ): List<ModPlannedEntry> =
-        recipes.filter { it.enabled }.flatMap { recipe ->
-            plannedEntries(install, recipe, gameRootDir, winePrefix)
-        }
+    ): List<ModPlannedEntry> = materializationPlan(install, recipes, gameRootDir, winePrefix).operations
 
     private fun plannedEntries(
         install: ModInstall,
@@ -339,6 +387,7 @@ object ModMaterializer {
             gameRootDir = gameRootDir,
             winePrefix = winePrefix,
         ) ?: throw IOException("Target root is unavailable: ${recipe.targetRoot}")
+        val mode = runCatching { ModPlacementMode.valueOf(recipe.mode) }.getOrDefault(ModPlacementMode.SYMLINK)
 
         val effectiveSource = stripPrefix(source, recipe.stripPrefixSegments)
         return when {
@@ -348,21 +397,94 @@ object ModMaterializer {
                     effectiveSource,
                     targetDir,
                     recipe.targetFileName.ifBlank { effectiveSource.name },
+                    mode,
+                    recipe.targetRoot,
+                    extractedRoot,
+                    recipe.targetRelativePath,
                 ),
             )
             recipe.includeSourceDirectory && effectiveSource != extractedRoot ->
-                listOf(plannedEntry(install.installId, effectiveSource, targetDir, effectiveSource.name))
+                listOf(
+                    plannedEntry(
+                        install.installId,
+                        effectiveSource,
+                        targetDir,
+                        effectiveSource.name,
+                        mode,
+                        recipe.targetRoot,
+                        extractedRoot,
+                        recipe.targetRelativePath,
+                    ),
+                )
             else -> effectiveSource.listFiles()
                 ?.filter { !it.name.startsWith(".") }
-                ?.map { plannedEntry(install.installId, it, targetDir, it.name) }
+                ?.map {
+                    plannedEntry(
+                        install.installId,
+                        it,
+                        targetDir,
+                        it.name,
+                        mode,
+                        recipe.targetRoot,
+                        extractedRoot,
+                        recipe.targetRelativePath,
+                    )
+                }
                 ?: emptyList()
         }
     }
 
-    private fun plannedEntry(installId: String, source: File, targetRoot: File, relative: String): ModPlannedEntry {
+    private fun plannedEntry(
+        installId: String,
+        source: File,
+        targetRoot: File,
+        relative: String,
+        mode: ModPlacementMode,
+        targetRootName: String,
+        extractedRoot: File,
+        targetBaseRelative: String,
+    ): ModPlannedEntry {
         val target = ModTargetResolver.resolveWithin(targetRoot, relative)
             ?: throw IOException("Target path is invalid or case-ambiguous: $relative")
-        return ModPlannedEntry(installId, source, target)
+        return ModPlannedEntry(
+            installId = installId,
+            source = source,
+            target = target,
+            mode = mode,
+            targetRoot = targetRootName,
+            sourceRelativePath = source.relativeTo(extractedRoot).path.replace(File.separatorChar, '/'),
+            targetRelativePath = listOf(targetBaseRelative, relative)
+                .filter(String::isNotBlank)
+                .joinToString("/")
+                .replace(File.separatorChar, '/'),
+        )
+    }
+
+    private fun expandPlannedFiles(entry: ModPlannedEntry): List<ModPlannedFile> {
+        val files = if (entry.source.isFile) sequenceOf(entry.source) else entry.source.walkTopDown().filter { it.isFile }
+        return files.map { sourceFile ->
+            val nested = if (entry.source.isFile) "" else sourceFile.relativeTo(entry.source).path
+            val targetFile = if (nested.isBlank()) entry.target else safeChildTarget(entry.target, nested)
+            ModPlannedFile(
+                installId = entry.installId,
+                source = sourceFile,
+                target = targetFile,
+                mode = entry.mode,
+                targetRoot = entry.targetRoot,
+                sourceRelativePath = sourceFile.path.removePrefix(entry.source.path)
+                    .trimStart(File.separatorChar)
+                    .let { nestedSource ->
+                        listOf(entry.sourceRelativePath, nestedSource)
+                            .filter(String::isNotBlank)
+                            .joinToString("/")
+                            .replace(File.separatorChar, '/')
+                    },
+                targetRelativePath = listOf(entry.targetRelativePath, nested.replace(File.separatorChar, '/'))
+                    .filter(String::isNotBlank)
+                    .joinToString("/"),
+                targetHashBefore = if (targetFile.isFile && !Files.isSymbolicLink(targetFile.toPath())) sha256(targetFile) else "",
+            )
+        }.toList()
     }
 
     private fun resolveSource(extractedRoot: File, normalizedSource: String): File {

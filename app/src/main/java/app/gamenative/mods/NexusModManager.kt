@@ -513,16 +513,20 @@ object NexusModManager {
         allowOverwrite: Boolean,
         saveLastPlacement: Boolean = true,
         preserveStatusOnError: Boolean = false,
+        profileId: String = "",
+        priority: Int = 0,
     ): ModPlacementResult = withContext(Dispatchers.IO) {
         val dao = dao(context)
-        val existingBackupPaths = dao.getOverwriteManifests(install.installId)
+        val existingManifests = dao.getOverwriteManifests(install.installId)
+        val existingBackupPaths = existingManifests
             .mapNotNull { it.backupPath.takeIf(String::isNotBlank) }
             .toSet()
+        val ownershipRoot = cacheRoot(context, install.appId)
+        val previousOwnership = ModOwnershipStore.read(ownershipRoot, install.installId)
+        val plan = ModMaterializer.materializationPlan(install, recipes, gameRootDir, winePrefix)
         val result = ModMaterializer.apply(
             install = install,
-            recipes = recipes,
-            gameRootDir = gameRootDir,
-            winePrefix = winePrefix,
+            plan = plan,
             backupRoot = backupRoot(context, install.appId),
             allowOverwrite = allowOverwrite,
         )
@@ -530,14 +534,47 @@ object NexusModManager {
             if (result.manifests.isNotEmpty()) {
                 dao.replaceOverwriteManifestsForTargets(install.installId, result.manifests)
             }
+            val newTargetKeys = plan.files.mapTo(mutableSetOf()) { it.normalizedTargetKey }
+            val staleKeys = previousOwnership?.files
+                .orEmpty()
+                .filter { it.active && it.normalizedTargetKey !in newTargetKeys }
+                .mapTo(mutableSetOf()) { it.normalizedTargetKey }
+            val staleCleanup = if (previousOwnership != null && staleKeys.isNotEmpty()) {
+                ModOwnershipReconciler.removeOwnedFiles(
+                    manifest = previousOwnership,
+                    overwriteManifests = existingManifests,
+                    targetKeys = staleKeys,
+                )
+            } else {
+                ModOwnershipCleanupResult(0, 0, emptyList())
+            }
+            val safelyReconciledTargets = staleKeys - staleCleanup.preserved.mapTo(mutableSetOf()) { it.normalizedTargetKey }
+            if (safelyReconciledTargets.isNotEmpty()) {
+                val staleManifestTargets = existingManifests
+                    .filter { WindowsPathIdentity.absoluteKey(File(it.targetPath)) in safelyReconciledTargets }
+                    .map { it.targetPath }
+                if (staleManifestTargets.isNotEmpty()) {
+                    dao.deleteOverwriteManifestsForTargets(install.installId, staleManifestTargets)
+                }
+            }
+            val ownership = ModOwnershipStore.create(
+                appId = install.appId,
+                plan = plan,
+                overwriteManifests = existingManifests + result.manifests,
+                profileId = profileId,
+                priority = priority,
+                preservedStale = staleCleanup.preserved,
+            )
+            ModOwnershipStore.writePending(ownershipRoot, ownership)
+            ModOwnershipStore.commit(ownershipRoot, install.installId)
             if (install.status != ModInstallStatus.APPLIED.name) {
                 dao.updateInstallStatus(install.installId, ModInstallStatus.APPLIED.name)
             }
             if (saveLastPlacement) saveLastPlacementForApp(install.appId, recipes)
+            return@withContext result.copy(warnings = staleCleanup.skippedPaths)
         } else if (!preserveStatusOnError && install.status != ModInstallStatus.ERROR.name) {
             dao.updateInstallStatus(install.installId, ModInstallStatus.ERROR.name)
         }
-        if (result.errors.isEmpty()) return@withContext result
 
         val restoreSkipped = ModMaterializer.restoreBackups(result.manifests)
         val restoredTargets = result.manifests
@@ -579,35 +616,6 @@ object NexusModManager {
             gameRootDir = gameRootDir,
             winePrefix = winePrefix,
         )
-
-    suspend fun cleanupBeforeRecipeReplacement(
-        context: Context,
-        install: ModInstall,
-        oldRecipes: List<ModPlacementRecipe>,
-        newRecipes: List<ModPlacementRecipe>,
-        gameRootDir: File?,
-        winePrefix: String,
-    ): List<String> = withContext(Dispatchers.IO) {
-        if (oldRecipes.isEmpty() || samePlacementRecipes(oldRecipes, newRecipes)) return@withContext emptyList()
-        val dao = dao(context)
-        val manifests = dao.getOverwriteManifests(install.installId)
-        val restoreSkipped = ModMaterializer.restoreBackups(manifests)
-        val restoredTargets = manifests
-            .map { it.targetPath }
-            .filterNot { it in restoreSkipped }
-            .toSet()
-        val removeSkipped = ModMaterializer.removeAppliedFiles(
-            install = install,
-            recipes = oldRecipes,
-            gameRootDir = gameRootDir,
-            winePrefix = winePrefix,
-            restoredOverwriteTargets = restoredTargets,
-        )
-        if (restoredTargets.isNotEmpty()) {
-            dao.deleteOverwriteManifestsForTargets(install.installId, restoredTargets.toList())
-        }
-        restoreSkipped + removeSkipped
-    }
 
     fun lastPlacementRecipesForApp(appId: String, installId: String): List<ModPlacementRecipe> {
         val root = runCatching { JSONObject(PrefManager.nexusLastPlacementJson) }.getOrElse { JSONObject() }
@@ -695,22 +703,30 @@ object NexusModManager {
             dao.updateInstallEnabled(install.installId, false, ModInstallStatus.DISABLED.name)
             return@withContext emptyList()
         }
-        val recipes = dao.getRecipesForInstall(install.installId)
         val manifests = dao.getOverwriteManifests(install.installId)
-        val skipped = if (restoreBackups) {
-            ModMaterializer.restoreBackups(manifests)
-        } else {
-            emptyList()
+        val ownershipRoot = cacheRoot(context, install.appId)
+        val ownership = ModOwnershipStore.read(ownershipRoot, install.installId)
+        if (ownership == null) {
+            dao.updateInstallEnabled(install.installId, false, ModInstallStatus.DISABLED.name)
+            return@withContext listOf("Ownership adoption is required before deployed files can be removed safely")
         }
-        val removalSkipped = ModMaterializer.removeAppliedFiles(
-            install = install,
-            recipes = recipes,
-            gameRootDir = gameRootDir,
-            winePrefix = winePrefix,
-            restoredOverwriteTargets = manifests.map { it.targetPath }.toSet(),
+        val cleanup = ModOwnershipReconciler.removeOwnedFiles(ownership, manifests, restoreBackups = restoreBackups)
+        ModOwnershipStore.writePending(
+            ownershipRoot,
+            ownership.copy(
+                state = ModOwnershipState.DISABLED,
+                files = ownership.files.map { file ->
+                    if (file.normalizedTargetKey in cleanup.preserved.map { it.normalizedTargetKey }.toSet()) {
+                        cleanup.preserved.first { it.normalizedTargetKey == file.normalizedTargetKey }
+                    } else {
+                        file.copy(active = false)
+                    }
+                },
+            ),
         )
+        ModOwnershipStore.commit(ownershipRoot, install.installId)
         dao.updateInstallEnabled(install.installId, false, ModInstallStatus.DISABLED.name)
-        skipped + removalSkipped
+        cleanup.skippedPaths
     }
 
     suspend fun deleteInstall(
@@ -724,6 +740,7 @@ object NexusModManager {
         val dao = dao(context)
         dao.deleteOverwriteManifests(install.installId)
         dao.deleteInstall(install.installId)
+        ModOwnershipStore.delete(cacheRoot(context, install.appId), install.installId)
         if (install.archivePath.isNotBlank()) {
             val archiveFile = File(install.archivePath)
             archiveFile.delete()

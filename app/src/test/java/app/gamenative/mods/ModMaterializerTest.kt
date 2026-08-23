@@ -719,6 +719,34 @@ class ModMaterializerTest {
     }
 
     @Test
+    fun materializationPlan_expandsEveryDirectoryFileOnce() {
+        File(extracted, "Data/Scripts/A.pex").apply {
+            parentFile?.mkdirs()
+            writeText("a")
+        }
+        File(extracted, "Data/Textures/B.dds").apply {
+            parentFile?.mkdirs()
+            writeText("b")
+        }
+
+        val plan = ModMaterializer.materializationPlan(
+            install = install(),
+            recipes = listOf(
+                recipe(mode = ModPlacementMode.OVERWRITE_COPY).copy(
+                    sourceSubpath = "Data",
+                    targetRelativePath = "Data",
+                ),
+            ),
+            gameRootDir = gameDir,
+            winePrefix = "",
+        )
+
+        assertTrue(plan.isComplete)
+        assertEquals(listOf("Data/Scripts/A.pex", "Data/Textures/B.dds"), plan.files.map { it.targetRelativePath }.sorted())
+        assertEquals(2, plan.files.map { it.normalizedTargetKey }.distinct().size)
+    }
+
+    @Test
     fun restoreBackups_replacesMatchingSymlinkWithoutChangingLinkDestination() = runBlocking {
         File(extracted, "config.ini").writeText("modded")
         val target = File(gameDir, "config.ini").apply { writeText("original") }

@@ -341,6 +341,7 @@ private data class ModDiagnosticsSnapshot(
 )
 
 private data class ProfileOrderPlan(
+    val profileId: String,
     val stateByInstallId: Map<String, ModProfileInstallState>,
     val disabledInstalls: List<ModInstall>,
     val configuredInstalls: List<ModInstall>,
@@ -1514,6 +1515,7 @@ fun NexusModsDialog(
                             install.installId in missingTargetRepairInstallIds
                     }
                     ProfileOrderPlan(
+                        profileId = profile.profileId,
                         stateByInstallId = stateByInstallId,
                         disabledInstalls = disabledInstalls,
                         configuredInstalls = configuredInstalls,
@@ -1628,6 +1630,8 @@ fun NexusModsDialog(
                                 allowOverwrite = effectiveAllowOverwrite,
                                 saveLastPlacement = false,
                                 preserveStatusOnError = true,
+                                profileId = plan.profileId,
+                                priority = plan.stateByInstallId[install.installId]?.priority ?: 0,
                             )
                         }
                         errors += result.errors.size
@@ -2801,17 +2805,7 @@ fun NexusModsDialog(
         allowOverwrite: Boolean,
     ) {
         loadingMessage = context.getString(R.string.nexus_applying_mod_files)
-        val (cleanupSkipped, result) = withContext(Dispatchers.IO) {
-            val oldRecipes = dao.getRecipesForInstall(install.installId)
-            val skipped = NexusModManager.cleanupBeforeRecipeReplacement(
-                context = context,
-                install = install,
-                oldRecipes = oldRecipes,
-                newRecipes = recipes,
-                gameRootDir = gameRootDir,
-                winePrefix = winePrefix,
-            )
-            dao.replaceRecipes(install.installId, recipes)
+        val result = withContext(Dispatchers.IO) {
             val applied = NexusModManager.applyInstall(
                 context = context,
                 install = install,
@@ -2821,16 +2815,17 @@ fun NexusModsDialog(
                 allowOverwrite = allowOverwrite,
             )
             if (applied.errors.isEmpty()) {
+                dao.replaceRecipes(install.installId, recipes)
                 val profile = activeProfile ?: ModProfileManager.ensureActiveProfile(dao, libraryItem.appId)
                 val state = ModProfileManager.ensureStateForInstall(dao, profile, install.installId)
                 dao.upsertProfileInstallState(state.copy(enabled = true, updatedAt = System.currentTimeMillis()))
             }
-            skipped to applied
+            applied
         }
         val message = if (result.errors.isEmpty()) {
             lastPlacementDrafts = recipes.map { it.toDraft() }
-            val cleanupSuffix = if (cleanupSkipped.isNotEmpty()) {
-                context.getString(R.string.nexus_old_files_left_in_place_suffix, cleanupSkipped.size)
+            val cleanupSuffix = if (result.warnings.isNotEmpty()) {
+                context.getString(R.string.nexus_old_files_left_in_place_suffix, result.warnings.size)
             } else {
                 ""
             }
