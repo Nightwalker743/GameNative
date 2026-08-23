@@ -145,17 +145,21 @@ data class ModInstallPlan(
         blockingIssues.sorted().forEach { appendLine("blocker: ${ModDiagnosticSanitizer.text(it)}") }
     }
 
-    fun withRiskyRootApproval(approved: Boolean): ModInstallPlan = copy(
-        files = files.map { file ->
+    fun withRiskApproval(approved: Boolean): ModInstallPlan = PlacementRiskPolicy.enforce(this).let { plan ->
+        plan.copy(
+        files = plan.files.map { file ->
             if (file.risk == PlacementRisk.UNSAFE) file.copy(riskApproved = approved) else file
         },
         blockingIssues = when {
-            approved -> blockingIssues.filterNot { it == RISKY_ROOT_REVIEW_BLOCKER }
-            files.none { it.risk == PlacementRisk.UNSAFE } -> blockingIssues
-            RISKY_ROOT_REVIEW_BLOCKER in blockingIssues -> blockingIssues
-            else -> blockingIssues + RISKY_ROOT_REVIEW_BLOCKER
+            approved -> plan.blockingIssues.filterNot { it == RISKY_ROOT_REVIEW_BLOCKER }
+            plan.files.none { it.risk == PlacementRisk.UNSAFE } -> plan.blockingIssues
+            RISKY_ROOT_REVIEW_BLOCKER in plan.blockingIssues -> plan.blockingIssues
+            else -> plan.blockingIssues + RISKY_ROOT_REVIEW_BLOCKER
         },
-    )
+        )
+    }
+
+    fun withRiskyRootApproval(approved: Boolean): ModInstallPlan = withRiskApproval(approved)
 
     companion object {
         const val RISKY_ROOT_REVIEW_BLOCKER = "Risky game-root installer content requires review"

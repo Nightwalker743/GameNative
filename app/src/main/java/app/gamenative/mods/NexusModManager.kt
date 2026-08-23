@@ -580,12 +580,13 @@ object NexusModManager {
             .toSet()
         val ownershipRoot = cacheRoot(context, install.appId)
         val previousOwnership = ModOwnershipStore.read(ownershipRoot, install.installId)
+        val authoritativePlan = reviewedPlan ?: previousOwnership?.reviewedPlanOrNull()
         val plan = ModMaterializer.materializationPlan(
             install = install,
             recipes = recipes,
             gameRootDir = gameRootDir,
             winePrefix = winePrefix,
-            reviewedPlan = reviewedPlan,
+            reviewedPlan = authoritativePlan,
         )
         var journal = ModDeploymentJournalStore.begin(ownershipRoot, install.installId, install.appId, plan)
         checkpointHook(ModDeploymentCheckpoint.PLANNED)
@@ -662,14 +663,12 @@ object NexusModManager {
         advance(ModDeploymentCheckpoint.ROLLING_BACK, "Apply or verification failed")
         val restoreSkipped = ModMaterializer.restoreBackups(result.manifests)
         val restoredTargets = result.manifests
+            .filter { it.backupPath.isNotBlank() }
             .map { it.targetPath }
             .filterNot { it in restoreSkipped }
             .toSet()
-        val removeSkipped = ModMaterializer.removeAppliedFiles(
-            install = install,
-            recipes = recipes,
-            gameRootDir = gameRootDir,
-            winePrefix = winePrefix,
+        val removeSkipped = ModMaterializer.rollbackAppliedPlan(
+            plan = plan,
             restoredOverwriteTargets = restoredTargets,
         )
         result.manifests
@@ -695,6 +694,7 @@ object NexusModManager {
         recipes: List<ModPlacementRecipe>,
         gameRootDir: File?,
         winePrefix: String,
+        reviewedPlan: ModInstallPlan? = null,
     ): ModPlacementResult =
         ModDeploymentCoordinator.withGameLock(install.appId) {
             ModMaterializer.repairMissingTargets(
@@ -702,8 +702,44 @@ object NexusModManager {
                 recipes = recipes,
                 gameRootDir = gameRootDir,
                 winePrefix = winePrefix,
+                reviewedPlan = reviewedPlan,
             )
         }
+
+    suspend fun restorePreviousDeployment(
+        context: Context,
+        install: ModInstall,
+        recipes: List<ModPlacementRecipe>,
+        gameRootDir: File?,
+        winePrefix: String,
+        profileId: String = "",
+        priority: Int = 0,
+    ): ModPlacementResult {
+        val previous = withContext(Dispatchers.IO) {
+            ModOwnershipStore.readPrevious(cacheRoot(context, install.appId), install.installId)
+        }
+        val plan = previous?.reviewedPlanOrNull()
+            ?: return ModPlacementResult(
+                created = 0,
+                skipped = 0,
+                backedUp = 0,
+                errors = mapOf(install.modName to "No previous reviewed deployment is available"),
+                manifests = emptyList(),
+            )
+        return applyInstall(
+            context = context,
+            install = install,
+            recipes = recipes,
+            gameRootDir = gameRootDir,
+            winePrefix = winePrefix,
+            allowOverwrite = true,
+            saveLastPlacement = false,
+            preserveStatusOnError = true,
+            profileId = profileId,
+            priority = priority,
+            reviewedPlan = plan,
+        )
+    }
 
     fun lastPlacementRecipesForApp(appId: String, installId: String): List<ModPlacementRecipe> {
         val root = runCatching { JSONObject(PrefManager.nexusLastPlacementJson) }.getOrElse { JSONObject() }
@@ -1223,10 +1259,11 @@ object NexusModManager {
         recipes: List<ModPlacementRecipe>,
         gameRootDir: File?,
         winePrefix: String,
+        reviewedPlan: ModInstallPlan? = null,
     ): Boolean =
         install.status == ModInstallStatus.APPLIED.name &&
             recipes.any { it.enabled } &&
-            missingAppliedTargets(install, recipes, gameRootDir, winePrefix).isNotEmpty()
+            missingAppliedTargets(install, recipes, gameRootDir, winePrefix, reviewedPlan).isNotEmpty()
 
     suspend fun archiveEntries(install: ModInstall): List<ModArchiveEntry> =
         withContext(Dispatchers.IO) { ModArchiveExtractor.listExtractedEntries(File(install.extractedPath)) }
@@ -1422,6 +1459,7 @@ object NexusModManager {
         recipes: List<ModPlacementRecipe>,
         gameRootDir: File?,
         winePrefix: String,
+        reviewedPlan: ModInstallPlan? = null,
     ): List<String> {
         val missing = mutableListOf<String>()
         val plan = ModMaterializer.materializationPlan(
@@ -1430,6 +1468,7 @@ object NexusModManager {
             gameRootDir,
             winePrefix,
             captureTargetHashes = false,
+            reviewedPlan = reviewedPlan,
         )
         missing += plan.errors.values
         plan.operations.filter { it.mode == ModPlacementMode.SYMLINK }.forEach { entry ->

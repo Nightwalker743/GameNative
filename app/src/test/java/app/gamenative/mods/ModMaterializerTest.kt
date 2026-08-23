@@ -793,6 +793,31 @@ class ModMaterializerTest {
         assertEquals("modded", linkedFile.readText())
     }
 
+    @Test
+    fun rollbackAppliedPlan_restoresExistingFilesAndRemovesOnlyNewPlanTargets() = runBlocking {
+        File(extracted, "Data/config.ini").apply { parentFile?.mkdirs(); writeText("modded") }
+        File(extracted, "Data/new.txt").writeText("new")
+        val existing = File(gameDir, "Data/config.ini").apply { parentFile?.mkdirs(); writeText("original") }
+        val created = File(gameDir, "Data/new.txt")
+        val plan = ModMaterializer.materializationPlan(
+            install(),
+            listOf(recipe(ModPlacementMode.OVERWRITE_COPY, "Data", "Data")),
+            gameDir,
+            "",
+        )
+        val applied = ModMaterializer.apply(install(), plan, backupDir, allowOverwrite = true)
+        val restoreSkipped = ModMaterializer.restoreBackups(applied.manifests)
+        val restored = applied.manifests
+            .filter { it.backupPath.isNotBlank() && it.targetPath !in restoreSkipped }
+            .mapTo(mutableSetOf()) { it.targetPath }
+
+        val rollbackSkipped = ModMaterializer.rollbackAppliedPlan(plan, restored)
+
+        assertTrue(rollbackSkipped.toString(), rollbackSkipped.isEmpty())
+        assertEquals("original", existing.readText())
+        assertFalse(created.exists())
+    }
+
     private fun install() = ModInstall(
         installId = "install",
         appId = "STEAM_1",

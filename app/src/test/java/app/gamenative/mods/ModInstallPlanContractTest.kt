@@ -48,6 +48,25 @@ class ModInstallPlanContractTest {
         assertFalse("/data/user" in sanitized)
     }
 
+    @Test
+    fun oneRiskPolicy_protectsExecutableRootsRegardlessOfPlanOrigin() {
+        val rootDll = file("dxgi.dll", PlannedFileStatus.PLACED, "FOMOD mapping").copy(
+            targetRelativePath = "dxgi.dll",
+            origin = PlacementOrigin.FOMOD_OPTION,
+        )
+        val dataDll = rootDll.copy(
+            sourceRelativePath = "MCMHelper.dll",
+            targetRelativePath = "Data/SKSE/Plugins/MCMHelper.dll",
+        )
+
+        val guarded = PlacementRiskPolicy.enforce(ModInstallPlan(listOf(rootDll, dataDll)))
+
+        assertEquals(PlacementRisk.UNSAFE, guarded.files.first().risk)
+        assertEquals(PlacementRisk.SAFE, guarded.files.last().risk)
+        assertFalse(guarded.isComplete)
+        assertTrue(guarded.withRiskApproval(true).isComplete)
+    }
+
     private fun plan(
         placed: List<String>,
         ignored: List<String> = emptyList(),

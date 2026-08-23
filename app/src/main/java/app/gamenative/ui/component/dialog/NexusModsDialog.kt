@@ -110,6 +110,7 @@ import app.gamenative.mods.ModHealthSeverity
 import app.gamenative.mods.ModImportProgress
 import app.gamenative.mods.ModInstallPlan
 import app.gamenative.mods.ModMaterializer
+import app.gamenative.mods.PlannedFileStatus
 import app.gamenative.mods.ModPathDetector
 import app.gamenative.mods.ModPlacementConflict
 import app.gamenative.mods.ModPlacementPreset
@@ -141,6 +142,7 @@ import app.gamenative.mods.NexusUserInfo
 import app.gamenative.mods.PendingNexusWebsiteDownload
 import app.gamenative.mods.NexusUrlParser
 import app.gamenative.mods.isPastPendingTtl
+import app.gamenative.mods.reviewedPlanOrNull
 import app.gamenative.service.NexusModImportService
 import app.gamenative.ui.screen.auth.NexusOAuthBrowserLauncher
 import app.gamenative.ui.util.LocalSnackbarHostController
@@ -356,6 +358,7 @@ private data class ProfileOrderPlan(
     val rebuildManagedOverlay: Boolean,
     val missingTargetRepairInstallIds: Set<String>,
     val recipesByInstallId: Map<String, List<ModPlacementRecipe>>,
+    val reviewedPlansByInstallId: Map<String, ModInstallPlan>,
     val recipesToPersistByInstallId: Map<String, List<ModPlacementRecipe>>,
     val unconfiguredCount: Int,
     val unconfiguredNames: List<String>,
@@ -1557,14 +1560,20 @@ fun NexusModsDialog(
                         }
                         install.installId to effectiveRecipes
                     }
-                    val configuredInstalls = orderedInstalls.filter { recipesByInstallId[it.installId].orEmpty().isNotEmpty() }
-                    val unconfiguredInstalls = orderedInstalls - configuredInstalls.toSet()
                     val allOwnership = currentInstalls.mapNotNull { install ->
                         app.gamenative.mods.ModOwnershipStore.read(
                             NexusModManager.cacheRoot(context, libraryItem.appId),
                             install.installId,
                         )
                     }
+                    val reviewedPlansByInstallId = allOwnership.mapNotNull { ownership ->
+                        ownership.reviewedPlanOrNull()?.let { ownership.installId to it }
+                    }.toMap()
+                    val configuredInstalls = orderedInstalls.filter { install ->
+                        recipesByInstallId[install.installId].orEmpty().isNotEmpty() ||
+                            install.installId in reviewedPlansByInstallId
+                    }
+                    val unconfiguredInstalls = orderedInstalls - configuredInstalls.toSet()
                     val configuredOwnershipIds = allOwnership
                         .filter { it.state == app.gamenative.mods.ModOwnershipState.ACTIVE }
                         .mapTo(mutableSetOf()) { it.installId }
@@ -1608,6 +1617,7 @@ fun NexusModsDialog(
                                 recipes = recipesByInstallId[install.installId].orEmpty(),
                                 gameRootDir = gameRootDir,
                                 winePrefix = winePrefix,
+                                reviewedPlan = reviewedPlansByInstallId[install.installId],
                             )
                         }
                         .mapTo(mutableSetOf()) { it.installId }
@@ -1630,6 +1640,7 @@ fun NexusModsDialog(
                         rebuildManagedOverlay = rebuildManagedOverlay,
                         missingTargetRepairInstallIds = missingTargetRepairInstallIds,
                         recipesByInstallId = recipesByInstallId,
+                        reviewedPlansByInstallId = reviewedPlansByInstallId,
                         recipesToPersistByInstallId = recipesToPersistByInstallId,
                         unconfiguredCount = unconfiguredInstalls.size,
                         unconfiguredNames = unconfiguredInstalls.map { it.modName },
@@ -1662,12 +1673,16 @@ fun NexusModsDialog(
                                 recipes = plan.recipesByInstallId[install.installId].orEmpty(),
                                 gameRootDir = gameRootDir,
                                 winePrefix = winePrefix,
+                                reviewedPlan = plan.reviewedPlansByInstallId[install.installId],
                             )
                         }
                         ProfileOrderConflictCheck(
                             rawConflicts = rawConflicts,
                             conflicts = ModMaterializer.filterUnapprovedConflicts(rawConflicts, overwriteManifests),
-                            hasOverwriteRecipe = plan.recipesByInstallId.values.flatten().any { it.mode == ModPlacementMode.OVERWRITE_COPY.name },
+                            hasOverwriteRecipe = plan.recipesByInstallId.values.flatten().any { it.mode == ModPlacementMode.OVERWRITE_COPY.name } ||
+                                plan.reviewedPlansByInstallId.values.any { reviewed ->
+                                    reviewed.files.any { it.status == PlannedFileStatus.PLACED && it.mode == ModPlacementMode.OVERWRITE_COPY.name }
+                                },
                         )
                     }
                     if (check.conflicts.isNotEmpty() && check.hasOverwriteRecipe) {
@@ -1747,6 +1762,7 @@ fun NexusModsDialog(
                                 recipes = recipes,
                                 gameRootDir = gameRootDir,
                                 winePrefix = winePrefix,
+                                reviewedPlan = plan.reviewedPlansByInstallId[install.installId],
                             )
                         } else {
                             NexusModManager.applyInstall(
@@ -1764,6 +1780,7 @@ fun NexusModsDialog(
                                 preserveStatusOnError = true,
                                 profileId = plan.profileId,
                                 priority = plan.stateByInstallId[install.installId]?.priority ?: 0,
+                                reviewedPlan = plan.reviewedPlansByInstallId[install.installId],
                             )
                         }
                         errors += result.errors.size

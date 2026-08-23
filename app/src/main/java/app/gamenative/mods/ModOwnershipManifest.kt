@@ -69,11 +69,13 @@ data class ModInstallDecision(
     val outcome: String,
     val risk: String = PlacementRisk.SAFE.name,
     val riskApproved: Boolean = false,
+    val sizeBytes: Long = 0L,
+    val evidence: List<String> = emptyList(),
 )
 
 @Serializable
 data class ModOwnershipManifest(
-    val version: Int = 2,
+    val version: Int = 3,
     val installId: String,
     val appId: String,
     val profileId: String = "",
@@ -84,8 +86,60 @@ data class ModOwnershipManifest(
     val decisions: List<ModInstallDecision> = emptyList(),
     val planProducerId: String = "legacy",
     val planProducerVersion: Int = 1,
+    val reviewedPlanDigest: String = "",
+    val planWarnings: List<String> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
 )
+
+fun ModOwnershipManifest.reviewedPlanOrNull(): ModInstallPlan? {
+    val ownedBySourceAndTarget = files.associateBy { it.sourceRelativePath to it.normalizedTargetKey }
+    val planned = if (decisions.isNotEmpty()) {
+        decisions.mapNotNull { decision ->
+            val status = runCatching { PlannedFileStatus.valueOf(decision.status) }.getOrNull() ?: return@mapNotNull null
+            val origin = runCatching { PlacementOrigin.valueOf(decision.origin) }.getOrDefault(PlacementOrigin.MANUAL_RECIPE)
+            val owned = ownedBySourceAndTarget[decision.sourceRelativePath to decision.normalizedTargetKey]
+                ?: files.firstOrNull { it.sourceRelativePath == decision.sourceRelativePath }
+            PlannedModFile(
+                sourceRelativePath = decision.sourceRelativePath,
+                targetRoot = decision.targetRoot.takeIf(String::isNotBlank) ?: owned?.targetRoot,
+                targetRelativePath = decision.targetRelativePath.takeIf(String::isNotBlank) ?: owned?.targetRelativePath,
+                normalizedTargetKey = decision.normalizedTargetKey.takeIf(String::isNotBlank) ?: owned?.normalizedTargetKey,
+                status = status,
+                origin = origin,
+                mode = decision.mode,
+                priority = decision.priority,
+                sizeBytes = decision.sizeBytes.takeIf { it > 0L } ?: owned?.installedSize ?: 0L,
+                reason = decision.reason.ifBlank { "Restored from the applied ownership manifest" },
+                evidence = decision.evidence,
+                risk = runCatching { PlacementRisk.valueOf(decision.risk) }.getOrDefault(PlacementRisk.SAFE),
+                riskApproved = decision.riskApproved,
+            )
+        }
+    } else {
+        files.filter { it.active }.map { owned ->
+            PlannedModFile(
+                sourceRelativePath = owned.sourceRelativePath,
+                targetRoot = owned.targetRoot,
+                targetRelativePath = owned.targetRelativePath,
+                normalizedTargetKey = owned.normalizedTargetKey,
+                status = PlannedFileStatus.PLACED,
+                origin = PlacementOrigin.MANUAL_RECIPE,
+                mode = owned.mode,
+                sizeBytes = owned.installedSize,
+                reason = "Conservatively adopted from a historical ownership manifest",
+            )
+        }
+    }
+    if (planned.none { it.status == PlannedFileStatus.PLACED }) return null
+    return PlacementRiskPolicy.enforce(
+        ModInstallPlan(
+            files = planned,
+            warnings = planWarnings,
+            producerId = planProducerId,
+            producerVersion = planProducerVersion,
+        ),
+    )
+}
 
 data class ModOverlayContribution(
     val installId: String,
@@ -262,6 +316,10 @@ object ModOwnershipStore {
     fun read(root: File, installId: String): ModOwnershipManifest? =
         readFile(currentFile(root, installId)) ?: readFile(previousFile(root, installId))
 
+    fun readPrevious(root: File, installId: String): ModOwnershipManifest? = readFile(previousFile(root, installId))
+
+    fun reviewedPlan(root: File, installId: String): ModInstallPlan? = read(root, installId)?.reviewedPlanOrNull()
+
     fun readAll(root: File): List<ModOwnershipManifest> =
         ownershipDir(root).listFiles()
             .orEmpty()
@@ -286,7 +344,8 @@ object ModOwnershipStore {
     }
 
     fun commit(root: File, installId: String) {
-        previousFile(root, installId).delete()
+        // Keep one prior deployment so a successful reconfigure can be undone without
+        // retaining an unbounded history. The next write rotates it atomically.
     }
 
     fun delete(root: File, installId: String) {
@@ -372,10 +431,14 @@ object ModOwnershipStore {
                     },
                     risk = decision.risk.name,
                     riskApproved = decision.riskApproved,
+                    sizeBytes = decision.sizeBytes,
+                    evidence = decision.evidence,
                 )
             },
             planProducerId = plan.reviewedPlan.producerId,
             planProducerVersion = plan.reviewedPlan.producerVersion,
+            reviewedPlanDigest = plan.reviewedPlan.digest,
+            planWarnings = plan.reviewedPlan.warnings,
         )
     }
 

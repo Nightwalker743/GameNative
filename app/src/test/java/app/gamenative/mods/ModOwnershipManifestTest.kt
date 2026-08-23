@@ -106,6 +106,43 @@ class ModOwnershipManifestTest {
         assertEquals(1, diff.stale)
     }
 
+    @Test
+    fun ownershipDecisions_restoreTheReviewedPlan_andKeepOneUndoGeneration() {
+        val root = temporaryFolder.newFolder("history")
+        val first = manifest("install", "Data/First.txt", "one", priority = 1).copy(
+            decisions = listOf(
+                ModInstallDecision(
+                    sourceRelativePath = "First.txt",
+                    targetRoot = "GAME_DIR",
+                    targetRelativePath = "Data/First.txt",
+                    normalizedTargetKey = "game_dir:data/first.txt",
+                    status = PlannedFileStatus.PLACED.name,
+                    origin = PlacementOrigin.FOMOD_REQUIRED.name,
+                    mode = ModPlacementMode.OVERWRITE_COPY.name,
+                    priority = 4,
+                    reason = "Required installer file",
+                    outcome = "CREATED",
+                    sizeBytes = 3,
+                    evidence = listOf("requiredFiles"),
+                ),
+            ),
+            planProducerId = "fomod",
+            planProducerVersion = 2,
+        )
+        val second = first.copy(planDigest = "second", files = first.files.map { it.copy(installedHash = "two") })
+        ModOwnershipStore.writePending(root, first)
+        ModOwnershipStore.commit(root, first.installId)
+        ModOwnershipStore.writePending(root, second)
+        ModOwnershipStore.commit(root, second.installId)
+
+        val restored = ModOwnershipStore.reviewedPlan(root, "install")
+
+        assertEquals("fomod", restored?.producerId)
+        assertEquals("Data/First.txt", restored?.files?.single()?.targetRelativePath)
+        assertEquals(listOf("requiredFiles"), restored?.files?.single()?.evidence)
+        assertEquals(first, ModOwnershipStore.readPrevious(root, "install"))
+    }
+
     private fun owned(source: String, target: String): ModOwnedFile = ModOwnedFile(
         sourceRelativePath = source,
         targetRoot = "GAME_DIR",

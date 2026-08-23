@@ -38,6 +38,7 @@ data class ModPlannedEntry(
     val sourceRelativePath: String = "",
     val targetRelativePath: String = "",
     val normalizedTargetKey: String = WindowsPathIdentity.absoluteKey(target),
+    val targetExistedBefore: Boolean = target.exists() || Files.isSymbolicLink(target.toPath()),
 )
 
 data class ModPlannedFile(
@@ -241,10 +242,18 @@ object ModMaterializer {
         recipes: List<ModPlacementRecipe>,
         gameRootDir: File?,
         winePrefix: String,
+        reviewedPlan: ModInstallPlan? = null,
     ): ModPlacementResult = withContext(Dispatchers.IO) {
         var created = 0
         var skipped = 0
-        val plan = materializationPlan(install, recipes, gameRootDir, winePrefix, captureTargetHashes = false)
+        val plan = materializationPlan(
+            install,
+            recipes,
+            gameRootDir,
+            winePrefix,
+            captureTargetHashes = false,
+            reviewedPlan = reviewedPlan,
+        )
         val errors = linkedMapOf<String, String>().apply { putAll(plan.errors) }
 
         plan.operations.forEach { entry ->
@@ -337,6 +346,47 @@ object ModMaterializer {
         skipped.distinct()
     }
 
+    /** Roll back only targets proven to have been absent before this exact plan. */
+    suspend fun rollbackAppliedPlan(
+        plan: ModMaterializationPlan,
+        restoredOverwriteTargets: Set<String> = emptySet(),
+    ): List<String> = withContext(Dispatchers.IO) {
+        val skipped = mutableListOf<String>()
+        val restoredKeys = restoredOverwriteTargets.mapTo(mutableSetOf()) {
+            WindowsPathIdentity.absoluteKey(File(it))
+        }
+
+        plan.operations
+            .filter { it.mode == ModPlacementMode.SYMLINK && !it.targetExistedBefore }
+            .sortedByDescending { it.target.absolutePath.length }
+            .forEach { operation ->
+                runCatching { removeSymlink(operation.target, operation.source, skipped) }
+                    .onFailure { skipped += operation.target.absolutePath }
+            }
+
+        plan.files.asReversed()
+            .filter { file ->
+                file.mode != ModPlacementMode.SYMLINK &&
+                    !file.targetExistedBefore &&
+                    file.normalizedTargetKey !in restoredKeys
+            }
+            .forEach { file ->
+                runCatching {
+                    val target = file.target
+                    if (!target.exists() && !Files.isSymbolicLink(target.toPath())) return@runCatching
+                    val currentHash = if (target.isFile) sha256(target) else ""
+                    val sourceHash = if (file.source.isFile) sha256(file.source) else ""
+                    if (target.isFile && sourceHash.isNotBlank() && currentHash == sourceHash) {
+                        target.delete()
+                        target.parentFile?.let { deleteEmptyDirs(it, stopAt = target.parentFile?.parentFile) }
+                    } else {
+                        skipped += target.absolutePath
+                    }
+                }.onFailure { skipped += file.target.absolutePath }
+            }
+        skipped.distinct()
+    }
+
     fun materializationPlan(
         install: ModInstall,
         recipes: List<ModPlacementRecipe>,
@@ -346,7 +396,13 @@ object ModMaterializer {
         reviewedPlan: ModInstallPlan? = null,
     ): ModMaterializationPlan {
         if (reviewedPlan != null) {
-            return resolveReviewedPlan(install, reviewedPlan, gameRootDir, winePrefix, captureTargetHashes)
+            return resolveReviewedPlan(
+                install,
+                PlacementRiskPolicy.enforce(reviewedPlan),
+                gameRootDir,
+                winePrefix,
+                captureTargetHashes,
+            )
         }
         val operations = mutableListOf<ModPlannedEntry>()
         val errors = linkedMapOf<String, String>()
@@ -391,7 +447,7 @@ object ModMaterializer {
         if (files.isEmpty()) {
             errors[install.modName] = "The reviewed placement does not contain any materialized files"
         }
-        val manualPlan = ModInstallPlan(
+        val manualPlan = PlacementRiskPolicy.enforce(ModInstallPlan(
             files = files.map { file ->
                 PlannedModFile(
                     sourceRelativePath = file.sourceRelativePath,
@@ -408,7 +464,7 @@ object ModMaterializer {
             blockingIssues = errors.values.distinct(),
             producerId = "manual-recipes",
             producerVersion = 1,
-        )
+        ))
         return ModMaterializationPlan(install.installId, operations, files, errors, manualPlan)
     }
 
