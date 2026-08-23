@@ -2357,4 +2357,12 @@
     <string name="favorite_added">즐겨찾기에 추가됨</string>
     <string name="favorite_added_named">%1$s을(를) 즐겨찾기에 추가함</string>
     <string name="xr_refresh_rate">VR 재생 빈도</string>
+    <string name="nexus_plan_review_title">배치 검토</string>
+    <string name="nexus_plan_coverage">파일 %2$d개 중 %1$d개 계획됨 • %3$d개 제외됨 • %4$d개 검토 필요</string>
+    <string name="nexus_plan_ranked">순위별 제안</string>
+    <string name="nexus_plan_score">%1$d. %2$s — 포함률 %3$d%%</string>
+    <string name="nexus_plan_case_merge">대소문자 병합: %1$s</string>
+    <string name="nexus_plan_ambiguous_case">대소문자만 다른 모호한 항목이 이미 있습니다</string>
+    <string name="nexus_plan_blocked">설치 가능한 모든 파일의 대상 위치가 확인될 때까지 자동 적용이 차단됩니다.</string>
+    <string name="nexus_plan_export">진단 공유</string>
 </resources>

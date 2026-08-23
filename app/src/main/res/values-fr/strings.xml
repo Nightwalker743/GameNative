@@ -2362,4 +2362,12 @@
     <string name="favorite_added">Ajouté aux favoris</string>
     <string name="favorite_added_named">%1$s ajouté aux favoris</string>
     <string name="xr_refresh_rate">Taux de rafraîchissement VR</string>
+    <string name="nexus_plan_review_title">Vérification du placement</string>
+    <string name="nexus_plan_coverage">%1$d fichiers planifiés sur %2$d • %3$d ignorés • %4$d à vérifier</string>
+    <string name="nexus_plan_ranked">Suggestions classées</string>
+    <string name="nexus_plan_score">%1$d. %2$s — couverture de %3$d%%</string>
+    <string name="nexus_plan_case_merge">Fusion de casse : %1$s</string>
+    <string name="nexus_plan_ambiguous_case">des variantes de casse ambiguës existent déjà</string>
+    <string name="nexus_plan_blocked">L’application automatique est bloquée tant que chaque fichier installable n’a pas de destination vérifiée.</string>
+    <string name="nexus_plan_export">Partager le diagnostic</string>
 </resources>

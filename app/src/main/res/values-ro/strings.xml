@@ -2366,4 +2366,12 @@
     <string name="favorite_added">Adăugat la favorite</string>
     <string name="favorite_added_named">%1$s adăugat la favorite</string>
     <string name="xr_refresh_rate">Rată de reîmprospătare VR</string>
+    <string name="nexus_plan_review_title">Verificarea amplasării</string>
+    <string name="nexus_plan_coverage">%1$d din %2$d fișiere planificate • %3$d ignorate • %4$d de verificat</string>
+    <string name="nexus_plan_ranked">Sugestii clasificate</string>
+    <string name="nexus_plan_score">%1$d. %2$s — acoperire %3$d%%</string>
+    <string name="nexus_plan_case_merge">Îmbinare majuscule/minuscule: %1$s</string>
+    <string name="nexus_plan_ambiguous_case">există deja variante ambigue de majuscule/minuscule</string>
+    <string name="nexus_plan_blocked">Aplicarea automată este blocată până când fiecare fișier instalabil are o destinație verificată.</string>
+    <string name="nexus_plan_export">Partajează diagnosticul</string>
 </resources>

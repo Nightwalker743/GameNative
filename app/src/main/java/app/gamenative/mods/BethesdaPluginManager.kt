@@ -89,8 +89,16 @@ object BethesdaPluginManager {
         installs.filter { it.status == ModInstallStatus.APPLIED.name }.flatMap { install ->
             val recipes = recipesByInstallId[install.installId].orEmpty()
             runCatching {
-                ModMaterializer.plannedEntries(install, recipes, gameRootDir, winePrefix)
-                    .flatMap { entry -> entry.toPluginFiles() }
+                val plan = ModMaterializer.materializationPlan(
+                    install,
+                    recipes,
+                    gameRootDir,
+                    winePrefix,
+                    captureTargetHashes = false,
+                )
+                check(plan.isComplete) { plan.errors.values.joinToString() }
+                plan.files
+                    .filter { file -> file.source.extension.lowercase() in pluginExtensions }
                     .map { plugin ->
                         BethesdaPlugin(
                             fileName = plugin.target.name,
@@ -285,28 +293,6 @@ object BethesdaPluginManager {
         val fileName = trimmed.removePrefix("*").trim()
         if (fileName.isBlank()) return null
         return PluginEntry(fileName = fileName, enabled = enabled)
-    }
-
-    private data class PlannedPluginFile(val source: File, val target: File)
-
-    private fun ModPlannedEntry.toPluginFiles(): List<PlannedPluginFile> {
-        if (source.isFile) {
-            return if (source.extension.lowercase() in pluginExtensions) {
-                listOf(PlannedPluginFile(source, target))
-            } else {
-                emptyList()
-            }
-        }
-        if (!source.isDirectory) return emptyList()
-        val sourceRoot = source.canonicalFile
-        return source.walkTopDown()
-            .filter { it.isFile && it.extension.lowercase() in pluginExtensions }
-            .mapNotNull { file ->
-                val relative = file.canonicalFile.relativeToOrNull(sourceRoot)?.path ?: return@mapNotNull null
-                val resolvedTarget = ModTargetResolver.resolveWithin(target, relative) ?: return@mapNotNull null
-                PlannedPluginFile(file, resolvedTarget)
-            }
-            .toList()
     }
 
     private fun pluginTypeRank(name: String): Int = when (name.substringAfterLast('.', "").lowercase()) {

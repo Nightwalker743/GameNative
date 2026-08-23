@@ -113,19 +113,25 @@ data class ModInstallPlan(
         files.sortedBy { it.sourceRelativePath.lowercase() }.forEach { file ->
             append(file.status.name)
             append(' ')
-            append(file.sourceRelativePath)
+            append(ModDiagnosticSanitizer.relativePath(file.sourceRelativePath))
             if (file.targetRoot != null && file.targetRelativePath != null) {
                 append(" -> ")
                 append(file.targetRoot)
                 append('/')
-                append(file.targetRelativePath)
+                append(
+                    if (file.targetRoot == "CUSTOM_ABSOLUTE") {
+                        "<custom-path>"
+                    } else {
+                        ModDiagnosticSanitizer.relativePath(file.targetRelativePath)
+                    },
+                )
             }
             append(" [")
-            append(file.reason.replace('\n', ' '))
+            append(ModDiagnosticSanitizer.text(file.reason))
             appendLine(']')
         }
-        warnings.sorted().forEach { appendLine("warning: ${it.replace('\n', ' ')}") }
-        blockingIssues.sorted().forEach { appendLine("blocker: ${it.replace('\n', ' ')}") }
+        warnings.sorted().forEach { appendLine("warning: ${ModDiagnosticSanitizer.text(it)}") }
+        blockingIssues.sorted().forEach { appendLine("blocker: ${ModDiagnosticSanitizer.text(it)}") }
     }
 }
 

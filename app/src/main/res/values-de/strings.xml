@@ -2302,4 +2302,12 @@
     <string name="favorite_added">Zu Favoriten hinzugefügt</string>
     <string name="favorite_added_named">%1$s zu Favoriten hinzugefügt</string>
     <string name="xr_refresh_rate">VR-Bildwiederholrate</string>
+    <string name="nexus_plan_review_title">Platzierung prüfen</string>
+    <string name="nexus_plan_coverage">%1$d von %2$d Dateien geplant • %3$d ignoriert • %4$d zu prüfen</string>
+    <string name="nexus_plan_ranked">Sortierte Vorschläge</string>
+    <string name="nexus_plan_score">%1$d. %2$s — %3$d%% Abdeckung</string>
+    <string name="nexus_plan_case_merge">Groß-/Kleinschreibung zusammengeführt: %1$s</string>
+    <string name="nexus_plan_ambiguous_case">mehrdeutige Varianten der Groß-/Kleinschreibung sind bereits vorhanden</string>
+    <string name="nexus_plan_blocked">Die automatische Anwendung ist blockiert, bis jede installierbare Datei ein eindeutiges Ziel hat.</string>
+    <string name="nexus_plan_export">Diagnose teilen</string>
 </resources>

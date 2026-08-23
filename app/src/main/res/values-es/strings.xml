@@ -2360,4 +2360,12 @@
     <string name="favorite_added">Añadido a favoritos</string>
     <string name="favorite_added_named">%1$s añadido a favoritos</string>
     <string name="xr_refresh_rate">Frecuencia de actualización de RV</string>
+    <string name="nexus_plan_review_title">Revisión de ubicación</string>
+    <string name="nexus_plan_coverage">%1$d de %2$d archivos planificados • %3$d ignorados • %4$d por revisar</string>
+    <string name="nexus_plan_ranked">Sugerencias clasificadas</string>
+    <string name="nexus_plan_score">%1$d. %2$s — %3$d%% de cobertura</string>
+    <string name="nexus_plan_case_merge">Unificación de mayúsculas: %1$s</string>
+    <string name="nexus_plan_ambiguous_case">ya existen variantes ambiguas de mayúsculas y minúsculas</string>
+    <string name="nexus_plan_blocked">La aplicación automática está bloqueada hasta que cada archivo instalable tenga un destino comprobado.</string>
+    <string name="nexus_plan_export">Compartir diagnóstico</string>
 </resources>

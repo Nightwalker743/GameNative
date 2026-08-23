@@ -36,6 +36,18 @@ class ModInstallPlanContractTest {
         assertEquals(first.digest, second.digest)
     }
 
+    @Test
+    fun diagnosticSanitizer_removesCredentialsAndAbsolutePaths() {
+        val sanitized = ModDiagnosticSanitizer.text(
+            "C:\\Games\\Skyrim\\Data https://example.invalid/file?X-Amz-Credential=secret&X-Amz-Signature=123 " +
+                "/data/user/0/app/file",
+        )
+
+        assertFalse("secret" in sanitized)
+        assertFalse("C:\\Games" in sanitized)
+        assertFalse("/data/user" in sanitized)
+    }
+
     private fun plan(
         placed: List<String>,
         ignored: List<String> = emptyList(),

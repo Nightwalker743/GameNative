@@ -21,25 +21,7 @@ data class AutomaticPlacementResult(
 )
 
 object AutomaticPlacementPlanner {
-    private val bethesdaContentDirectories = setOf(
-        "meshes",
-        "textures",
-        "scripts",
-        "interface",
-        "sound",
-        "sounds",
-        "strings",
-        "skse",
-        "f4se",
-        "sfse",
-        "seq",
-        "video",
-        "music",
-        "lodsettings",
-        "calientetools",
-        "nemesis_engine",
-    )
-    private val bethesdaDataExtensions = setOf("esp", "esm", "esl", "bsa", "ba2")
+    private val bethesdaRule = ModPlacementRulePacks.bethesda
 
     fun plan(gameName: String, entries: List<ModArchiveEntry>): AutomaticPlacementResult {
         val index = ModArchiveIndex.build(entries)
@@ -139,11 +121,13 @@ object AutomaticPlacementPlanner {
             if (bestData != null) add("Found ${bestData.displayPath} as a Data container")
             val anchors = index.nodes.flatMapTo(mutableSetOf()) { it.semanticAnchors }.sorted()
             if (anchors.isNotEmpty()) add("Recognized Data content: ${anchors.joinToString()}")
-            val loose = index.files.count { it.displayPath.substringAfterLast('.').lowercase(Locale.ROOT) in bethesdaDataExtensions }
+            val loose = index.files.count {
+                it.displayPath.substringAfterLast('.').lowercase(Locale.ROOT) in bethesdaRule.looseExtensions
+            }
             if (loose > 0) add("Found $loose Bethesda plugin/archive file(s)")
         }
         return candidateFromDrafts(
-            id = "rules:bethesda-data-v1",
+            id = "rules:${bethesdaRule.stableId}-v${bethesdaRule.version}",
             label = "Complete Bethesda Data plan",
             description = "Maps recognized Data content and loose plugins while preserving content folders.",
             drafts = drafts,
@@ -167,9 +151,9 @@ object AutomaticPlacementPlanner {
     private fun bethesdaSourceForFile(file: IndexedArchiveFile): String? {
         if (file.role != ArchiveContentRole.INSTALLABLE) return null
         val segments = file.displayPath.split('/')
-        val anchorIndex = segments.indexOfFirst { it.lowercase(Locale.ROOT) in bethesdaContentDirectories }
+        val anchorIndex = segments.indexOfFirst { it.lowercase(Locale.ROOT) in bethesdaRule.directoryTargets }
         if (anchorIndex >= 0) return segments.take(anchorIndex + 1).joinToString("/")
-        if (file.displayPath.substringAfterLast('.', "").lowercase(Locale.ROOT) in bethesdaDataExtensions) {
+        if (file.displayPath.substringAfterLast('.', "").lowercase(Locale.ROOT) in bethesdaRule.looseExtensions) {
             return file.displayPath
         }
         return null

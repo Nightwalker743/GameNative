@@ -2362,4 +2362,12 @@
     <string name="favorite_added">Додано до вибраного</string>
     <string name="favorite_added_named">%1$s додано до вибраного</string>
     <string name="xr_refresh_rate">Частота оновлення VR</string>
+    <string name="nexus_plan_review_title">Перевірка розміщення</string>
+    <string name="nexus_plan_coverage">Заплановано файлів: %1$d із %2$d • пропущено: %3$d • потребують перевірки: %4$d</string>
+    <string name="nexus_plan_ranked">Ранжовані пропозиції</string>
+    <string name="nexus_plan_score">%1$d. %2$s — покриття %3$d%%</string>
+    <string name="nexus_plan_case_merge">Об’єднання регістру: %1$s</string>
+    <string name="nexus_plan_ambiguous_case">неоднозначні варіанти регістру вже існують</string>
+    <string name="nexus_plan_blocked">Автоматичне застосування заблоковано, доки для кожного встановлюваного файлу не підтверджено місце призначення.</string>
+    <string name="nexus_plan_export">Поділитися діагностикою</string>
 </resources>

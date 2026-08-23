@@ -2316,4 +2316,12 @@
     <string name="favorite_added">お気に入りに追加しました</string>
     <string name="favorite_added_named">%1$s をお気に入りに追加しました</string>
     <string name="xr_refresh_rate">VRリフレッシュレート</string>
+    <string name="nexus_plan_review_title">配置の確認</string>
+    <string name="nexus_plan_coverage">%2$d 個中 %1$d 個のファイルを計画 • %3$d 個を除外 • %4$d 個を要確認</string>
+    <string name="nexus_plan_ranked">候補ランキング</string>
+    <string name="nexus_plan_score">%1$d. %2$s — カバー率 %3$d%%</string>
+    <string name="nexus_plan_case_merge">大文字小文字を統合: %1$s</string>
+    <string name="nexus_plan_ambiguous_case">大文字小文字だけが異なる曖昧な項目がすでに存在します</string>
+    <string name="nexus_plan_blocked">インストール可能なすべてのファイルの配置先が確認されるまで、自動適用はブロックされます。</string>
+    <string name="nexus_plan_export">診断情報を共有</string>
 </resources>

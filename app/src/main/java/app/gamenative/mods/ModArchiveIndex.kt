@@ -38,31 +38,27 @@ data class ModArchiveIndex(
     fun filesUnder(sourcePath: String): List<IndexedArchiveFile> {
         val key = normalizedArchiveKey(sourcePath) ?: return emptyList()
         if (key.isBlank()) return files
-        return files.filter { it.normalizedKey == key || it.normalizedKey.startsWith("$key/") }
+        val prefix = "$key/"
+        var low = 0
+        var high = files.size
+        while (low < high) {
+            val middle = (low + high) ushr 1
+            if (files[middle].normalizedKey < key) low = middle + 1 else high = middle
+        }
+        var end = low
+        while (end < files.size && (files[end].normalizedKey == key || files[end].normalizedKey.startsWith(prefix))) {
+            end++
+        }
+        return files.subList(low, end).toList()
     }
 
     fun isDirectory(sourcePath: String): Boolean {
         val key = normalizedArchiveKey(sourcePath) ?: return false
-        return nodes.any { it.normalizedKey == key } || files.any { it.normalizedKey.startsWith("$key/") }
+        return nodes.binarySearchBy(key) { it.normalizedKey } >= 0
     }
 
     companion object {
-        private val semanticAnchors = setOf(
-            "meshes",
-            "textures",
-            "scripts",
-            "interface",
-            "sound",
-            "sounds",
-            "strings",
-            "skse",
-            "f4se",
-            "sfse",
-            "seq",
-            "video",
-            "music",
-            "lodsettings",
-        )
+        private val semanticAnchors = ModPlacementRulePacks.archiveSemanticAnchors
 
         fun build(entries: List<ModArchiveEntry>): ModArchiveIndex {
             val indexedFiles = entries.asSequence()
@@ -79,29 +75,38 @@ data class ModArchiveIndex(
                 }
                 .sortedWith(compareBy<IndexedArchiveFile> { it.normalizedKey }.thenBy { it.displayPath })
                 .toList()
-            val directoryPaths = buildSet {
-                entries.filter { it.directory }.forEach { entry ->
-                    normalizeArchiveDisplayPath(entry.path).takeIf(String::isNotBlank)?.let(::add)
-                }
-                indexedFiles.forEach { file ->
-                    val segments = file.displayPath.split('/')
-                    (1 until segments.size).forEach { count -> add(segments.take(count).joinToString("/")) }
+            val displayPaths = sortedMapOf<String, String>()
+            val counts = mutableMapOf<String, Int>()
+            val bytes = mutableMapOf<String, Long>()
+            val anchors = mutableMapOf<String, MutableSet<String>>()
+            entries.asSequence().filter { it.directory }.forEach { entry ->
+                val display = normalizeArchiveDisplayPath(entry.path)
+                val key = normalizedArchiveKey(display)
+                if (display.isNotBlank() && key != null) displayPaths.merge(key, display, ::stableDisplayPath)
+            }
+            indexedFiles.forEach { file ->
+                val displaySegments = file.displayPath.split('/')
+                val keySegments = file.normalizedKey.split('/')
+                val fileAnchors = keySegments.filterTo(mutableSetOf()) { it in semanticAnchors }
+                (1 until keySegments.size).forEach { count ->
+                    val key = keySegments.take(count).joinToString("/")
+                    val display = displaySegments.take(count).joinToString("/")
+                    displayPaths.merge(key, display, ::stableDisplayPath)
+                    counts[key] = counts.getOrDefault(key, 0) + 1
+                    bytes[key] = bytes.getOrDefault(key, 0L) + file.sizeBytes
+                    anchors.getOrPut(key, ::mutableSetOf).addAll(fileAnchors)
                 }
             }
-            val nodes = directoryPaths.mapNotNull { path ->
-                val key = normalizedArchiveKey(path) ?: return@mapNotNull null
-                val descendants = indexedFiles.filter { it.normalizedKey.startsWith("$key/") }
+            val nodes = displayPaths.map { (key, display) ->
                 ArchiveTreeNode(
-                    displayPath = path,
+                    displayPath = display,
                     normalizedKey = key,
-                    descendantFileCount = descendants.size,
-                    descendantBytes = descendants.sumOf { it.sizeBytes },
-                    semanticAnchors = descendants.flatMapTo(mutableSetOf()) { descendant ->
-                        descendant.normalizedKey.split('/').filter { it in semanticAnchors }
-                    },
-                    optionStyleWrapper = looksLikeOptionWrapper(path.substringAfterLast('/')),
+                    descendantFileCount = counts.getOrDefault(key, 0),
+                    descendantBytes = bytes.getOrDefault(key, 0L),
+                    semanticAnchors = anchors[key].orEmpty(),
+                    optionStyleWrapper = looksLikeOptionWrapper(display.substringAfterLast('/')),
                 )
-            }.sortedBy { it.normalizedKey }
+            }
             return ModArchiveIndex(
                 files = indexedFiles,
                 nodes = nodes,
@@ -140,6 +145,9 @@ data class ModArchiveIndex(
             return Regex("^\\d{1,2}[ _.-]").containsMatchIn(normalized) ||
                 listOf("optional", "option", "variant", "choose", "pick one").any(normalized::contains)
         }
+
+        private fun stableDisplayPath(left: String, right: String): String =
+            minOf(left, right, compareBy<String> { it.lowercase(Locale.ROOT) }.thenBy { it })
     }
 }
 

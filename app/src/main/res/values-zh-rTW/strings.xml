@@ -2368,4 +2368,12 @@
     <string name="favorite_added">已加入收藏</string>
     <string name="favorite_added_named">已將 %1$s 加入收藏</string>
     <string name="xr_refresh_rate">VR 重新整理頻率</string>
+    <string name="nexus_plan_review_title">放置檢查</string>
+    <string name="nexus_plan_coverage">已規劃 %1$d/%2$d 個檔案 • 已忽略 %3$d 個 • %4$d 個需要檢查</string>
+    <string name="nexus_plan_ranked">建議排名</string>
+    <string name="nexus_plan_score">%1$d. %2$s — 涵蓋率 %3$d%%</string>
+    <string name="nexus_plan_case_merge">大小寫合併：%1$s</string>
+    <string name="nexus_plan_ambiguous_case">已存在大小寫不明確的變體</string>
+    <string name="nexus_plan_blocked">在每個可安裝檔案都有明確目的地之前，自動套用將被封鎖。</string>
+    <string name="nexus_plan_export">分享診斷資訊</string>
 </resources>

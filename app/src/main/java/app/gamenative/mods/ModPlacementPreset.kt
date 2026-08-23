@@ -18,24 +18,7 @@ data class ModPlacementPresetDraft(
 )
 
 object ModPlacementPresetDetector {
-    private val bethesdaContentDirs = setOf(
-        "meshes",
-        "textures",
-        "scripts",
-        "interface",
-        "sound",
-        "sounds",
-        "seq",
-        "skse",
-        "f4se",
-        "sfse",
-        "strings",
-        "video",
-        "music",
-        "lodsettings",
-        "calientetools",
-        "nemesis_engine",
-    )
+    private val bethesdaRule = ModPlacementRulePacks.bethesda
 
     fun detect(gameName: String, entries: List<ModArchiveEntry>): List<ModPlacementPreset> {
         if (entries.isEmpty()) return emptyList()
@@ -70,7 +53,7 @@ object ModPlacementPresetDetector {
             else -> ""
         }
         return ModPlacementPreset(
-            id = "bethesda-data",
+            id = bethesdaRule.stableId,
             label = "Bethesda Data folder",
             description = "For Skyrim, Fallout, Oblivion, Morrowind, and Starfield mods.",
             drafts = listOf(
@@ -84,15 +67,17 @@ object ModPlacementPresetDetector {
     }
 
     private fun detectBepInEx(entries: List<ModArchiveEntry>): ModPlacementPreset? {
-        val source = entries.findDirectoryPath("BepInEx") ?: return null
+        val rule = ModPlacementRulePacks.bepInEx
+        val sourceName = rule.directoryTargets.keys.single()
+        val source = entries.findDirectoryPath(sourceName) ?: return null
         return ModPlacementPreset(
-            id = "bepinex",
+            id = rule.stableId,
             label = "BepInEx mod",
             description = "Places BepInEx plugins, patchers, config, and related folders into BepInEx.",
             drafts = listOf(
                 ModPlacementPresetDraft(
                     sourceSubpath = source,
-                    targetRelativePath = "BepInEx",
+                    targetRelativePath = rule.directoryTargets.getValue(sourceName),
                     includeSourceDirectory = false,
                 ),
             ),
@@ -100,19 +85,19 @@ object ModPlacementPresetDetector {
     }
 
     private fun detectMelonLoader(entries: List<ModArchiveEntry>): ModPlacementPreset? {
-        val drafts = listOf("Mods", "UserData", "Plugins")
-            .mapNotNull { name ->
-                entries.findDirectoryPath(name)?.let { source ->
-                    ModPlacementPresetDraft(
-                        sourceSubpath = source,
-                        targetRelativePath = name,
-                        includeSourceDirectory = false,
-                    )
-                }
+        val rule = ModPlacementRulePacks.melonLoader
+        val drafts = rule.directoryTargets.mapNotNull { (sourceName, target) ->
+            entries.findDirectoryPath(sourceName)?.let { source ->
+                ModPlacementPresetDraft(
+                    sourceSubpath = source,
+                    targetRelativePath = target,
+                    includeSourceDirectory = false,
+                )
             }
+        }
         if (drafts.isEmpty()) return null
         return ModPlacementPreset(
-            id = "melonloader",
+            id = rule.stableId,
             label = "MelonLoader mod",
             description = "Places MelonLoader Mods, Plugins, or UserData folders into the game folder.",
             drafts = drafts,
@@ -120,6 +105,7 @@ object ModPlacementPresetDetector {
     }
 
     private fun detectUnreal(entries: List<ModArchiveEntry>): ModPlacementPreset? {
+        val rule = ModPlacementRulePacks.unreal
         val contentPaks = entries.findDirectoryPath("Content/Paks")
         val paks = entries.findDirectoryPath("Paks")
         val loosePakFiles = entries
@@ -127,7 +113,7 @@ object ModPlacementPresetDetector {
             .map { it.path }
             .filter { path ->
                 path.count { it == '/' } == 0 &&
-                    listOf(".pak", ".ucas", ".utoc").any { path.endsWith(it, ignoreCase = true) }
+                    path.substringAfterLast('.', "").lowercase(Locale.ROOT) in rule.looseExtensions
             }
 
         val source = when {
@@ -137,7 +123,7 @@ object ModPlacementPresetDetector {
             else -> return null
         }
         return ModPlacementPreset(
-            id = "unreal-paks",
+            id = rule.stableId,
             label = "Unreal Engine Paks",
             description = "Places Pak, UCAS, and UTOC files into Content/Paks.",
             drafts = listOf(
@@ -154,19 +140,11 @@ object ModPlacementPresetDetector {
         gameName: String,
         entries: List<ModArchiveEntry>,
     ): ModPlacementPreset? {
-        val looksLikeCyberpunk = gameName.lowercase(Locale.US).let { name ->
-            name.contains("cyberpunk") || name.contains("redmod")
-        }
+        val rule = ModPlacementRulePacks.redmod
+        val looksLikeCyberpunk = gameName.lowercase(Locale.US).let { name -> rule.gameNameTokens.any(name::contains) }
         if (!looksLikeCyberpunk) return null
-        val targets = listOf(
-            "archive/pc/mod",
-            "r6",
-            "red4ext",
-            "bin/x64/plugins",
-            "mods",
-        )
-        val drafts = targets.mapNotNull { target ->
-            entries.findDirectoryPath(target)?.let { source ->
+        val drafts = rule.directoryTargets.mapNotNull { (sourcePath, target) ->
+            entries.findDirectoryPath(sourcePath)?.let { source ->
                 ModPlacementPresetDraft(
                     sourceSubpath = source,
                     targetRelativePath = target,
@@ -176,7 +154,7 @@ object ModPlacementPresetDetector {
         }
         if (drafts.isEmpty()) return null
         return ModPlacementPreset(
-            id = "redmod",
+            id = rule.stableId,
             label = "Cyberpunk / REDmod",
             description = "Places archive, r6, red4ext, bin plugin, or REDmod folders into the game.",
             drafts = drafts,
@@ -210,7 +188,7 @@ object ModPlacementPresetDetector {
         val roots = mapNotNull { entry ->
             val path = normalizePath(entry.path)
             val segments = path.split('/').filter { it.isNotBlank() }
-            val contentIndex = segments.indexOfFirst { it.lowercase(Locale.US) in bethesdaContentDirs }
+            val contentIndex = segments.indexOfFirst { it.lowercase(Locale.US) in bethesdaRule.directoryTargets }
             when {
                 contentIndex == 0 -> segments.first()
                 contentIndex > 0 -> segments.take(contentIndex).joinToString("/")
@@ -230,11 +208,11 @@ object ModPlacementPresetDetector {
         val normalized = normalizePath(source)
         return normalized.isNotBlank() &&
             !normalized.contains("/") &&
-            normalized.lowercase(Locale.US) in bethesdaContentDirs
+            normalized.lowercase(Locale.US) in bethesdaRule.directoryTargets
     }
 
     private fun String.endsWithBethesdaDataFile(): Boolean =
-        listOf(".esp", ".esm", ".esl", ".bsa", ".ba2").any { endsWith(it, ignoreCase = true) }
+        substringAfterLast('.', "").lowercase(Locale.US) in bethesdaRule.looseExtensions
 
     private fun normalizePath(path: String): String =
         path.replace('\\', '/')

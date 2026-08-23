@@ -79,6 +79,21 @@ data class ModHealthReport(
 ) {
     val errorCount: Int get() = issues.count { it.severity == ModHealthSeverity.ERROR }
     val warningCount: Int get() = issues.count { it.severity == ModHealthSeverity.WARNING }
+
+    fun sanitizedManifest(): String = buildString {
+        appendLine("health-version: 1")
+        appendLine("errors: $errorCount")
+        appendLine("warnings: $warningCount")
+        issues.forEach { issue ->
+            append(issue.severity.name)
+            append(' ')
+            if (issue.installName.isNotBlank()) append("${ModDiagnosticSanitizer.text(issue.installName)}: ")
+            append(ModDiagnosticSanitizer.text(issue.title))
+            append(" [")
+            append(ModDiagnosticSanitizer.text(issue.detail))
+            appendLine(']')
+        }
+    }
 }
 
 object NexusModManager {
@@ -690,31 +705,6 @@ object NexusModManager {
         root.put(appId, savedRecipes)
         PrefManager.nexusLastPlacementJson = root.toString()
     }
-
-    private fun samePlacementRecipes(
-        first: List<ModPlacementRecipe>,
-        second: List<ModPlacementRecipe>,
-    ): Boolean =
-        first.map(::recipeKey).sorted() == second.map(::recipeKey).sorted()
-
-    private fun recipeKey(recipe: ModPlacementRecipe): String =
-        listOf(
-            recipe.sourceSubpath,
-            recipe.targetRoot,
-            normalizedRecipeTarget(recipe).lowercase(),
-            recipe.targetFileName.lowercase(),
-            recipe.mode,
-            recipe.stripPrefixSegments.toString(),
-            recipe.includeSourceDirectory.toString(),
-            recipe.enabled.toString(),
-        ).joinToString("|")
-
-    private fun normalizedRecipeTarget(recipe: ModPlacementRecipe): String =
-        if (recipe.targetRoot == ModTargetRoot.CUSTOM_ABSOLUTE.name) {
-            recipe.targetRelativePath.trim().replace('\\', '/')
-        } else {
-            ModTargetResolver.normalizeRelativePath(recipe.targetRelativePath)
-        }
 
     suspend fun disableInstall(
         context: Context,
@@ -1359,39 +1349,25 @@ object NexusModManager {
         winePrefix: String,
     ): List<String> {
         val missing = mutableListOf<String>()
-        recipes.filter { it.enabled }.forEach { recipe ->
-            val mode = runCatching { ModPlacementMode.valueOf(recipe.mode) }.getOrDefault(ModPlacementMode.SYMLINK)
-            val entries = runCatching {
-                ModMaterializer.plannedEntries(install, listOf(recipe), gameRootDir, winePrefix)
-            }.getOrElse { e ->
-                missing += e.message ?: "${recipe.targetRoot}:${recipe.targetRelativePath}"
-                return@forEach
+        val plan = ModMaterializer.materializationPlan(
+            install,
+            recipes,
+            gameRootDir,
+            winePrefix,
+            captureTargetHashes = false,
+        )
+        missing += plan.errors.values
+        plan.operations.filter { it.mode == ModPlacementMode.SYMLINK }.forEach { entry ->
+            if (!Files.isSymbolicLink(entry.target.toPath()) && !entry.target.exists()) {
+                missing += entry.target.absolutePath
             }
-            entries.forEach { entry ->
-                missing += missingTargetsForEntry(entry, mode)
-                if (missing.size >= 3) return missing
-            }
+            if (missing.size >= 3) return missing.take(3)
+        }
+        plan.files.filter { it.mode != ModPlacementMode.SYMLINK }.forEach { file ->
+            if (!file.target.isFile) missing += file.target.absolutePath
+            if (missing.size >= 3) return missing.take(3)
         }
         return missing
-    }
-
-    private fun missingTargetsForEntry(entry: ModPlannedEntry, mode: ModPlacementMode): List<String> {
-        if (mode == ModPlacementMode.SYMLINK) {
-            return if (Files.isSymbolicLink(entry.target.toPath()) || entry.target.exists()) emptyList() else listOf(entry.target.absolutePath)
-        }
-        if (entry.source.isFile) {
-            return if (entry.target.isFile) emptyList() else listOf(entry.target.absolutePath)
-        }
-        if (!entry.source.isDirectory) return emptyList()
-        return entry.source.walkTopDown()
-            .filter { it.isFile }
-            .take(50)
-            .mapNotNull { sourceFile ->
-                val relative = sourceFile.relativeTo(entry.source).path
-                File(entry.target, relative).takeUnless { it.isFile }?.absolutePath
-            }
-            .take(3)
-            .toList()
     }
 
     private fun partialFileFor(archiveFile: File): File? =

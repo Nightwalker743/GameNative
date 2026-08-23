@@ -18,6 +18,7 @@ class WindowsTargetNamespace(
 ) {
     private val root = root.canonicalFile
     private val listingCache = mutableMapOf<String, Map<String, List<File>>>()
+    private val plannedChildren = mutableMapOf<String, MutableMap<String, File>>()
 
     fun resolve(relativePath: String): WindowsTargetResolution {
         val segments = WindowsPathIdentity.relativeSegments(relativePath)
@@ -26,12 +27,12 @@ class WindowsTargetNamespace(
         val caseMerges = mutableListOf<String>()
         val ambiguities = mutableListOf<String>()
 
-        segments.forEachIndexed { index, requested ->
+        for ((index, requested) in segments.withIndex()) {
             val matches = childrenByWindowsName(current)[WindowsPathIdentity.segmentKey(requested)].orEmpty()
             when {
                 matches.size > 1 -> {
                     ambiguities += segments.take(index + 1).joinToString("/")
-                    return@forEachIndexed
+                    break
                 }
                 matches.size == 1 -> {
                     val existing = matches.single()
@@ -41,7 +42,21 @@ class WindowsTargetNamespace(
                     }
                     current = existing
                 }
-                else -> current = File(current, requested)
+                else -> {
+                    val parentKey = directoryKey(current)
+                    val requestedKey = WindowsPathIdentity.segmentKey(requested)
+                    val planned = plannedChildren[parentKey]?.get(requestedKey)
+                    if (planned != null) {
+                        if (planned.name != requested) {
+                            caseMerges += "${segments.take(index).joinToString("/")}/$requested -> ${planned.name}"
+                                .trimStart('/')
+                        }
+                        current = planned
+                    } else {
+                        current = File(current, requested)
+                        plannedChildren.getOrPut(parentKey, ::mutableMapOf)[requestedKey] = current
+                    }
+                }
             }
         }
 
@@ -55,10 +70,11 @@ class WindowsTargetNamespace(
 
     fun invalidate() {
         listingCache.clear()
+        plannedChildren.clear()
     }
 
     private fun childrenByWindowsName(dir: File): Map<String, List<File>> {
-        val key = runCatching { dir.canonicalPath }.getOrDefault(dir.absolutePath)
+        val key = directoryKey(dir)
         return listingCache.getOrPut(key) {
             if (!dir.isDirectory) {
                 emptyMap()
@@ -67,6 +83,9 @@ class WindowsTargetNamespace(
             }
         }
     }
+
+    private fun directoryKey(dir: File): String =
+        WindowsPathIdentity.absoluteKey(runCatching { dir.canonicalFile }.getOrDefault(dir.absoluteFile))
 }
 
 object WindowsPathIdentity {

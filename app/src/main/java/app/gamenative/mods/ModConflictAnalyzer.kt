@@ -34,8 +34,17 @@ object ModConflictAnalyzer {
         val plannedFiles = installs.flatMap { install ->
             val recipes = recipesByInstallId[install.installId].orEmpty()
             runCatching {
-                ModMaterializer.plannedEntries(install, recipes, gameRootDir, winePrefix)
-                    .flatMap { it.toPlannedFiles() }
+                val plan = ModMaterializer.materializationPlan(
+                    install,
+                    recipes,
+                    gameRootDir,
+                    winePrefix,
+                    captureTargetHashes = false,
+                )
+                check(plan.isComplete) { plan.errors.values.joinToString() }
+                plan.files.map { file ->
+                    PlannedFile(file.installId, file.source, file.target)
+                }
             }.getOrElse { error ->
                 Timber.w(error, "Skipping Nexus conflict analysis for install %s", install.installId)
                 emptyList()
@@ -76,22 +85,6 @@ object ModConflictAnalyzer {
         val source: File,
         val target: File,
     )
-
-    private fun ModPlannedEntry.toPlannedFiles(): List<PlannedFile> {
-        if (source.isFile) {
-            return listOf(PlannedFile(installId, source, target))
-        }
-        if (!source.isDirectory) return emptyList()
-        val sourceRoot = source.canonicalFile
-        return source.walkTopDown()
-            .filter { it.isFile }
-            .mapNotNull { file ->
-                val relative = file.canonicalFile.relativeToOrNull(sourceRoot)?.path ?: return@mapNotNull null
-                val resolvedTarget = ModTargetResolver.resolveWithin(target, relative) ?: return@mapNotNull null
-                PlannedFile(installId, file, resolvedTarget)
-            }
-            .toList()
-    }
 
     private fun relativeTargetPath(path: String, gameRootDir: File?, winePrefix: String): String {
         val target = File(path)

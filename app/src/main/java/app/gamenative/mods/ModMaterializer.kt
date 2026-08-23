@@ -93,7 +93,7 @@ object ModMaterializer {
         gameRootDir: File?,
         winePrefix: String,
     ): List<ModPlacementConflict> = withContext(Dispatchers.IO) {
-        val plan = materializationPlan(install, recipes, gameRootDir, winePrefix)
+        val plan = materializationPlan(install, recipes, gameRootDir, winePrefix, captureTargetHashes = false)
         buildList {
             plan.operations.forEach { entry ->
                     when (entry.mode) {
@@ -230,7 +230,7 @@ object ModMaterializer {
     ): ModPlacementResult = withContext(Dispatchers.IO) {
         var created = 0
         var skipped = 0
-        val plan = materializationPlan(install, recipes, gameRootDir, winePrefix)
+        val plan = materializationPlan(install, recipes, gameRootDir, winePrefix, captureTargetHashes = false)
         val errors = linkedMapOf<String, String>().apply { putAll(plan.errors) }
 
         plan.operations.forEach { entry ->
@@ -292,7 +292,7 @@ object ModMaterializer {
         restoredOverwriteTargets: Set<String> = emptySet(),
     ): List<String> = withContext(Dispatchers.IO) {
         val skipped = mutableListOf<String>()
-        val plan = materializationPlan(install, recipes, gameRootDir, winePrefix)
+        val plan = materializationPlan(install, recipes, gameRootDir, winePrefix, captureTargetHashes = false)
         plan.operations.forEach { entry ->
             runCatching {
                     when (entry.mode) {
@@ -327,6 +327,7 @@ object ModMaterializer {
         recipes: List<ModPlacementRecipe>,
         gameRootDir: File?,
         winePrefix: String,
+        captureTargetHashes: Boolean = true,
     ): ModMaterializationPlan {
         val operations = mutableListOf<ModPlannedEntry>()
         val errors = linkedMapOf<String, String>()
@@ -338,7 +339,23 @@ object ModMaterializer {
                     errors[key] = error.message ?: error::class.simpleName.orEmpty()
                 }
         }
-        val expandedFiles = operations.flatMap(::expandPlannedFiles)
+        val targetHashes = mutableMapOf<String, String>()
+        val targetNamespaces = mutableMapOf<String, WindowsTargetNamespace>()
+        val expandedFiles = buildList {
+            operations.forEach { entry ->
+                val targetNamespace = targetNamespaces.getOrPut(entry.normalizedTargetKey) {
+                    WindowsTargetNamespace(entry.target)
+                }
+                runCatching {
+                    expandPlannedFiles(entry, targetNamespace, targetHashes, captureTargetHashes)
+                }
+                    .onSuccess(::addAll)
+                    .onFailure { error ->
+                        errors[entry.sourceRelativePath.ifBlank { entry.targetRelativePath }] =
+                            error.message ?: error::class.simpleName.orEmpty()
+                    }
+            }
+        }
         val files = expandedFiles.groupBy { it.normalizedTargetKey }.flatMap { (targetKey, values) ->
             val distinctSources = values.map { it.source.canonicalPath }.distinct()
             when {
@@ -356,13 +373,6 @@ object ModMaterializer {
         }
         return ModMaterializationPlan(install.installId, operations, files, errors)
     }
-
-    fun plannedEntries(
-        install: ModInstall,
-        recipes: List<ModPlacementRecipe>,
-        gameRootDir: File?,
-        winePrefix: String,
-    ): List<ModPlannedEntry> = materializationPlan(install, recipes, gameRootDir, winePrefix).operations
 
     private fun plannedEntries(
         install: ModInstall,
@@ -472,11 +482,22 @@ object ModMaterializer {
         )
     }
 
-    private fun expandPlannedFiles(entry: ModPlannedEntry): List<ModPlannedFile> {
+    private fun expandPlannedFiles(
+        entry: ModPlannedEntry,
+        targetNamespace: WindowsTargetNamespace,
+        targetHashes: MutableMap<String, String>,
+        captureTargetHashes: Boolean,
+    ): List<ModPlannedFile> {
         val files = if (entry.source.isFile) sequenceOf(entry.source) else entry.source.walkTopDown().filter { it.isFile }
         return files.map { sourceFile ->
             val nested = if (entry.source.isFile) "" else sourceFile.relativeTo(entry.source).path
-            val targetFile = if (nested.isBlank()) entry.target else safeChildTarget(entry.target, nested)
+            val targetFile = if (nested.isBlank()) {
+                entry.target
+            } else {
+                targetNamespace.resolve(nested).takeIf { it.isValid }?.file
+                    ?: throw IOException("Target path escapes or is ambiguous in destination directory: $nested")
+            }
+            val targetKey = WindowsPathIdentity.absoluteKey(targetFile)
             ModPlannedFile(
                 installId = entry.installId,
                 source = sourceFile,
@@ -494,7 +515,13 @@ object ModMaterializer {
                 targetRelativePath = listOf(entry.targetRelativePath, nested.replace(File.separatorChar, '/'))
                     .filter(String::isNotBlank)
                     .joinToString("/"),
-                targetHashBefore = if (targetFile.isFile && !Files.isSymbolicLink(targetFile.toPath())) sha256(targetFile) else "",
+                targetHashBefore = if (
+                    captureTargetHashes && targetFile.isFile && !Files.isSymbolicLink(targetFile.toPath())
+                ) {
+                    targetHashes.getOrPut(targetKey) { sha256(targetFile) }
+                } else {
+                    ""
+                },
             )
         }.toList()
     }

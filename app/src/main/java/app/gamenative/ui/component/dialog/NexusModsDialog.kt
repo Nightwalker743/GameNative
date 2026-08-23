@@ -657,6 +657,7 @@ private fun InstallHealthSection(
     onCheck: () -> Unit,
     onRebuild: () -> Unit,
     onReconfigure: (String) -> Unit,
+    onExport: (ModHealthReport) -> Unit,
 ) {
     NexusSectionCard {
         NexusSectionHeader(stringResource(R.string.nexus_install_health_title), loading, stringResource(R.string.nexus_check), onCheck)
@@ -673,6 +674,9 @@ private fun InstallHealthSection(
                 Text(stringResource(R.string.nexus_install_health_summary, current.errorCount, current.warningCount), style = MaterialTheme.typography.bodySmall, color = summaryColor)
                 OutlinedButton(onClick = onRebuild, enabled = !loading, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.nexus_apply_order))
+                }
+                OutlinedButton(onClick = { onExport(current) }, enabled = !loading, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.nexus_plan_export))
                 }
                 current.issues.take(8).forEach { issue ->
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -3017,12 +3021,12 @@ fun NexusModsDialog(
         }
     }
 
-    fun exportPlacementPlan(install: ModInstall, plan: ModInstallPlan) {
+    fun shareDiagnostic(fileName: String, content: String) {
         scope.launch {
             val file = withContext(Dispatchers.IO) {
                 val outputDir = File(context.cacheDir, "mod-diagnostics").apply { mkdirs() }
-                File(outputDir, "placement-${install.installId.replace(Regex("[^A-Za-z0-9._-]"), "_")}.txt").apply {
-                    writeText(plan.sanitizedManifest())
+                File(outputDir, fileName.replace(Regex("[^A-Za-z0-9._-]"), "_")).apply {
+                    writeText(content)
                 }
             }
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
@@ -3034,6 +3038,12 @@ fun NexusModsDialog(
             context.startActivity(Intent.createChooser(intent, context.getString(R.string.nexus_plan_export)))
         }
     }
+
+    fun exportPlacementPlan(install: ModInstall, plan: ModInstallPlan) =
+        shareDiagnostic("placement-${install.installId}.txt", plan.sanitizedManifest())
+
+    fun exportHealthReport(report: ModHealthReport) =
+        shareDiagnostic("mod-health-${libraryItem.appId}.txt", report.sanitizedManifest())
 
     val issueCount = conflictReports.size + bethesdaPluginIssues.size + bethesdaPluginAssetIssues.size + (healthReport?.issues?.size ?: 0)
 
@@ -3355,6 +3365,7 @@ fun NexusModsDialog(
                                     installs.firstOrNull { it.installId == installId }?.let(::selectInstallForPlacement)
                                     selectedTab = ManageModsTab.PLACEMENT
                                 },
+                                onExport = ::exportHealthReport,
                             )
                             StorageCleanupSection(
                                 breakdown = storageBreakdown,

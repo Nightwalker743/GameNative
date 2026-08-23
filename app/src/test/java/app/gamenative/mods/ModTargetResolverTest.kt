@@ -126,6 +126,21 @@ class ModTargetResolverTest {
     }
 
     @Test
+    fun inspectPlan_reusesPlannedDirectoryCasing() {
+        val plan = ModInstallPlan(
+            files = listOf(
+                plannedFile("Data/Scripts/First.pex"),
+                plannedFile("data/scripts/Second.pex"),
+            ),
+        )
+
+        val inspection = ModTargetResolver.inspectPlan(plan, ModTargetResolver.roots(gameDir, winePrefix.absolutePath))
+
+        assertTrue(inspection.caseMerges.any { it.contains("scripts -> Scripts") })
+        assertTrue(inspection.ambiguousPaths.isEmpty())
+    }
+
+    @Test
     fun resolve_blocksAmbiguousExistingCaseVariants() {
         File(gameDir, "Data/Scripts").mkdirs()
         File(gameDir, "Data/scripts").mkdirs()
@@ -176,4 +191,14 @@ class ModTargetResolverTest {
         assertEquals(File(emptyPrefix, "drive_c/users/steamuser").canonicalFile, userHome.canonicalFile)
         assertTrue(userHome.isDirectory)
     }
+
+    private fun plannedFile(path: String) = PlannedModFile(
+        sourceRelativePath = path,
+        targetRoot = ModTargetRoot.GAME_DIR.name,
+        targetRelativePath = path,
+        normalizedTargetKey = ModTargetResolver.normalizedTargetKey(ModTargetRoot.GAME_DIR.name, path),
+        status = PlannedFileStatus.PLACED,
+        origin = PlacementOrigin.GAME_RULE,
+        reason = "fixture",
+    )
 }
