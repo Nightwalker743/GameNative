@@ -129,7 +129,7 @@ data class ModArchiveIndex(
             ) {
                 return ArchiveContentRole.DOCUMENTATION
             }
-            if (!normalized.contains('/') && listOf(".exe", ".bat", ".cmd", ".ps1", ".msi").any(name::endsWith)) {
+            if (!normalized.contains('/') && listOf(".dll", ".asi", ".exe", ".ini", ".bat", ".cmd", ".ps1", ".msi").any(name::endsWith)) {
                 return ArchiveContentRole.RISKY_ROOT
             }
             return ArchiveContentRole.INSTALLABLE

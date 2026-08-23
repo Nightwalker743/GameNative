@@ -17,6 +17,7 @@ data class AutomaticPlacementCandidate(
 data class AutomaticPlacementResult(
     val candidates: List<AutomaticPlacementCandidate>,
     val recommended: AutomaticPlacementCandidate?,
+    val optionGroups: List<GenericOptionGroup> = emptyList(),
 )
 
 object AutomaticPlacementPlanner {
@@ -42,6 +43,7 @@ object AutomaticPlacementPlanner {
 
     fun plan(gameName: String, entries: List<ModArchiveEntry>): AutomaticPlacementResult {
         val index = ModArchiveIndex.build(entries)
+        val optionGroups = GenericOptionSetDetector.detect(index)
         val legacy = ModPlacementPresetDetector.detect(gameName, entries).map { preset ->
             candidateFromDrafts(
                 id = "legacy:${preset.id}",
@@ -65,14 +67,28 @@ object AutomaticPlacementPlanner {
             )
         val baseline = legacy.firstOrNull()
         val bestGenerated = generated.maxWithOrNull(compareBy<AutomaticPlacementCandidate> { it.score }.thenBy { it.id })
-        val recommended = when {
+        val recommendedBase = when {
             bestGenerated == null -> baseline
             baseline == null -> bestGenerated
             PlacementPlanRegressionPolicy.canReplace(baseline.plan, bestGenerated.plan) &&
                 preservesExistingDestinations(baseline.plan, bestGenerated.plan) -> bestGenerated
             else -> baseline
         }
-        return AutomaticPlacementResult(ranked, recommended)
+        val optionMessage = optionGroups.firstOrNull()?.let { group ->
+            "Choose one package variant: ${group.choices.joinToString { it.sourceDirectory }}"
+        }
+        val reviewed = if (optionMessage == null) {
+            ranked
+        } else {
+            ranked.map { candidate ->
+                candidate.copy(
+                    plan = candidate.plan.copy(blockingIssues = (candidate.plan.blockingIssues + optionMessage).distinct()),
+                    evidence = candidate.evidence + optionMessage,
+                )
+            }
+        }
+        val recommended = recommendedBase?.let { base -> reviewed.firstOrNull { it.id == base.id } }
+        return AutomaticPlacementResult(reviewed, recommended, optionGroups)
     }
 
     fun inferIncludeSourceDirectory(
@@ -106,7 +122,7 @@ object AutomaticPlacementPlanner {
                     mode = ModPlacementMode.OVERWRITE_COPY.name,
                     includeSourceDirectory = false,
                 ),
-            )
+            ) + riskyGameRootDrafts(index)
         } else {
             val sources = index.files.mapNotNull(::bethesdaSourceForFile).distinctBy { it.lowercase(Locale.ROOT) }
             if (sources.isEmpty()) return null
@@ -136,6 +152,17 @@ object AutomaticPlacementPlanner {
             evidence = evidence,
         )
     }
+
+    private fun riskyGameRootDrafts(index: ModArchiveIndex): List<ModPlacementPresetDraft> =
+        index.files.filter { it.role == ArchiveContentRole.RISKY_ROOT && '/' !in it.displayPath }
+            .map { file ->
+                ModPlacementPresetDraft(
+                    sourceSubpath = file.displayPath,
+                    targetRelativePath = "",
+                    mode = ModPlacementMode.OVERWRITE_COPY.name,
+                    includeSourceDirectory = false,
+                )
+            }
 
     private fun bethesdaSourceForFile(file: IndexedArchiveFile): String? {
         if (file.role != ArchiveContentRole.INSTALLABLE) return null

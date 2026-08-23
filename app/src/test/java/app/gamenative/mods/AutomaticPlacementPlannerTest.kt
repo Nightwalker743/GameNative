@@ -59,6 +59,34 @@ class AutomaticPlacementPlannerTest {
         assertFalse(AutomaticPlacementPlanner.inferIncludeSourceDirectory(listOf("Data"), archive("Data/file.txt"), "Data"))
     }
 
+    @Test
+    fun ambiguousStructuralVariants_blockAutomaticChoiceAndKeepCommonFolderVisible() {
+        val result = AutomaticPlacementPlanner.plan(
+            "Skyrim Special Edition",
+            archive("Option A/Data/textures/x.dds", "Option B/Data/textures/x.dds", "Common/Data/scripts/y.pex"),
+        )
+
+        assertEquals(setOf("Option A", "Option B"), result.optionGroups.single().choices.map { it.sourceDirectory }.toSet())
+        assertEquals(listOf("Common"), result.optionGroups.single().commonSourceDirectories)
+        assertFalse(result.recommended!!.plan.isComplete)
+        assertTrue(result.recommended!!.plan.blockingIssues.any { "variant" in it.lowercase() })
+    }
+
+    @Test
+    fun mixedDataAndRootBinary_areSeparatedAndRootBinaryRequiresReview() {
+        val plan = AutomaticPlacementPlanner.plan(
+            "Skyrim Special Edition",
+            archive("Data/Scripts/x.pex", "dinput8.dll"),
+        ).recommended!!.plan
+
+        assertEquals(
+            setOf("Data/Scripts/x.pex", "dinput8.dll"),
+            plan.files.filter { it.status == PlannedFileStatus.PLACED }.mapNotNull { it.targetRelativePath }.toSet(),
+        )
+        assertFalse(plan.isComplete)
+        assertEquals(PlacementRisk.UNSAFE, plan.files.single { it.sourceRelativePath == "dinput8.dll" }.risk)
+    }
+
     private fun archive(vararg paths: String): List<ModArchiveEntry> =
         paths.map { ModArchiveEntry(it, directory = false, sizeBytes = 1L) }
 }

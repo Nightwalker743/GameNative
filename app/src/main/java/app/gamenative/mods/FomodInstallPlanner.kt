@@ -17,8 +17,12 @@ data class FomodSelectionEvaluation(
 )
 
 object FomodSelectionEvaluator {
-    fun evaluate(installer: FomodInstaller, selectedPluginKeys: Set<String>): FomodSelectionEvaluation {
-        val selectedPlugins = FomodRecipeGenerator.selectedPluginsForKeys(installer, selectedPluginKeys)
+    fun evaluate(
+        installer: FomodInstaller,
+        selectedPluginKeys: Set<String>,
+        environment: FomodEnvironmentSnapshot = FomodEnvironmentSnapshot(),
+    ): FomodSelectionEvaluation {
+        val selectedPlugins = FomodRecipeGenerator.selectedPluginsForKeys(installer, selectedPluginKeys, environment)
         val flags = linkedMapOf<String, String>()
         selectedPlugins.forEach { plugin -> plugin.conditionFlags.forEach { (name, value) -> flags[name] = value } }
         var ordinal = 0
@@ -32,7 +36,7 @@ object FomodSelectionEvaluator {
                 }
             }
             installer.conditionalFileInstalls.forEach { conditional ->
-                if (conditional.dependencies.unsupportedCount() == 0 && conditional.dependencies.matches(flags)) {
+                if (conditional.dependencies.evaluate(flags, environment) == FomodFactState.TRUE) {
                     conditional.files.forEach { mapping ->
                         add(FomodExpectedMapping(mapping, PlacementOrigin.FOMOD_CONDITIONAL, ordinal++))
                     }
@@ -41,6 +45,16 @@ object FomodSelectionEvaluator {
         }
         val blockers = buildList {
             addAll(installer.unsupportedWarnings)
+            when (installer.moduleDependencies.evaluate(flags, environment)) {
+                FomodFactState.FALSE -> add("The installed game does not satisfy this FOMOD's requirements")
+                FomodFactState.UNKNOWN -> if (installer.moduleDependencies.hasFacts()) {
+                    add("FOMOD game requirements could not be determined safely")
+                }
+                FomodFactState.TRUE -> Unit
+            }
+            if (installer.conditionalFileInstalls.any { it.dependencies.evaluate(flags, environment) == FomodFactState.UNKNOWN }) {
+                add("A selected FOMOD conditional depends on unknown game facts")
+            }
             if (installer.conditionalFileInstalls.any { it.dependencies.unsupportedCount() > 0 }) {
                 add("A selected FOMOD conditional uses unsupported dependencies")
             }
@@ -50,9 +64,19 @@ object FomodSelectionEvaluator {
             ) {
                 add("FOMOD option availability depends on unsupported game facts")
             }
+            if (
+                installer.steps.flatMap { it.groups }.flatMap { it.plugins }.flatMap { it.typePatterns }
+                    .any { it.dependencies.evaluate(flags, environment) == FomodFactState.UNKNOWN }
+            ) {
+                add("FOMOD option availability depends on unknown game facts")
+            }
         }
         return FomodSelectionEvaluation(expected, flags, blockers.distinct())
     }
+
+    private fun FomodDependencyExpression.hasFacts(): Boolean =
+        flagDependencies.isNotEmpty() || fileDependencies.isNotEmpty() || pluginDependencies.isNotEmpty() ||
+            gameDependencies.isNotEmpty() || childGroups.isNotEmpty() || unsupportedDependencyCount > 0
 }
 
 object FomodPlanExpander {

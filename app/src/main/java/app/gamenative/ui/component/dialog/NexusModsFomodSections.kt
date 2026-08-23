@@ -48,6 +48,7 @@ import androidx.compose.ui.window.DialogProperties
 import app.gamenative.R
 import app.gamenative.data.ModPlacementMode
 import app.gamenative.mods.FomodGroupType
+import app.gamenative.mods.FomodEnvironmentSnapshot
 import app.gamenative.mods.FomodInstaller
 import app.gamenative.mods.FomodPluginType
 import app.gamenative.mods.FomodRecipeGenerator
@@ -98,6 +99,7 @@ internal fun FomodSummarySection(
 internal fun FomodWizardDialog(
     installId: String,
     installer: FomodInstaller,
+    environment: FomodEnvironmentSnapshot,
     extractedRoot: File,
     baseDraft: RecipeDraft,
     onApply: (List<RecipeDraft>, Int) -> Unit,
@@ -156,7 +158,7 @@ internal fun FomodWizardDialog(
     val fallbackStepNames = installer.steps.indices.map { index ->
         stringResource(R.string.nexus_fomod_step, index + 1)
     }
-    val invalidGroups = fomodInvalidGroups(installer, selectedByGroup, selectedFlags, fallbackStepNames)
+    val invalidGroups = fomodInvalidGroups(installer, selectedByGroup, selectedFlags, fallbackStepNames, environment)
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -220,7 +222,7 @@ internal fun FomodWizardDialog(
                                         group.plugins.forEachIndexed { pluginIndex, plugin ->
                                             val pluginKey = FomodRecipeGenerator.pluginKey(stepIndex, groupIndex, pluginIndex)
                                             val selected = selectedByGroup[groupKey].orEmpty()
-                                            val effectiveType = plugin.effectiveType(selectedFlags)
+                                            val effectiveType = plugin.effectiveType(selectedFlags, environment)
                                             val checked = effectiveType == FomodPluginType.REQUIRED || (effectiveType != FomodPluginType.NOT_USABLE && pluginKey in selected)
                                             val enabled = effectiveType != FomodPluginType.REQUIRED && effectiveType != FomodPluginType.NOT_USABLE
                                             Row(
@@ -290,13 +292,14 @@ internal fun FomodWizardDialog(
                                 targetRelativePath = baseDraft.targetRelativePath.ifBlank { "Data" },
                                 mode = ModPlacementMode.OVERWRITE_COPY.name,
                                 extractedRoot = extractedRoot,
+                                environment = environment,
                             )
                             pendingResult = PendingFomodResult(
                                 drafts = result.recipes.map { it.toDraft() },
                                 unsupportedCount = result.plan?.let { plan ->
                                     plan.unresolvedCount + plan.blockingIssues.size
                                 } ?: (result.unsupportedMappings.size + result.blockingIssues.size),
-                                selectedOptions = fomodSelectedOptionLabels(installer, selectedKeys, fallbackStepNames),
+                                selectedOptions = fomodSelectedOptionLabels(installer, selectedKeys, fallbackStepNames, environment),
                                 conditionalRuleCount = installer.conditionalFileInstalls.size,
                             )
                         },
@@ -433,13 +436,14 @@ private fun fomodInvalidGroups(
     selectedByGroup: Map<String, Set<String>>,
     flags: Map<String, String>,
     fallbackStepNames: List<String>,
+    environment: FomodEnvironmentSnapshot,
 ): List<String> =
     buildList {
         installer.steps.forEachIndexed { stepIndex, step ->
             step.groups.forEachIndexed { groupIndex, group ->
                 val selected = selectedByGroup["$stepIndex:$groupIndex"].orEmpty()
                 val selectable = group.plugins.mapIndexedNotNull { pluginIndex, plugin ->
-                    if (plugin.effectiveType(flags) == FomodPluginType.NOT_USABLE) null else FomodRecipeGenerator.pluginKey(stepIndex, groupIndex, pluginIndex)
+                    if (plugin.effectiveType(flags, environment) == FomodPluginType.NOT_USABLE) null else FomodRecipeGenerator.pluginKey(stepIndex, groupIndex, pluginIndex)
                 }.toSet()
                 val selectedUsable = selected.intersect(selectable)
                 val invalid = when (group.type) {
@@ -477,9 +481,10 @@ private fun fomodSelectedOptionLabels(
     installer: FomodInstaller,
     selectedKeys: Set<String>,
     fallbackStepNames: List<String>,
+    environment: FomodEnvironmentSnapshot,
 ): List<String> =
     buildList {
-        val selectedPlugins = FomodRecipeGenerator.selectedPluginsForKeys(installer, selectedKeys).toSet()
+        val selectedPlugins = FomodRecipeGenerator.selectedPluginsForKeys(installer, selectedKeys, environment).toSet()
         installer.steps.forEachIndexed { stepIndex, step ->
             step.groups.forEachIndexed { groupIndex, group ->
                 group.plugins.forEachIndexed { pluginIndex, plugin ->

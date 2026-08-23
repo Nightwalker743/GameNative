@@ -31,6 +31,10 @@ class FomodInstallerTest {
             """
             <config>
                 <moduleName>Example Installer</moduleName>
+                <moduleDependencies operator="And">
+                    <fileDependency file="Data/Required.dll" state="Active" />
+                    <gameDependency version="1.6.0" />
+                </moduleDependencies>
                 <requiredInstallFiles>
                     <folder source="Common" destination="" priority="0" />
                 </requiredInstallFiles>
@@ -69,6 +73,8 @@ class FomodInstallerTest {
         assertEquals(FomodPluginType.RECOMMENDED, plugin.type)
         assertEquals("2K", plugin.conditionFlags["TextureSize"])
         assertEquals(2, plugin.files.size)
+        assertEquals("Data/Required.dll", installer.moduleDependencies.fileDependencies.single().file)
+        assertEquals("1.6.0", installer.moduleDependencies.gameDependencies.single().version)
     }
 
     @Test

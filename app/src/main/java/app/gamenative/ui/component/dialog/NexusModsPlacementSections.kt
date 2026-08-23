@@ -71,6 +71,7 @@ import app.gamenative.data.ModTargetRoot
 import app.gamenative.mods.AutomaticPlacementPlanner
 import app.gamenative.mods.AutomaticPlacementResult
 import app.gamenative.mods.FomodInstaller
+import app.gamenative.mods.FomodEnvironmentSnapshot
 import app.gamenative.mods.ModArchiveEntry
 import app.gamenative.mods.ModInstallPlan
 import app.gamenative.mods.ModPlacementPreset
@@ -113,6 +114,7 @@ internal fun PlacementSection(
     install: ModInstall,
     entries: List<ModArchiveEntry>,
     fomodInstaller: FomodInstaller?,
+    fomodEnvironment: FomodEnvironmentSnapshot,
     roots: List<ResolvedModTargetRoot>,
     drafts: List<RecipeDraft>,
     presetOptions: List<PlacementPresetOption>,
@@ -316,6 +318,7 @@ internal fun PlacementSection(
         FomodWizardDialog(
             installId = install.installId,
             installer = fomodInstaller,
+            environment = fomodEnvironment,
             extractedRoot = File(install.extractedPath),
             baseDraft = drafts.firstOrNull() ?: RecipeDraft(),
             onApply = { generatedDrafts, unsupportedCount ->

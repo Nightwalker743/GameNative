@@ -86,6 +86,8 @@ import app.gamenative.mods.AuthorizedNexusWebsiteDownload
 import app.gamenative.mods.AutomaticPlacementPlanner
 import app.gamenative.mods.BrowserFirstNexusWebsiteDownload
 import app.gamenative.mods.FomodInstaller
+import app.gamenative.mods.FomodEnvironmentSnapshot
+import app.gamenative.mods.FomodEnvironmentSnapshotBuilder
 import app.gamenative.mods.FomodAutoSelector
 import app.gamenative.mods.FomodInstallerDetector
 import app.gamenative.mods.FomodParser
@@ -734,6 +736,7 @@ fun NexusModsDialog(
     var selectedInstall by remember { mutableStateOf<ModInstall?>(null) }
     var archiveEntries by remember { mutableStateOf<List<ModArchiveEntry>>(emptyList()) }
     var selectedFomodInstaller by remember { mutableStateOf<FomodInstaller?>(null) }
+    var fomodEnvironment by remember { mutableStateOf(FomodEnvironmentSnapshot()) }
     var conflictReports by remember { mutableStateOf<List<ModFileConflictReport>>(emptyList()) }
     var placementNeededInstallIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var bethesdaGame by remember(libraryItem.name) { mutableStateOf(BethesdaPluginManager.detectGame(libraryItem.name)) }
@@ -1729,17 +1732,31 @@ fun NexusModsDialog(
         if (install == null || !install.canPlaceFiles()) {
             archiveEntries = emptyList()
             selectedFomodInstaller = null
+            fomodEnvironment = FomodEnvironmentSnapshot()
             return
         }
         scope.launch {
-            val (entries, fomodInstaller) = withContext(Dispatchers.IO) {
+            val (entries, fomodInstaller, environment) = withContext(Dispatchers.IO) {
                 val extractedRoot = File(install.extractedPath)
                 val parsedFomod = FomodInstallerDetector.moduleConfigFile(extractedRoot)
                     ?.let { runCatching { FomodParser.parse(it, extractedRoot) }.getOrNull() }
-                NexusModManager.archiveEntries(install) to parsedFomod
+                val game = BethesdaPluginManager.detectGame(libraryItem.name)
+                Triple(
+                    NexusModManager.archiveEntries(install),
+                    parsedFomod,
+                    parsedFomod?.let { installer ->
+                        FomodEnvironmentSnapshotBuilder.build(
+                            installer = installer,
+                            gameName = libraryItem.name,
+                            gameRootDir = gameRootDir,
+                            pluginsFile = game?.let { BethesdaPluginManager.pluginsFile(winePrefix, it) },
+                        )
+                    } ?: FomodEnvironmentSnapshot(),
+                )
             }
             archiveEntries = entries
             selectedFomodInstaller = fomodInstaller
+            fomodEnvironment = environment
             if (placementChoice == PlacementChoice.AUTOMATIC && install.canPlaceFiles()) {
                 recipeDrafts.clear()
                 recipeDrafts += automaticDraftsFor(libraryItem.name, entries, defaultDraft)
@@ -2387,6 +2404,12 @@ fun NexusModsDialog(
                             installId = install.installId,
                             installer = installer,
                             targetRelativePath = game.dataDirName,
+                            environment = FomodEnvironmentSnapshotBuilder.build(
+                                installer = installer,
+                                gameName = libraryItem.name,
+                                gameRootDir = gameRootDir,
+                                pluginsFile = BethesdaPluginManager.pluginsFile(winePrefix, game),
+                            ),
                         )
                     }
                 }
@@ -3202,6 +3225,7 @@ fun NexusModsDialog(
                                     install = install,
                                     entries = archiveEntries,
                                     fomodInstaller = selectedFomodInstaller,
+                                    fomodEnvironment = fomodEnvironment,
                                     roots = roots,
                                     drafts = recipeDrafts,
                                     presetOptions = presetOptions,
