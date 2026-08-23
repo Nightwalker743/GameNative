@@ -9,6 +9,11 @@ data class ResolvedModTargetRoot(
     val dir: File,
 )
 
+data class ModTargetPlanInspection(
+    val caseMerges: List<String>,
+    val ambiguousPaths: List<String>,
+)
+
 object ModTargetResolver {
     fun normalizeRelativePath(path: String): String =
         path.trim().replace('\\', '/').trim('/')
@@ -69,6 +74,23 @@ object ModTargetResolver {
         val resolution = WindowsTargetNamespace(rootCanonical).resolve(relativePath)
         val target = resolution.takeIf { it.isValid }?.file ?: return null
         return target.takeIf { it.isInsideOrEqual(rootCanonical) }
+    }
+
+    fun inspectPlan(
+        plan: ModInstallPlan,
+        resolvedRoots: List<ResolvedModTargetRoot>,
+    ): ModTargetPlanInspection {
+        val caseMerges = mutableSetOf<String>()
+        val ambiguities = mutableSetOf<String>()
+        val namespaces = resolvedRoots.associate { it.type.name to WindowsTargetNamespace(it.dir) }
+        plan.files.filter { it.status == PlannedFileStatus.PLACED }.forEach { file ->
+            val relative = file.targetRelativePath ?: return@forEach
+            val namespace = namespaces[file.targetRoot] ?: return@forEach
+            val resolution = namespace.resolve(relative)
+            caseMerges += resolution.caseMerges
+            if (resolution.ambiguousSegments.isNotEmpty()) ambiguities += relative
+        }
+        return ModTargetPlanInspection(caseMerges.sorted(), ambiguities.sorted())
     }
 
     private fun File.safeCanonicalFile(): File? =

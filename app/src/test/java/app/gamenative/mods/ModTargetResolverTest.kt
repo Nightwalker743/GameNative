@@ -103,6 +103,29 @@ class ModTargetResolverTest {
     }
 
     @Test
+    fun inspectPlan_reportsCaseMergeWithoutChangingThePlan() {
+        File(gameDir, "Data/Scripts").mkdirs()
+        val plan = ModInstallPlan(
+            files = listOf(
+                PlannedModFile(
+                    sourceRelativePath = "scripts/example.pex",
+                    targetRoot = ModTargetRoot.GAME_DIR.name,
+                    targetRelativePath = "Data/scripts/example.pex",
+                    normalizedTargetKey = "GAME_DIR:data/scripts/example.pex",
+                    status = PlannedFileStatus.PLACED,
+                    origin = PlacementOrigin.GAME_RULE,
+                    reason = "fixture",
+                ),
+            ),
+        )
+
+        val inspection = ModTargetResolver.inspectPlan(plan, ModTargetResolver.roots(gameDir, winePrefix.absolutePath))
+
+        assertTrue(inspection.caseMerges.any { it.contains("scripts -> Scripts") })
+        assertTrue(inspection.ambiguousPaths.isEmpty())
+    }
+
+    @Test
     fun resolve_blocksAmbiguousExistingCaseVariants() {
         File(gameDir, "Data/Scripts").mkdirs()
         File(gameDir, "Data/scripts").mkdirs()

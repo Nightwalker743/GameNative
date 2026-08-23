@@ -2047,6 +2047,14 @@
     <string name="nexus_storage_low_apply_order">Storage is too low to apply mod order. Free at least %1$s more.</string>
     <string name="nexus_applying_mod_order">Applying mod order</string>
     <string name="nexus_refreshing_install_health">Refreshing install health</string>
+    <string name="nexus_plan_review_title">Placement review</string>
+    <string name="nexus_plan_coverage">%1$d of %2$d files planned • %3$d ignored • %4$d need review</string>
+    <string name="nexus_plan_ranked">Ranked suggestions</string>
+    <string name="nexus_plan_score">%1$d. %2$s — %3$d%% coverage</string>
+    <string name="nexus_plan_case_merge">Case merge: %1$s</string>
+    <string name="nexus_plan_ambiguous_case">ambiguous case variants already exist</string>
+    <string name="nexus_plan_blocked">Automatic apply is blocked until every installable file has a proven destination.</string>
+    <string name="nexus_plan_export">Share diagnostic</string>
     <string name="nexus_mod_order_applied">Mod order applied%1$s%2$s</string>
     <string name="nexus_mod_order_applied_with_errors">Mod order applied with %1$d error(s)%2$s%3$s</string>
     <string name="nexus_apply_mod_order_failed">Failed to apply mod order</string>

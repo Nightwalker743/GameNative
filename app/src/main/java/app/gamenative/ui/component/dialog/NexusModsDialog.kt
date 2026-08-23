@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.net.toUri
+import androidx.core.content.FileProvider
 import app.gamenative.R
 import app.gamenative.data.LibraryItem
 import app.gamenative.data.ModInstall
@@ -82,6 +83,7 @@ import app.gamenative.mods.BethesdaPluginAssetIssue
 import app.gamenative.mods.BethesdaPluginDependencyIssue
 import app.gamenative.mods.BethesdaPluginManager
 import app.gamenative.mods.AuthorizedNexusWebsiteDownload
+import app.gamenative.mods.AutomaticPlacementPlanner
 import app.gamenative.mods.BrowserFirstNexusWebsiteDownload
 import app.gamenative.mods.FomodInstaller
 import app.gamenative.mods.FomodAutoSelector
@@ -101,6 +103,7 @@ import app.gamenative.mods.ModFileConflictReport
 import app.gamenative.mods.ModHealthReport
 import app.gamenative.mods.ModHealthSeverity
 import app.gamenative.mods.ModImportProgress
+import app.gamenative.mods.ModInstallPlan
 import app.gamenative.mods.ModMaterializer
 import app.gamenative.mods.ModPathDetector
 import app.gamenative.mods.ModPlacementConflict
@@ -2878,6 +2881,17 @@ fun NexusModsDialog(
             SnackbarManager.show(context.getString(R.string.nexus_choose_destination_inside))
             return
         }
+        if (placementChoice == PlacementChoice.AUTOMATIC) {
+            val automaticPlan = AutomaticPlacementPlanner.plan(libraryItem.name, archiveEntries).recommended?.plan
+            val inspection = automaticPlan?.let { ModTargetResolver.inspectPlan(it, roots) }
+            if (
+                automaticPlan?.isComplete != true ||
+                inspection?.ambiguousPaths?.isNotEmpty() == true
+            ) {
+                SnackbarManager.show(context.getString(R.string.nexus_plan_blocked))
+                return
+            }
+        }
         if (
             selectedFomodInstaller != null &&
             placementChoice != PlacementChoice.CUSTOM &&
@@ -2926,6 +2940,24 @@ fun NexusModsDialog(
                 modApplyInProgress = false
                 loadingMessage = null
             }
+        }
+    }
+
+    fun exportPlacementPlan(install: ModInstall, plan: ModInstallPlan) {
+        scope.launch {
+            val file = withContext(Dispatchers.IO) {
+                val outputDir = File(context.cacheDir, "mod-diagnostics").apply { mkdirs() }
+                File(outputDir, "placement-${install.installId.replace(Regex("[^A-Za-z0-9._-]"), "_")}.txt").apply {
+                    writeText(plan.sanitizedManifest())
+                }
+            }
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, context.getString(R.string.nexus_plan_export)))
         }
     }
 
@@ -3168,6 +3200,9 @@ fun NexusModsDialog(
                         ManageModsTab.PLACEMENT -> {
                             selectedInstall?.let { install ->
                                 val presetOptions = placementPresetOptions(libraryItem.name, archiveEntries, defaultDraft)
+                                val automaticPlacement = remember(libraryItem.name, archiveEntries) {
+                                    AutomaticPlacementPlanner.plan(libraryItem.name, archiveEntries)
+                                }
                                 PlacementSection(
                                     install = install,
                                     entries = archiveEntries,
@@ -3175,6 +3210,7 @@ fun NexusModsDialog(
                                     roots = roots,
                                     drafts = recipeDrafts,
                                     presetOptions = presetOptions,
+                                    automaticPlacement = automaticPlacement,
                                     placementChoice = placementChoice,
                                     canUseLastPlacement = lastPlacementDrafts.isNotEmpty(),
                                     onPlacementChoiceChange = { choice ->
@@ -3228,6 +3264,7 @@ fun NexusModsDialog(
                                         }
                                     },
                                     applyStatusMessage = placementApplyStatusMessage,
+                                    onExportPlan = { plan -> exportPlacementPlan(install, plan) },
                                     onSaveAndApply = ::saveAndApply,
                                 )
                             } ?: EmptyWorkflowSection(stringResource(R.string.nexus_no_mod_selected), stringResource(R.string.nexus_select_mod_from_mods_tab))

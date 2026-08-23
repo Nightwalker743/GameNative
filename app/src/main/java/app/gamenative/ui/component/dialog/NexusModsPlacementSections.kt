@@ -69,11 +69,14 @@ import app.gamenative.data.ModInstallStatus
 import app.gamenative.data.ModPlacementMode
 import app.gamenative.data.ModTargetRoot
 import app.gamenative.mods.AutomaticPlacementPlanner
+import app.gamenative.mods.AutomaticPlacementResult
 import app.gamenative.mods.FomodInstaller
 import app.gamenative.mods.ModArchiveEntry
+import app.gamenative.mods.ModInstallPlan
 import app.gamenative.mods.ModPlacementPreset
 import app.gamenative.mods.ModPlacementSources
 import app.gamenative.mods.ModTargetResolver
+import app.gamenative.mods.PlannedFileStatus
 import app.gamenative.mods.ResolvedModTargetRoot
 import app.gamenative.ui.component.NoExtractOutlinedTextField
 import app.gamenative.utils.StorageUtils
@@ -113,6 +116,7 @@ internal fun PlacementSection(
     roots: List<ResolvedModTargetRoot>,
     drafts: List<RecipeDraft>,
     presetOptions: List<PlacementPresetOption>,
+    automaticPlacement: AutomaticPlacementResult,
     placementChoice: PlacementChoice,
     canUseLastPlacement: Boolean,
     onPlacementChoiceChange: (PlacementChoice) -> Unit,
@@ -123,11 +127,18 @@ internal fun PlacementSection(
     onRemoveDraft: (Int) -> Unit,
     onFomodRecipes: (List<RecipeDraft>, Int) -> Unit,
     applyStatusMessage: String?,
+    onExportPlan: (ModInstallPlan) -> Unit,
     onSaveAndApply: () -> Unit,
 ) {
     var showArchiveBrowser by remember(install.installId, entries) { mutableStateOf(false) }
     var showFomodWizard by remember(install.installId, fomodInstaller) { mutableStateOf(false) }
     val destinationsValid = drafts.all { draft -> roots.any { it.type.name == draft.targetRoot } }
+    val automaticPlan = automaticPlacement.recommended?.plan
+    val targetInspection = remember(automaticPlan, roots) {
+        automaticPlan?.let { ModTargetResolver.inspectPlan(it, roots) }
+    }
+    val automaticBlocked = placementChoice == PlacementChoice.AUTOMATIC &&
+        (automaticPlan?.isComplete != true || targetInspection?.ambiguousPaths?.isNotEmpty() == true)
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -184,6 +195,22 @@ internal fun PlacementSection(
                         if (it == PlacementChoice.LAST_USED) onUseLastPlacement() else onPlacementChoiceChange(it)
                     },
                 )
+
+                if (placementChoice == PlacementChoice.AUTOMATIC && automaticPlan != null) {
+                    PlacementPlanReview(
+                        automaticPlacement = automaticPlacement,
+                        plan = automaticPlan,
+                        caseMerges = targetInspection?.caseMerges.orEmpty(),
+                        ambiguousPaths = targetInspection?.ambiguousPaths.orEmpty(),
+                        onExport = { onExportPlan(automaticPlan) },
+                    )
+                } else if (placementChoice == PlacementChoice.AUTOMATIC) {
+                    Text(
+                        stringResource(R.string.nexus_plan_blocked),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
 
                 if (placementChoice == PlacementChoice.PRESET && presetOptions.isNotEmpty()) {
                     PresetSelectionSection(
@@ -244,7 +271,7 @@ internal fun PlacementSection(
                             }
                             Button(
                                 onClick = onSaveAndApply,
-                                enabled = roots.isNotEmpty() && destinationsValid,
+                                enabled = roots.isNotEmpty() && destinationsValid && !automaticBlocked,
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -261,7 +288,10 @@ internal fun PlacementSection(
                                     Text(stringResource(R.string.nexus_add_location))
                                 }
                             }
-                            Button(onClick = onSaveAndApply, enabled = roots.isNotEmpty() && destinationsValid) {
+                            Button(
+                                onClick = onSaveAndApply,
+                                enabled = roots.isNotEmpty() && destinationsValid && !automaticBlocked,
+                            ) {
                                 Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.size(8.dp))
                                 Text(stringResource(R.string.nexus_apply_mod))
@@ -294,6 +324,79 @@ internal fun PlacementSection(
             },
             onDismiss = { showFomodWizard = false },
         )
+    }
+}
+
+@Composable
+private fun PlacementPlanReview(
+    automaticPlacement: AutomaticPlacementResult,
+    plan: ModInstallPlan,
+    caseMerges: List<String>,
+    ambiguousPaths: List<String>,
+    onExport: () -> Unit,
+) {
+    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surface) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(stringResource(R.string.nexus_plan_review_title), style = MaterialTheme.typography.labelLarge)
+            Text(
+                stringResource(
+                    R.string.nexus_plan_coverage,
+                    plan.placedCount,
+                    plan.selectedCount,
+                    plan.ignoredCount,
+                    plan.unresolvedCount,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            automaticPlacement.recommended?.evidence.orEmpty().forEach { evidence ->
+                Text("• $evidence", style = MaterialTheme.typography.bodySmall)
+            }
+            if (automaticPlacement.candidates.size > 1) {
+                Text(stringResource(R.string.nexus_plan_ranked), style = MaterialTheme.typography.labelMedium)
+                automaticPlacement.candidates.take(3).forEachIndexed { index, candidate ->
+                    Text(
+                        stringResource(
+                            R.string.nexus_plan_score,
+                            index + 1,
+                            candidate.label,
+                            (candidate.plan.coverage * 100).toInt(),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+            caseMerges.take(5).forEach { merge ->
+                Text(stringResource(R.string.nexus_plan_case_merge, merge), style = MaterialTheme.typography.bodySmall)
+            }
+            plan.files.filter {
+                it.status == PlannedFileStatus.UNSUPPORTED ||
+                    it.status == PlannedFileStatus.MISSING ||
+                    it.status == PlannedFileStatus.CONFLICTED
+            }.take(8).forEach { file ->
+                Text(
+                    "${file.sourceRelativePath}: ${file.reason}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            ambiguousPaths.take(5).forEach { path ->
+                Text(
+                    "$path: ${stringResource(R.string.nexus_plan_ambiguous_case)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            if (!plan.isComplete || ambiguousPaths.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.nexus_plan_blocked),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            TextButton(onClick = onExport) {
+                Text(stringResource(R.string.nexus_plan_export))
+            }
+        }
     }
 }
 
