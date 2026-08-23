@@ -1,6 +1,7 @@
 package app.gamenative.mods
 
 import app.gamenative.data.ModPlacementMode
+import java.io.File
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -8,7 +9,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
-import java.io.File
 
 class ModOwnershipManifestTest {
     @get:Rule

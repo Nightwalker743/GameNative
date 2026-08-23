@@ -273,21 +273,35 @@ object FomodParser {
                 child.tagName.equals("flagDependency", ignoreCase = true) -> {
                     val flag = child.attr("flag").trim()
                     val value = child.attr("value").trim()
-                    if (flag.isBlank()) unsupportedCount++ else flagDependencies += FomodFlagDependency(flag, value)
+                    if (flag.isBlank()) {
+                        unsupportedCount++
+                    } else {
+                        flagDependencies += FomodFlagDependency(flag, value)
+                    }
                 }
                 child.tagName.equals("fileDependency", ignoreCase = true) -> {
                     val file = child.attr("file").trim().replace('\\', '/')
-                    if (file.isBlank()) unsupportedCount++ else fileDependencies +=
-                        FomodFileDependency(file, requiredFileState(child.attr("state")))
+                    if (file.isBlank()) {
+                        unsupportedCount++
+                    } else {
+                        fileDependencies += FomodFileDependency(file, requiredFileState(child.attr("state")))
+                    }
                 }
                 child.tagName.equals("pluginDependency", ignoreCase = true) -> {
                     val plugin = child.attr("plugin").ifBlank { child.attr("file") }.trim()
-                    if (plugin.isBlank()) unsupportedCount++ else pluginDependencies +=
-                        FomodPluginDependency(plugin, requiredFileState(child.attr("state")))
+                    if (plugin.isBlank()) {
+                        unsupportedCount++
+                    } else {
+                        pluginDependencies += FomodPluginDependency(plugin, requiredFileState(child.attr("state")))
+                    }
                 }
                 child.tagName.equals("gameDependency", ignoreCase = true) -> {
                     val version = child.attr("version").trim()
-                    if (version.isBlank()) unsupportedCount++ else gameDependencies += FomodGameDependency(version)
+                    if (version.isBlank()) {
+                        unsupportedCount++
+                    } else {
+                        gameDependencies += FomodGameDependency(version)
+                    }
                 }
                 child.tagName.equals("dependencies", ignoreCase = true) -> childGroups += parseDependencies(child)
                 child.tagName.endsWith("Dependency", ignoreCase = true) -> unsupportedCount++

@@ -3,15 +3,15 @@ package app.gamenative.mods
 import app.gamenative.data.ModOverwriteManifest
 import com.github.luben.zstd.Zstd
 import com.github.luben.zstd.ZstdInputStream
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.nio.file.Files
 import java.security.MessageDigest
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 @Serializable
 enum class ModOwnershipState {
@@ -292,7 +292,8 @@ object ModOwnershipReconciler {
                 owned.mode == "SYMLINK" &&
                     (owned.normalizedTargetKey == operation.normalizedTargetKey || owned.targetPath.startsWith(operationPath))
             }
-            operation.mode == "SYMLINK" && ownedUnderOperation.isNotEmpty() &&
+            operation.mode == "SYMLINK" &&
+                ownedUnderOperation.isNotEmpty() &&
                 ownedUnderOperation.all { it.normalizedTargetKey in targetKeys }
         }
         symlinkOperations.forEach { operation ->
@@ -310,7 +311,10 @@ object ModOwnershipReconciler {
             } else {
                 preserved += selected.filter { owned ->
                     owned.mode == "SYMLINK" &&
-                        (owned.normalizedTargetKey == operation.normalizedTargetKey || owned.targetPath.startsWith(operation.targetPath + File.separator))
+                        (
+                            owned.normalizedTargetKey == operation.normalizedTargetKey ||
+                                owned.targetPath.startsWith(operation.targetPath + File.separator)
+                            )
                 }
             }
         }

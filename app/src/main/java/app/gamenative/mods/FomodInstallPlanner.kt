@@ -75,8 +75,12 @@ object FomodSelectionEvaluator {
     }
 
     private fun FomodDependencyExpression.hasFacts(): Boolean =
-        flagDependencies.isNotEmpty() || fileDependencies.isNotEmpty() || pluginDependencies.isNotEmpty() ||
-            gameDependencies.isNotEmpty() || childGroups.isNotEmpty() || unsupportedDependencyCount > 0
+        flagDependencies.isNotEmpty() ||
+            fileDependencies.isNotEmpty() ||
+            pluginDependencies.isNotEmpty() ||
+            gameDependencies.isNotEmpty() ||
+            childGroups.isNotEmpty() ||
+            unsupportedDependencyCount > 0
 }
 
 object FomodPlanExpander {

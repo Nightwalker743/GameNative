@@ -443,14 +443,19 @@ private fun fomodInvalidGroups(
             step.groups.forEachIndexed { groupIndex, group ->
                 val selected = selectedByGroup["$stepIndex:$groupIndex"].orEmpty()
                 val selectable = group.plugins.mapIndexedNotNull { pluginIndex, plugin ->
-                    if (plugin.effectiveType(flags, environment) == FomodPluginType.NOT_USABLE) null else FomodRecipeGenerator.pluginKey(stepIndex, groupIndex, pluginIndex)
+                    if (plugin.effectiveType(flags, environment) == FomodPluginType.NOT_USABLE) {
+                        null
+                    } else {
+                        FomodRecipeGenerator.pluginKey(stepIndex, groupIndex, pluginIndex)
+                    }
                 }.toSet()
                 val selectedUsable = selected.intersect(selectable)
                 val invalid = when (group.type) {
                     FomodGroupType.SELECT_EXACTLY_ONE -> selectedUsable.size != 1
                     FomodGroupType.SELECT_AT_LEAST_ONE -> selectedUsable.isEmpty()
                     FomodGroupType.SELECT_AT_MOST_ONE,
-                    FomodGroupType.SELECT_ANY -> false
+                    FomodGroupType.SELECT_ANY,
+                    -> false
                 }
                 if (invalid) {
                     add("${step.name.ifBlank { fallbackStepNames.getOrElse(stepIndex) { "" } }} / ${group.name}")

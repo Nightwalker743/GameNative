@@ -101,7 +101,7 @@ object WindowsPathIdentity {
         relativeSegments(path)?.joinToString("/", transform = ::segmentKey)
 
     fun targetKey(targetRoot: String, relativePath: String): String? =
-        normalizedRelativeKey(relativePath)?.let { "$targetRoot:${it}" }
+        normalizedRelativeKey(relativePath)?.let { "$targetRoot:$it" }
 
     fun absoluteKey(file: File): String =
         file.absoluteFile.normalize().path

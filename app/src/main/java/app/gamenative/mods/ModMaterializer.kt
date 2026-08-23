@@ -96,24 +96,24 @@ object ModMaterializer {
         val plan = materializationPlan(install, recipes, gameRootDir, winePrefix, captureTargetHashes = false)
         buildList {
             plan.operations.forEach { entry ->
-                    when (entry.mode) {
-                        ModPlacementMode.OVERWRITE_COPY -> addAll(overwriteConflicts(entry))
-                        else -> {
-                            if (entry.target.exists() || Files.isSymbolicLink(entry.target.toPath())) {
-                                val alreadyCorrectSymlink = Files.isSymbolicLink(entry.target.toPath()) &&
-                                    resolveSymlinkTarget(entry.target)?.canonicalFile == entry.source.canonicalFile
-                                if (!alreadyCorrectSymlink) {
-                                    add(
-                                        ModPlacementConflict(
-                                            sourcePath = entry.source.absolutePath,
-                                            targetPath = entry.target.absolutePath,
-                                            directory = entry.source.isDirectory,
-                                        ),
-                                    )
-                                }
+                when (entry.mode) {
+                    ModPlacementMode.OVERWRITE_COPY -> addAll(overwriteConflicts(entry))
+                    else -> {
+                        if (entry.target.exists() || Files.isSymbolicLink(entry.target.toPath())) {
+                            val alreadyCorrectSymlink = Files.isSymbolicLink(entry.target.toPath()) &&
+                                resolveSymlinkTarget(entry.target)?.canonicalFile == entry.source.canonicalFile
+                            if (!alreadyCorrectSymlink) {
+                                add(
+                                    ModPlacementConflict(
+                                        sourcePath = entry.source.absolutePath,
+                                        targetPath = entry.target.absolutePath,
+                                        directory = entry.source.isDirectory,
+                                    ),
+                                )
                             }
                         }
                     }
+                }
             }
         }
     }
@@ -190,33 +190,33 @@ object ModMaterializer {
 
         backupRoot.mkdirs()
         plan.operations.forEach { entry ->
-                try {
-                    when (entry.mode) {
-                        ModPlacementMode.SYMLINK -> {
-                            val result = ensureSymlink(entry.target, entry.source)
-                            if (result) created++ else skipped++
-                        }
-                        ModPlacementMode.COPY -> {
-                            val result = copyWithoutOverwrite(entry.target, entry.source, install.installId)
-                            if (result) created++ else skipped++
-                        }
-                        ModPlacementMode.OVERWRITE_COPY -> {
-                            val result = copyWithBackups(
-                                install = install,
-                                target = entry.target,
-                                source = entry.source,
-                                backupRoot = backupRoot,
-                                allowOverwrite = allowOverwrite,
-                                targetsWrittenThisApply = targetsWrittenThisApply,
-                            )
-                            created += result.created
-                            backedUp += result.backedUp
-                            manifests += result.manifests
-                        }
+            try {
+                when (entry.mode) {
+                    ModPlacementMode.SYMLINK -> {
+                        val result = ensureSymlink(entry.target, entry.source)
+                        if (result) created++ else skipped++
                     }
-                } catch (e: Exception) {
-                    errors[entry.target.absolutePath] = "${e::class.simpleName}: ${e.message}"
+                    ModPlacementMode.COPY -> {
+                        val result = copyWithoutOverwrite(entry.target, entry.source, install.installId)
+                        if (result) created++ else skipped++
+                    }
+                    ModPlacementMode.OVERWRITE_COPY -> {
+                        val result = copyWithBackups(
+                            install = install,
+                            target = entry.target,
+                            source = entry.source,
+                            backupRoot = backupRoot,
+                            allowOverwrite = allowOverwrite,
+                            targetsWrittenThisApply = targetsWrittenThisApply,
+                        )
+                        created += result.created
+                        backedUp += result.backedUp
+                        manifests += result.manifests
+                    }
                 }
+            } catch (e: Exception) {
+                errors[entry.target.absolutePath] = "${e::class.simpleName}: ${e.message}"
+            }
         }
 
         ModPlacementResult(created, skipped, backedUp, errors, manifests)
@@ -234,27 +234,28 @@ object ModMaterializer {
         val errors = linkedMapOf<String, String>().apply { putAll(plan.errors) }
 
         plan.operations.forEach { entry ->
-                try {
-                    when (entry.mode) {
-                        ModPlacementMode.SYMLINK -> {
-                            if (entry.target.exists() || Files.isSymbolicLink(entry.target.toPath())) {
-                                skipped++
-                            } else if (ensureSymlink(entry.target, entry.source)) {
-                                created++
-                            } else {
-                                skipped++
-                            }
-                        }
-                        ModPlacementMode.COPY,
-                        ModPlacementMode.OVERWRITE_COPY -> {
-                            val result = copyMissingFiles(entry.target, entry.source)
-                            created += result.created
-                            skipped += result.skipped
+            try {
+                when (entry.mode) {
+                    ModPlacementMode.SYMLINK -> {
+                        if (entry.target.exists() || Files.isSymbolicLink(entry.target.toPath())) {
+                            skipped++
+                        } else if (ensureSymlink(entry.target, entry.source)) {
+                            created++
+                        } else {
+                            skipped++
                         }
                     }
-                } catch (e: Exception) {
-                    errors[entry.target.absolutePath] = "${e::class.simpleName}: ${e.message}"
+                    ModPlacementMode.COPY,
+                    ModPlacementMode.OVERWRITE_COPY,
+                    -> {
+                        val result = copyMissingFiles(entry.target, entry.source)
+                        created += result.created
+                        skipped += result.skipped
+                    }
                 }
+            } catch (e: Exception) {
+                errors[entry.target.absolutePath] = "${e::class.simpleName}: ${e.message}"
+            }
         }
 
         ModPlacementResult(created, skipped, backedUp = 0, errors = errors, manifests = emptyList())
@@ -295,27 +296,27 @@ object ModMaterializer {
         val plan = materializationPlan(install, recipes, gameRootDir, winePrefix, captureTargetHashes = false)
         plan.operations.forEach { entry ->
             runCatching {
-                    when (entry.mode) {
-                        ModPlacementMode.SYMLINK -> removeSymlink(entry.target, entry.source, skipped)
-                        ModPlacementMode.COPY -> removeCopiedEntry(
-                            target = entry.target,
-                            source = entry.source,
-                            installId = install.installId,
-                            skipped = skipped,
-                            allowOwnedDirectoryDelete = true,
-                            reportChangedFiles = true,
-                        )
-                        ModPlacementMode.OVERWRITE_COPY -> removeCopiedEntry(
-                            target = entry.target,
-                            source = entry.source,
-                            installId = install.installId,
-                            skipped = skipped,
-                            allowOwnedDirectoryDelete = false,
-                            reportChangedFiles = true,
-                            ignoredChangedTargets = restoredOverwriteTargets,
-                            removeLegacySentinel = true,
-                        )
-                    }
+                when (entry.mode) {
+                    ModPlacementMode.SYMLINK -> removeSymlink(entry.target, entry.source, skipped)
+                    ModPlacementMode.COPY -> removeCopiedEntry(
+                        target = entry.target,
+                        source = entry.source,
+                        installId = install.installId,
+                        skipped = skipped,
+                        allowOwnedDirectoryDelete = true,
+                        reportChangedFiles = true,
+                    )
+                    ModPlacementMode.OVERWRITE_COPY -> removeCopiedEntry(
+                        target = entry.target,
+                        source = entry.source,
+                        installId = install.installId,
+                        skipped = skipped,
+                        allowOwnedDirectoryDelete = false,
+                        reportChangedFiles = true,
+                        ignoredChangedTargets = restoredOverwriteTargets,
+                        removeLegacySentinel = true,
+                    )
+                }
             }.onFailure { skipped += "${entry.targetRoot}:${entry.targetRelativePath}" }
         }
         skipped += plan.errors.keys

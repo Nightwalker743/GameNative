@@ -203,7 +203,8 @@ object AutomaticPlacementPlanner {
             placedBySource[file.normalizedKey] ?: when (file.role) {
                 ArchiveContentRole.DOCUMENTATION,
                 ArchiveContentRole.METADATA,
-                ArchiveContentRole.INSTALLER_SUPPORT -> PlannedModFile(
+                ArchiveContentRole.INSTALLER_SUPPORT,
+                -> PlannedModFile(
                     sourceRelativePath = file.displayPath,
                     status = PlannedFileStatus.INTENTIONALLY_IGNORED,
                     origin = origin,

@@ -1,14 +1,14 @@
 package app.gamenative.mods
 
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.UUID
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 @Serializable
 enum class ModDeploymentCheckpoint {
@@ -72,7 +72,8 @@ object ModDeploymentJournalStore {
     fun reconcile(root: File): List<ModDeploymentJournal> = readAll(root).map { journal ->
         when (journal.checkpoint) {
             ModDeploymentCheckpoint.PLANNED,
-            ModDeploymentCheckpoint.PREPARING -> checkpoint(
+            ModDeploymentCheckpoint.PREPARING,
+            -> checkpoint(
                 root,
                 journal,
                 ModDeploymentCheckpoint.ROLLED_BACK,
@@ -90,7 +91,8 @@ object ModDeploymentJournalStore {
                 }
             }
             ModDeploymentCheckpoint.APPLYING,
-            ModDeploymentCheckpoint.ROLLING_BACK -> checkpoint(
+            ModDeploymentCheckpoint.ROLLING_BACK,
+            -> checkpoint(
                 root,
                 journal,
                 ModDeploymentCheckpoint.RECOVERY_REQUIRED,

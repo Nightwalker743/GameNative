@@ -6,7 +6,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
-import java.io.File
 
 class ModDeploymentJournalTest {
     @get:Rule
@@ -81,7 +80,12 @@ class ModDeploymentJournalTest {
 
         assertEquals(ModDeploymentCheckpoint.COMMITTED, ModDeploymentJournalStore.reconcile(root).single().checkpoint)
         target.writeText("external change")
-        assertTrue(ModDeploymentVerifier.verify(ModOwnershipStore.read(root, "install")!!).issues.any { it.type == ModVerificationIssueType.MODIFIED })
+        assertTrue(
+            ModDeploymentVerifier.verify(ModOwnershipStore.read(root, "install")!!).issues.any {
+                it.type ==
+                    ModVerificationIssueType.MODIFIED
+            },
+        )
     }
 
     private fun emptyPlan() = ModMaterializationPlan("install", emptyList(), emptyList())

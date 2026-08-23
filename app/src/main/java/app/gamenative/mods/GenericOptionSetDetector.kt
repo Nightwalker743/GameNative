@@ -52,7 +52,8 @@ object GenericOptionSetDetector {
                     val peers = choices.filter { it != root }
                     GenericOptionChoice(
                         sourceDirectory = root.displayPath,
-                        overlappingTargetCount = peers.maxOfOrNull { signatures.getValue(root).intersect(signatures.getValue(it)).size } ?: 0,
+                        overlappingTargetCount =
+                        peers.maxOfOrNull { signatures.getValue(root).intersect(signatures.getValue(it)).size } ?: 0,
                     )
                 },
                 commonSourceDirectories = common,

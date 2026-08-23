@@ -1,9 +1,9 @@
 package app.gamenative.mods
 
+import kotlin.system.measureTimeMillis
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import kotlin.system.measureTimeMillis
 
 class ModArchiveIndexPerformanceTest {
     @Test

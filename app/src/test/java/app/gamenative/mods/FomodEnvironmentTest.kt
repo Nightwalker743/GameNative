@@ -35,7 +35,9 @@ class FomodEnvironmentTest {
             steps = emptyList(),
             conditionalFileInstalls = listOf(
                 FomodConditionalFileInstall(
-                    FomodDependencyExpression(fileDependencies = listOf(FomodFileDependency("Data/Maybe.dll", FomodRequiredFileState.ACTIVE))),
+                    FomodDependencyExpression(
+                        fileDependencies = listOf(FomodFileDependency("Data/Maybe.dll", FomodRequiredFileState.ACTIVE)),
+                    ),
                     listOf(FomodFileMapping("Maybe.dll", "Maybe.dll", 0, directory = false)),
                 ),
             ),
