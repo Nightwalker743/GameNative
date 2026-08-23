@@ -6,6 +6,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ModDeploymentCoordinatorTest {
@@ -25,5 +26,18 @@ class ModDeploymentCoordinatorTest {
         }.awaitAll()
 
         assertEquals(1, maximum.get())
+    }
+
+    @Test
+    fun oneProfileTransactionCanCallNestedGameMutations() = runBlocking {
+        var nestedCompleted = false
+
+        ModDeploymentCoordinator.withGameLock("game") {
+            ModDeploymentCoordinator.withGameLock("game") {
+                nestedCompleted = true
+            }
+        }
+
+        assertTrue(nestedCompleted)
     }
 }

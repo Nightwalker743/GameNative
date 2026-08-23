@@ -103,6 +103,7 @@ import app.gamenative.mods.ModArchiveInstallAssessor
 import app.gamenative.mods.ModConflictAnalyzer
 import app.gamenative.mods.ModDownloadInfo
 import app.gamenative.mods.ModDownloadRegistry
+import app.gamenative.mods.ModDeploymentCoordinator
 import app.gamenative.mods.ModFileConflictReport
 import app.gamenative.mods.ModHealthAction
 import app.gamenative.mods.ModHealthReport
@@ -111,6 +112,7 @@ import app.gamenative.mods.ModImportProgress
 import app.gamenative.mods.ModInstallPlan
 import app.gamenative.mods.ModMaterializer
 import app.gamenative.mods.PlannedFileStatus
+import app.gamenative.mods.PlacementRiskPolicy
 import app.gamenative.mods.ModPathDetector
 import app.gamenative.mods.ModPlacementConflict
 import app.gamenative.mods.ModPlacementPreset
@@ -380,6 +382,7 @@ private data class ProfileOrderApplyResult(
     val plugins: List<BethesdaPlugin>,
     val pluginIssues: List<BethesdaPluginDependencyIssue>,
     val pluginAssetIssues: List<BethesdaPluginAssetIssue>,
+    val disabledSkipped: Int = 0,
 )
 
 @Composable
@@ -1712,121 +1715,127 @@ fun NexusModsDialog(
                     }
                 }
 
-                if (plan.disabledInstalls.isNotEmpty()) {
-                    loadingMessage = context.getString(R.string.nexus_applying_mod_order)
-                    disabledSkipped = withContext(Dispatchers.IO) {
-                        plan.disabledInstalls.sumOf { install ->
-                            NexusModManager.disableInstall(
-                                context = context,
-                                install = install,
-                                restoreBackups = true,
-                                gameRootDir = gameRootDir,
-                                winePrefix = winePrefix,
-                            ).size
-                        }
-                    }
-                }
-
-                if (plan.rebuildManagedOverlay) {
-                    loadingMessage = context.getString(R.string.nexus_applying_mod_order)
-                    disabledSkipped += withContext(Dispatchers.IO) {
-                        plan.configuredInstalls.asReversed().sumOf { install ->
-                            NexusModManager.disableInstall(
-                                context = context,
-                                install = install,
-                                restoreBackups = true,
-                                gameRootDir = gameRootDir,
-                                winePrefix = winePrefix,
-                            ).size
-                        }
-                    }
-                    if (disabledSkipped > 0) {
-                        SnackbarManager.show(context.getString(R.string.nexus_changed_disabled_files_left_in_place, disabledSkipped))
-                        return@launch
-                    }
-                    effectiveAllowOverwrite = true
-                }
-
                 loadingMessage = context.getString(R.string.nexus_applying_mod_order)
                 val result = withContext(Dispatchers.IO) {
-                    var errors = 0
-                    plan.installsToApply.forEach { install ->
-                        val recipes = plan.recipesByInstallId[install.installId].orEmpty()
-                        val result = if (
-                            !effectiveAllowOverwrite &&
-                            install.status == ModInstallStatus.APPLIED.name &&
-                            install.installId in plan.missingTargetRepairInstallIds
-                        ) {
-                            NexusModManager.repairMissingAppliedTargets(
-                                install = install,
-                                recipes = recipes,
-                                gameRootDir = gameRootDir,
-                                winePrefix = winePrefix,
-                                reviewedPlan = plan.reviewedPlansByInstallId[install.installId],
-                            )
-                        } else {
-                            NexusModManager.applyInstall(
+                    ModDeploymentCoordinator.withGameLock(libraryItem.appId) {
+                        var transactionDisabledSkipped = plan.disabledInstalls.sumOf { install ->
+                            NexusModManager.disableInstall(
                                 context = context,
-                                install = if (plan.rebuildManagedOverlay) {
-                                    install.copy(status = ModInstallStatus.DISABLED.name)
-                                } else {
-                                    install
-                                },
-                                recipes = recipes,
+                                install = install,
+                                restoreBackups = true,
                                 gameRootDir = gameRootDir,
                                 winePrefix = winePrefix,
-                                allowOverwrite = effectiveAllowOverwrite,
-                                saveLastPlacement = false,
-                                preserveStatusOnError = true,
-                                profileId = plan.profileId,
-                                priority = plan.stateByInstallId[install.installId]?.priority ?: 0,
-                                reviewedPlan = plan.reviewedPlansByInstallId[install.installId],
-                            )
+                            ).size
                         }
-                        errors += result.errors.size
-                    }
-                    val game = BethesdaPluginManager.detectGame(libraryItem.name)
-                    if (errors == 0 && game != null) {
-                        val pluginsFile = BethesdaPluginManager.pluginsFile(winePrefix, game)
-                        if (pluginsFile != null) {
-                            val appliedInstalls = plan.configuredInstalls.map { it.copy(status = ModInstallStatus.APPLIED.name) }
-                            val detectedPlugins = applyCollectionPluginOrder(
-                                BethesdaPluginManager.detectPlugins(
-                                    installs = appliedInstalls,
-                                    recipesByInstallId = plan.recipesByInstallId,
-                                    prioritiesByInstallId = plan.stateByInstallId.mapValues { it.value.priority },
+                        if (plan.rebuildManagedOverlay) {
+                            transactionDisabledSkipped += plan.configuredInstalls.asReversed().sumOf { install ->
+                                NexusModManager.disableInstall(
+                                    context = context,
+                                    install = install,
+                                    restoreBackups = true,
                                     gameRootDir = gameRootDir,
                                     winePrefix = winePrefix,
-                                    pluginsFile = pluginsFile,
-                                    defaultEnabled = true,
-                                ),
-                                collectionPluginOrder,
-                            )
-                            BethesdaPluginManager.updateManagedPluginsTxt(
-                                file = pluginsFile,
-                                managedPlugins = detectedPlugins,
-                                game = game,
-                                gameRootDir = gameRootDir,
-                            )
-                            val issues = BethesdaPluginManager.diagnosePluginMasters(
-                                managedPlugins = detectedPlugins,
-                                game = game,
-                                gameRootDir = gameRootDir,
-                                pluginsFile = pluginsFile,
-                            )
-                            ProfileOrderApplyResult(
-                                errors = errors,
-                                bethesdaGame = game,
-                                plugins = detectedPlugins,
-                                pluginIssues = issues,
-                                pluginAssetIssues = BethesdaPluginManager.diagnosePluginAssets(detectedPlugins),
-                            )
-                        } else {
-                            ProfileOrderApplyResult(errors, null, emptyList(), emptyList(), emptyList())
+                                ).size
+                            }
+                            effectiveAllowOverwrite = true
                         }
-                    } else {
-                        ProfileOrderApplyResult(errors, null, emptyList(), emptyList(), emptyList())
+                        if (plan.rebuildManagedOverlay && transactionDisabledSkipped > 0) {
+                            return@withGameLock ProfileOrderApplyResult(
+                                errors = 0,
+                                bethesdaGame = null,
+                                plugins = emptyList(),
+                                pluginIssues = emptyList(),
+                                pluginAssetIssues = emptyList(),
+                                disabledSkipped = transactionDisabledSkipped,
+                            )
+                        }
+
+                        var errors = 0
+                        for (install in plan.installsToApply) {
+                            val recipes = plan.recipesByInstallId[install.installId].orEmpty()
+                            val applyResult = if (
+                                !effectiveAllowOverwrite &&
+                                install.status == ModInstallStatus.APPLIED.name &&
+                                install.installId in plan.missingTargetRepairInstallIds
+                            ) {
+                                NexusModManager.repairMissingAppliedTargets(
+                                    install = install,
+                                    recipes = recipes,
+                                    gameRootDir = gameRootDir,
+                                    winePrefix = winePrefix,
+                                    reviewedPlan = plan.reviewedPlansByInstallId[install.installId],
+                                )
+                            } else {
+                                NexusModManager.applyInstall(
+                                    context = context,
+                                    install = if (plan.rebuildManagedOverlay) {
+                                        install.copy(status = ModInstallStatus.DISABLED.name)
+                                    } else {
+                                        install
+                                    },
+                                    recipes = recipes,
+                                    gameRootDir = gameRootDir,
+                                    winePrefix = winePrefix,
+                                    allowOverwrite = effectiveAllowOverwrite,
+                                    saveLastPlacement = false,
+                                    preserveStatusOnError = true,
+                                    profileId = plan.profileId,
+                                    priority = plan.stateByInstallId[install.installId]?.priority ?: 0,
+                                    reviewedPlan = plan.reviewedPlansByInstallId[install.installId],
+                                )
+                            }
+                            errors += applyResult.errors.size
+                            if (applyResult.errors.isNotEmpty()) break
+                        }
+                        val game = BethesdaPluginManager.detectGame(libraryItem.name)
+                        if (errors == 0 && game != null) {
+                            val pluginsFile = BethesdaPluginManager.pluginsFile(winePrefix, game)
+                            if (pluginsFile != null) {
+                                val appliedInstalls = plan.configuredInstalls.map { it.copy(status = ModInstallStatus.APPLIED.name) }
+                                val detectedPlugins = applyCollectionPluginOrder(
+                                    BethesdaPluginManager.detectPlugins(
+                                        installs = appliedInstalls,
+                                        recipesByInstallId = plan.recipesByInstallId,
+                                        prioritiesByInstallId = plan.stateByInstallId.mapValues { it.value.priority },
+                                        gameRootDir = gameRootDir,
+                                        winePrefix = winePrefix,
+                                        pluginsFile = pluginsFile,
+                                        defaultEnabled = true,
+                                    ),
+                                    collectionPluginOrder,
+                                )
+                                BethesdaPluginManager.updateManagedPluginsTxt(
+                                    file = pluginsFile,
+                                    managedPlugins = detectedPlugins,
+                                    game = game,
+                                    gameRootDir = gameRootDir,
+                                )
+                                val issues = BethesdaPluginManager.diagnosePluginMasters(
+                                    managedPlugins = detectedPlugins,
+                                    game = game,
+                                    gameRootDir = gameRootDir,
+                                    pluginsFile = pluginsFile,
+                                )
+                                ProfileOrderApplyResult(
+                                    errors = errors,
+                                    bethesdaGame = game,
+                                    plugins = detectedPlugins,
+                                    pluginIssues = issues,
+                                    pluginAssetIssues = BethesdaPluginManager.diagnosePluginAssets(detectedPlugins),
+                                    disabledSkipped = transactionDisabledSkipped,
+                                )
+                            } else {
+                                ProfileOrderApplyResult(errors, null, emptyList(), emptyList(), emptyList(), transactionDisabledSkipped)
+                            }
+                        } else {
+                            ProfileOrderApplyResult(errors, null, emptyList(), emptyList(), emptyList(), transactionDisabledSkipped)
+                        }
                     }
+                }
+                disabledSkipped = result.disabledSkipped
+                if (plan.rebuildManagedOverlay && disabledSkipped > 0) {
+                    SnackbarManager.show(context.getString(R.string.nexus_changed_disabled_files_left_in_place, disabledSkipped))
+                    return@launch
                 }
                 result.bethesdaGame?.let {
                     bethesdaGame = it
@@ -3062,7 +3071,7 @@ fun NexusModsDialog(
                 return
             }
         }
-        val reviewedPlan = automaticPlan ?: reviewedPlacementPlan
+        val initialReviewedPlan = automaticPlan ?: reviewedPlacementPlan
         if (
             selectedFomodInstaller != null &&
             placementChoice != PlacementChoice.CUSTOM &&
@@ -3081,6 +3090,23 @@ fun NexusModsDialog(
             try {
                 placementApplyStatusMessage = null
                 loadingMessage = context.getString(R.string.nexus_checking_target_files)
+                val reviewedPlan = withContext(Dispatchers.IO) {
+                    val base = initialReviewedPlan ?: ModMaterializer.materializationPlan(
+                        install = install,
+                        recipes = recipes,
+                        gameRootDir = gameRootDir,
+                        winePrefix = winePrefix,
+                        captureTargetHashes = false,
+                    ).reviewedPlan
+                    PlacementRiskPolicy.enforce(base).withRiskApproval(riskyAutomaticPlanApproved)
+                }
+                if (!reviewedPlan.isComplete) {
+                    reviewedPlacementPlan = reviewedPlan
+                    val message = context.getString(R.string.nexus_plan_blocked)
+                    placementApplyStatusMessage = message
+                    SnackbarManager.show(message)
+                    return@launch
+                }
                 val (rawConflicts, conflicts) = withContext(Dispatchers.IO) {
                     val raw = ModMaterializer.scanConflicts(
                         install = install,
@@ -3418,7 +3444,6 @@ fun NexusModsDialog(
                                     riskyAutomaticPlanApproved = riskyAutomaticPlanApproved,
                                     onRiskyAutomaticPlanApprovalChange = { approved ->
                                         placementApplyStatusMessage = null
-                                        reviewedPlacementPlan = null
                                         riskyAutomaticPlanApproved = approved
                                     },
                                     reviewedPlan = reviewedPlacementPlan,

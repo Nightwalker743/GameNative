@@ -81,6 +81,7 @@ import app.gamenative.mods.ModPlacementSources
 import app.gamenative.mods.ModTargetResolver
 import app.gamenative.mods.PlannedFileStatus
 import app.gamenative.mods.PlacementRisk
+import app.gamenative.mods.PlacementRiskPolicy
 import app.gamenative.mods.ResolvedModTargetRoot
 import app.gamenative.ui.component.NoExtractOutlinedTextField
 import app.gamenative.utils.StorageUtils
@@ -147,7 +148,12 @@ internal fun PlacementSection(
     var showFomodWizard by remember(install.installId, fomodInstaller) { mutableStateOf(false) }
     val destinationsValid = drafts.all { draft -> roots.any { it.type.name == draft.targetRoot } }
     val automaticPlan = automaticPlacement.recommended?.plan
-    val visiblePlan = if (placementChoice == PlacementChoice.AUTOMATIC) automaticPlan else reviewedPlan
+        ?.let(PlacementRiskPolicy::enforce)
+        ?.withRiskApproval(riskyAutomaticPlanApproved)
+    val configuredPlan = reviewedPlan
+        ?.let(PlacementRiskPolicy::enforce)
+        ?.withRiskApproval(riskyAutomaticPlanApproved)
+    val visiblePlan = if (placementChoice == PlacementChoice.AUTOMATIC) automaticPlan else configuredPlan
     val reconfigurationDiff = remember(previousOwnership, visiblePlan) {
         visiblePlan?.let { ModOwnershipPlanDiffer.compare(previousOwnership, it) }
             ?.takeIf { previousOwnership != null && it.hasChanges }
@@ -155,10 +161,13 @@ internal fun PlacementSection(
     val targetInspection = remember(automaticPlan, roots) {
         automaticPlan?.let { ModTargetResolver.inspectPlan(it, roots) }
     }
-    val automaticBlocked = placementChoice == PlacementChoice.AUTOMATIC &&
-        (automaticPlanLoading ||
-        (automaticPlan?.isComplete != true || targetInspection?.ambiguousPaths?.isNotEmpty() == true)
-        )
+    val applyBlocked = when {
+        placementChoice == PlacementChoice.AUTOMATIC -> automaticPlanLoading ||
+            automaticPlan?.isComplete != true ||
+            targetInspection?.ambiguousPaths?.isNotEmpty() == true
+        visiblePlan != null -> !visiblePlan.isComplete
+        else -> false
+    }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -261,8 +270,7 @@ internal fun PlacementSection(
                 }
 
                 if (
-                    placementChoice == PlacementChoice.AUTOMATIC &&
-                    automaticPlan?.files.orEmpty().any { it.risk == PlacementRisk.UNSAFE }
+                    visiblePlan?.files.orEmpty().any { it.risk == PlacementRisk.UNSAFE }
                 ) {
                     Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.errorContainer) {
                         Row(
@@ -369,7 +377,7 @@ internal fun PlacementSection(
                             }
                             Button(
                                 onClick = onSaveAndApply,
-                                enabled = roots.isNotEmpty() && destinationsValid && !automaticBlocked,
+                                enabled = roots.isNotEmpty() && destinationsValid && !applyBlocked,
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -388,7 +396,7 @@ internal fun PlacementSection(
                             }
                             Button(
                                 onClick = onSaveAndApply,
-                                enabled = roots.isNotEmpty() && destinationsValid && !automaticBlocked,
+                                enabled = roots.isNotEmpty() && destinationsValid && !applyBlocked,
                             ) {
                                 Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.size(8.dp))
