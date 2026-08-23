@@ -59,6 +59,15 @@ data class ModMaterializationPlan(
     val errors: Map<String, String> = emptyMap(),
 ) {
     val isComplete: Boolean get() = errors.isEmpty()
+    val digest: String
+        get() {
+            val canonical = files.joinToString("\n") { file ->
+                "${file.sourceRelativePath}|${file.targetRoot}|${file.targetRelativePath}|${file.normalizedTargetKey}|${file.mode}"
+            }
+            return MessageDigest.getInstance("SHA-256")
+                .digest(canonical.toByteArray(Charsets.UTF_8))
+                .joinToString("") { "%02x".format(it) }
+        }
 }
 
 object ModMaterializer {
@@ -342,6 +351,9 @@ object ModMaterializer {
                 }
             }
         }.sortedWith(compareBy<ModPlannedFile> { it.normalizedTargetKey }.thenBy { it.sourceRelativePath.lowercase() })
+        if (files.isEmpty()) {
+            errors[install.modName] = "The reviewed placement does not contain any materialized files"
+        }
         return ModMaterializationPlan(install.installId, operations, files, errors)
     }
 

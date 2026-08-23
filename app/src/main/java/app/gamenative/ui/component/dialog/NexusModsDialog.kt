@@ -31,6 +31,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -348,6 +349,7 @@ private data class ProfileOrderPlan(
     val disabledInstalls: List<ModInstall>,
     val configuredInstalls: List<ModInstall>,
     val installsToApply: List<ModInstall>,
+    val rebuildManagedOverlay: Boolean,
     val missingTargetRepairInstallIds: Set<String>,
     val recipesByInstallId: Map<String, List<ModPlacementRecipe>>,
     val recipesToPersistByInstallId: Map<String, List<ModPlacementRecipe>>,
@@ -653,6 +655,8 @@ private fun InstallHealthSection(
     report: ModHealthReport?,
     loading: Boolean,
     onCheck: () -> Unit,
+    onRebuild: () -> Unit,
+    onReconfigure: (String) -> Unit,
 ) {
     NexusSectionCard {
         NexusSectionHeader(stringResource(R.string.nexus_install_health_title), loading, stringResource(R.string.nexus_check), onCheck)
@@ -667,11 +671,19 @@ private fun InstallHealthSection(
             } else {
                 val summaryColor = if (current.errorCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                 Text(stringResource(R.string.nexus_install_health_summary, current.errorCount, current.warningCount), style = MaterialTheme.typography.bodySmall, color = summaryColor)
+                OutlinedButton(onClick = onRebuild, enabled = !loading, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.nexus_apply_order))
+                }
                 current.issues.take(8).forEach { issue ->
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         val titleColor = if (issue.severity == ModHealthSeverity.ERROR) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                         Text(listOf(issue.installName, issue.title).filter(String::isNotBlank).joinToString(": "), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = titleColor)
                         Text(issue.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (issue.installId.isNotBlank()) {
+                            TextButton(onClick = { onReconfigure(issue.installId) }) {
+                                Text(stringResource(R.string.nexus_configure))
+                            }
+                        }
                     }
                 }
                 if (current.issues.size > 8) {
@@ -1112,6 +1124,7 @@ fun NexusModsDialog(
         }
         launch {
             delay(750)
+            NexusModManager.reconcilePendingDeploymentsForApp(context, libraryItem.appId)
             NexusModImportService.resumeInterruptedImports(context)
             NexusModManager.cleanupOrphanedFilesForApp(context, libraryItem.appId)
             storageBreakdown = NexusModManager.scanStorageForApp(context, libraryItem.appId)
@@ -1478,6 +1491,20 @@ fun NexusModsDialog(
                     }
                     val configuredInstalls = orderedInstalls.filter { recipesByInstallId[it.installId].orEmpty().isNotEmpty() }
                     val unconfiguredInstalls = orderedInstalls - configuredInstalls.toSet()
+                    val configuredOwnership = configuredInstalls.mapNotNull { install ->
+                        app.gamenative.mods.ModOwnershipStore.read(
+                            NexusModManager.cacheRoot(context, libraryItem.appId),
+                            install.installId,
+                        )
+                    }
+                    val configuredOverlay = app.gamenative.mods.ModProfileOverlayPlanner.build(
+                        configuredOwnership,
+                        stateByInstallId.mapValues { it.value.priority },
+                    )
+                    val rebuildManagedOverlay = configuredInstalls.isNotEmpty() &&
+                        configuredOwnership.size == configuredInstalls.size &&
+                        configuredOwnership.all { it.state == app.gamenative.mods.ModOwnershipState.ACTIVE } &&
+                        app.gamenative.mods.ModDeploymentVerifier.verify(configuredOverlay).successful
                     val game = BethesdaPluginManager.detectGame(libraryItem.name)
                     val plugins = game?.let {
                         BethesdaPluginManager.detectPlugins(
@@ -1511,11 +1538,15 @@ fun NexusModsDialog(
                             )
                         }
                         .mapTo(mutableSetOf()) { it.installId }
-                    val installsToApply = configuredInstalls.filter { install ->
-                        install.status != ModInstallStatus.APPLIED.name ||
-                            install.installId in conflictInstallIds ||
-                            install.installId in assetRepairInstallIds ||
-                            install.installId in missingTargetRepairInstallIds
+                    val installsToApply = if (rebuildManagedOverlay) {
+                        configuredInstalls
+                    } else {
+                        configuredInstalls.filter { install ->
+                            install.status != ModInstallStatus.APPLIED.name ||
+                                install.installId in conflictInstallIds ||
+                                install.installId in assetRepairInstallIds ||
+                                install.installId in missingTargetRepairInstallIds
+                        }
                     }
                     ProfileOrderPlan(
                         profileId = profile.profileId,
@@ -1523,6 +1554,7 @@ fun NexusModsDialog(
                         disabledInstalls = disabledInstalls,
                         configuredInstalls = configuredInstalls,
                         installsToApply = installsToApply,
+                        rebuildManagedOverlay = rebuildManagedOverlay,
                         missingTargetRepairInstallIds = missingTargetRepairInstallIds,
                         recipesByInstallId = recipesByInstallId,
                         recipesToPersistByInstallId = recipesToPersistByInstallId,
@@ -1607,6 +1639,26 @@ fun NexusModsDialog(
                     }
                 }
 
+                if (plan.rebuildManagedOverlay) {
+                    loadingMessage = context.getString(R.string.nexus_applying_mod_order)
+                    disabledSkipped += withContext(Dispatchers.IO) {
+                        plan.configuredInstalls.asReversed().sumOf { install ->
+                            NexusModManager.disableInstall(
+                                context = context,
+                                install = install,
+                                restoreBackups = true,
+                                gameRootDir = gameRootDir,
+                                winePrefix = winePrefix,
+                            ).size
+                        }
+                    }
+                    if (disabledSkipped > 0) {
+                        SnackbarManager.show(context.getString(R.string.nexus_changed_disabled_files_left_in_place, disabledSkipped))
+                        return@launch
+                    }
+                    effectiveAllowOverwrite = true
+                }
+
                 loadingMessage = context.getString(R.string.nexus_applying_mod_order)
                 val result = withContext(Dispatchers.IO) {
                     var errors = 0
@@ -1626,7 +1678,11 @@ fun NexusModsDialog(
                         } else {
                             NexusModManager.applyInstall(
                                 context = context,
-                                install = install,
+                                install = if (plan.rebuildManagedOverlay) {
+                                    install.copy(status = ModInstallStatus.DISABLED.name)
+                                } else {
+                                    install
+                                },
                                 recipes = recipes,
                                 gameRootDir = gameRootDir,
                                 winePrefix = winePrefix,
@@ -3294,6 +3350,11 @@ fun NexusModsDialog(
                                 report = healthReport,
                                 loading = healthLoading,
                                 onCheck = ::runInstallHealthCheck,
+                                onRebuild = { applyProfileOrder(allowOverwrite = false) },
+                                onReconfigure = { installId ->
+                                    installs.firstOrNull { it.installId == installId }?.let(::selectInstallForPlacement)
+                                    selectedTab = ManageModsTab.PLACEMENT
+                                },
                             )
                             StorageCleanupSection(
                                 breakdown = storageBreakdown,

@@ -71,6 +71,7 @@ data class ModHealthIssue(
     val title: String,
     val detail: String,
     val installName: String = "",
+    val installId: String = "",
 )
 
 data class ModHealthReport(
@@ -515,6 +516,7 @@ object NexusModManager {
         preserveStatusOnError: Boolean = false,
         profileId: String = "",
         priority: Int = 0,
+        checkpointHook: (ModDeploymentCheckpoint) -> Unit = {},
     ): ModPlacementResult = withContext(Dispatchers.IO) {
         val dao = dao(context)
         val existingManifests = dao.getOverwriteManifests(install.installId)
@@ -524,12 +526,31 @@ object NexusModManager {
         val ownershipRoot = cacheRoot(context, install.appId)
         val previousOwnership = ModOwnershipStore.read(ownershipRoot, install.installId)
         val plan = ModMaterializer.materializationPlan(install, recipes, gameRootDir, winePrefix)
-        val result = ModMaterializer.apply(
+        var journal = ModDeploymentJournalStore.begin(ownershipRoot, install.installId, install.appId, plan)
+        checkpointHook(ModDeploymentCheckpoint.PLANNED)
+        fun advance(checkpoint: ModDeploymentCheckpoint, detail: String = "") {
+            journal = ModDeploymentJournalStore.checkpoint(ownershipRoot, journal, checkpoint, detail)
+            checkpointHook(checkpoint)
+        }
+        advance(ModDeploymentCheckpoint.PREPARING)
+        advance(ModDeploymentCheckpoint.APPLYING)
+        val applied = ModMaterializer.apply(
             install = install,
             plan = plan,
             backupRoot = backupRoot(context, install.appId),
             allowOverwrite = allowOverwrite,
         )
+        if (applied.errors.isEmpty()) advance(ModDeploymentCheckpoint.VERIFYING)
+        val verification = if (applied.errors.isEmpty()) ModDeploymentVerifier.verify(plan) else ModDeploymentVerification(emptyList())
+        val result = if (verification.successful) {
+            applied
+        } else {
+            applied.copy(
+                errors = applied.errors + verification.issues.associate { issue ->
+                    issue.targetPath to "${issue.type}: ${issue.detail}"
+                },
+            )
+        }
         if (result.errors.isEmpty()) {
             if (result.manifests.isNotEmpty()) {
                 dao.replaceOverwriteManifestsForTargets(install.installId, result.manifests)
@@ -571,11 +592,13 @@ object NexusModManager {
                 dao.updateInstallStatus(install.installId, ModInstallStatus.APPLIED.name)
             }
             if (saveLastPlacement) saveLastPlacementForApp(install.appId, recipes)
+            advance(ModDeploymentCheckpoint.COMMITTED)
             return@withContext result.copy(warnings = staleCleanup.skippedPaths)
         } else if (!preserveStatusOnError && install.status != ModInstallStatus.ERROR.name) {
             dao.updateInstallStatus(install.installId, ModInstallStatus.ERROR.name)
         }
 
+        advance(ModDeploymentCheckpoint.ROLLING_BACK, "Apply or verification failed")
         val restoreSkipped = ModMaterializer.restoreBackups(result.manifests)
         val restoredTargets = result.manifests
             .map { it.targetPath }
@@ -596,8 +619,10 @@ object NexusModManager {
             .forEach { deleteFileBytes(File(it)) }
         val rollbackSkipped = (restoreSkipped + removeSkipped).distinct()
         if (rollbackSkipped.isEmpty()) {
+            advance(ModDeploymentCheckpoint.ROLLED_BACK)
             result
         } else {
+            advance(ModDeploymentCheckpoint.RECOVERY_REQUIRED, "${rollbackSkipped.size} changed file(s) were preserved")
             result.copy(
                 errors = result.errors + ("Rollback" to "${rollbackSkipped.size} changed file(s) left in place after failed apply"),
             )
@@ -980,14 +1005,35 @@ object NexusModManager {
             detail: String,
             install: ModInstall? = null,
         ) {
-            issues += ModHealthIssue(severity, title, detail, install?.modName.orEmpty())
+            issues += ModHealthIssue(severity, title, detail, install?.modName.orEmpty(), install?.installId.orEmpty())
         }
+
+        val ownershipRoot = cacheRoot(context, appId)
+        val journals = ModDeploymentJournalStore.reconcile(ownershipRoot).associateBy { it.installId }
+        val ownershipByInstallId = installs.mapNotNull { install ->
+            ModOwnershipStore.read(ownershipRoot, install.installId)?.let { install.installId to it }
+        }.toMap()
+        val activeProfile = dao.getActiveProfileForApp(appId)
+        val enabledPriorities = activeProfile?.let { profile ->
+            dao.getProfileInstallStates(appId, profile.profileId)
+                .filter { it.enabled }
+                .associate { it.installId to it.priority }
+        }.orEmpty()
+        val overlayFindings = ModDeploymentVerifier.verify(
+            ModProfileOverlayPlanner.build(ownershipByInstallId.values.toList(), enabledPriorities),
+        ).issues
 
         installs.forEach { install ->
             val status = runCatching { ModInstallStatus.valueOf(install.status) }.getOrNull()
             val extracted = File(install.extractedPath)
             val recipes = dao.getRecipesForInstall(install.installId)
             val manifests = dao.getOverwriteManifests(install.installId)
+            val ownership = ownershipByInstallId[install.installId]
+            val journal = journals[install.installId]
+
+            if (journal?.checkpoint == ModDeploymentCheckpoint.RECOVERY_REQUIRED) {
+                add(ModHealthSeverity.ERROR, "Deployment recovery is required", journal.detail, install)
+            }
 
             if (status == null) {
                 add(ModHealthSeverity.ERROR, "Unknown install status", install.status, install)
@@ -1003,7 +1049,36 @@ object NexusModManager {
             if (install.status == ModInstallStatus.APPLIED.name) {
                 if (recipes.none { it.enabled }) {
                     add(ModHealthSeverity.ERROR, "Applied mod has no placement recipe", "GameNative cannot verify or safely remove deployed files.", install)
-                } else if (extracted.isDirectory) {
+                } else if (ownership == null) {
+                    add(
+                        ModHealthSeverity.WARNING,
+                        "Ownership adoption is required",
+                        "This historical install remains usable, but destructive cleanup is blocked until it is safely reapplied.",
+                        install,
+                    )
+                } else if (ownership.state != ModOwnershipState.ACTIVE) {
+                    add(ModHealthSeverity.ERROR, "Ownership state does not match the applied mod", ownership.state.name, install)
+                } else {
+                    val findingsForInstall = overlayFindings.filter { it.installId == install.installId } +
+                        ModDeploymentVerifier.verify(ownership).issues.filter { it.type == ModVerificationIssueType.STALE }
+                    findingsForInstall.groupBy { it.type }.forEach { (type, findings) ->
+                        val severity = if (type == ModVerificationIssueType.STALE) ModHealthSeverity.WARNING else ModHealthSeverity.ERROR
+                        add(
+                            severity,
+                            when (type) {
+                                ModVerificationIssueType.MISSING -> "Managed files are missing"
+                                ModVerificationIssueType.MODIFIED -> "Managed files were modified"
+                                ModVerificationIssueType.WRONG_CASE -> "Managed files have unexpected casing"
+                                ModVerificationIssueType.AMBIGUOUS -> "Case-ambiguous target files exist"
+                                ModVerificationIssueType.STALE -> "Stale managed files were preserved"
+                                ModVerificationIssueType.OWNERSHIP -> "Ownership records need review"
+                            },
+                            findings.take(3).joinToString("\n") { it.targetPath },
+                            install,
+                        )
+                    }
+                }
+                if (ownership == null && extracted.isDirectory) {
                     val missing = missingAppliedTargets(install, recipes, gameRootDir, winePrefix).take(3)
                     if (missing.isNotEmpty()) {
                         add(
@@ -1014,6 +1089,13 @@ object NexusModManager {
                         )
                     }
                 }
+            } else if (ownership != null) {
+                ModDeploymentVerifier.verify(ownership).issues
+                    .filter { it.type == ModVerificationIssueType.STALE }
+                    .take(3)
+                    .forEach { finding ->
+                        add(ModHealthSeverity.WARNING, "Stale managed file was preserved", finding.targetPath, install)
+                    }
             }
             if (install.status == ModInstallStatus.READY.name && manifests.isNotEmpty()) {
                 add(ModHealthSeverity.WARNING, "Ready mod has overwrite records", "This mod is not applied but still has ${manifests.size} overwrite record(s).", install)
@@ -1067,6 +1149,9 @@ object NexusModManager {
 
         ModHealthReport(issues)
     }
+
+    suspend fun reconcilePendingDeploymentsForApp(context: Context, appId: String): List<ModDeploymentJournal> =
+        withContext(Dispatchers.IO) { ModDeploymentJournalStore.reconcile(cacheRoot(context, appId)) }
 
     fun hasMissingAppliedTargets(
         install: ModInstall,

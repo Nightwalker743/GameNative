@@ -116,7 +116,10 @@ object ModProfileOverlayPlanner {
 }
 
 object ModOwnershipStore {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     fun read(root: File, installId: String): ModOwnershipManifest? =
         readFile(currentFile(root, installId)) ?: readFile(previousFile(root, installId))
@@ -196,7 +199,7 @@ object ModOwnershipStore {
             installId = plan.installId,
             appId = appId,
             profileId = profileId,
-            planDigest = planDigest(plan),
+            planDigest = plan.digest,
             files = (files + preservedStale).distinctBy { it.normalizedTargetKey to it.active },
             operations = plan.operations.map { operation ->
                 ModOwnedOperation(
@@ -240,15 +243,6 @@ object ModOwnershipStore {
             source.copyTo(target, overwrite = true)
             source.delete()
         }
-    }
-
-    private fun planDigest(plan: ModMaterializationPlan): String {
-        val canonical = plan.files.joinToString("\n") { file ->
-            "${file.sourceRelativePath}|${file.targetRoot}|${file.targetRelativePath}|${file.normalizedTargetKey}|${file.mode}"
-        }
-        return MessageDigest.getInstance("SHA-256")
-            .digest(canonical.toByteArray(Charsets.UTF_8))
-            .joinToString("") { "%02x".format(it) }
     }
 
     internal fun sha256(file: File): String {
