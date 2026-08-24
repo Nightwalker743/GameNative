@@ -671,6 +671,8 @@ private fun InstallHealthSection(
     onCheck: () -> Unit,
     onRebuild: () -> Unit,
     onReconfigure: (String) -> Unit,
+    onAdoptOwnership: (String) -> Unit,
+    onRestorePrevious: (String) -> Unit,
     onExport: (ModHealthReport) -> Unit,
 ) {
     NexusSectionCard {
@@ -700,19 +702,24 @@ private fun InstallHealthSection(
                         if (issue.installId.isNotBlank()) {
                             TextButton(
                                 onClick = {
-                                    if (issue.recommendedAction == ModHealthAction.REAPPLY_MISSING) {
-                                        onRebuild()
-                                    } else {
-                                        onReconfigure(issue.installId)
+                                    when (issue.recommendedAction) {
+                                        ModHealthAction.REAPPLY_MISSING,
+                                        ModHealthAction.REBUILD_PROFILE,
+                                        -> onRebuild()
+                                        ModHealthAction.ADOPT_OWNERSHIP -> onAdoptOwnership(issue.installId)
+                                        ModHealthAction.RESTORE_PREVIOUS -> onRestorePrevious(issue.installId)
+                                        ModHealthAction.RECONFIGURE -> onReconfigure(issue.installId)
                                     }
                                 },
                             ) {
                                 Text(
                                     stringResource(
-                                        if (issue.recommendedAction == ModHealthAction.REAPPLY_MISSING) {
-                                            R.string.nexus_reapply_missing_files
-                                        } else {
-                                            R.string.nexus_configure
+                                        when (issue.recommendedAction) {
+                                            ModHealthAction.REAPPLY_MISSING -> R.string.nexus_reapply_missing_files
+                                            ModHealthAction.REBUILD_PROFILE -> R.string.nexus_apply_order
+                                            ModHealthAction.ADOPT_OWNERSHIP -> R.string.nexus_adopt_ownership
+                                            ModHealthAction.RESTORE_PREVIOUS -> R.string.nexus_restore_previous_deployment
+                                            ModHealthAction.RECONFIGURE -> R.string.nexus_configure
                                         },
                                     ),
                                 )
@@ -839,6 +846,7 @@ fun NexusModsDialog(
     var automaticPlacementResult by remember { mutableStateOf<AutomaticPlacementResult?>(null) }
     var automaticPlacementLoading by remember { mutableStateOf(false) }
     var selectedOwnership by remember { mutableStateOf<app.gamenative.mods.ModOwnershipManifest?>(null) }
+    var selectedPreviousOwnership by remember { mutableStateOf<app.gamenative.mods.ModOwnershipManifest?>(null) }
     var lastPlacementDrafts by remember(libraryItem.appId) { mutableStateOf<List<RecipeDraft>>(emptyList()) }
     var detectedDefaultDraft by remember(libraryItem.appId) { mutableStateOf<RecipeDraft?>(null) }
     val defaultDraft = detectedDefaultDraft ?: fallbackDefaultDraft
@@ -1921,6 +1929,77 @@ fun NexusModsDialog(
             archiveEntries = entries
             selectedFomodInstaller = fomodInstaller
             fomodEnvironment = environment
+        }
+    }
+
+    fun adoptInstallOwnership(installId: String) {
+        val install = installs.firstOrNull { it.installId == installId } ?: return
+        scope.launch {
+            healthLoading = true
+            try {
+                val profile = activeProfile ?: ModProfileManager.ensureActiveProfile(dao, libraryItem.appId)
+                val state = ModProfileManager.ensureStateForInstall(dao, profile, install.installId)
+                val result = NexusModManager.adoptHistoricalDeployment(
+                    context = context,
+                    install = install,
+                    recipes = dao.getRecipesForInstall(install.installId),
+                    gameRootDir = gameRootDir,
+                    winePrefix = winePrefix,
+                    profileId = profile.profileId,
+                    priority = state.priority,
+                )
+                SnackbarManager.show(
+                    if (result.errors.isEmpty()) {
+                        context.getString(R.string.nexus_ownership_adopted)
+                    } else {
+                        context.getString(R.string.nexus_ownership_adoption_failed, result.errors.size)
+                    },
+                )
+                healthReport = NexusModManager.checkInstallHealthForApp(context, libraryItem.appId, gameRootDir, winePrefix)
+            } finally {
+                healthLoading = false
+            }
+        }
+    }
+
+    fun restorePreviousDeployment(installId: String) {
+        val install = installs.firstOrNull { it.installId == installId } ?: return
+        if (modApplyInProgress || profileApplyInProgress) return
+        scope.launch {
+            modApplyInProgress = true
+            try {
+                loadingMessage = context.getString(R.string.nexus_restoring_previous_deployment)
+                val profile = activeProfile ?: ModProfileManager.ensureActiveProfile(dao, libraryItem.appId)
+                val state = ModProfileManager.ensureStateForInstall(dao, profile, install.installId)
+                val result = NexusModManager.restorePreviousDeployment(
+                    context = context,
+                    install = install,
+                    recipes = dao.getRecipesForInstall(install.installId),
+                    gameRootDir = gameRootDir,
+                    winePrefix = winePrefix,
+                    profileId = profile.profileId,
+                    priority = state.priority,
+                )
+                val root = NexusModManager.cacheRoot(context, install.appId)
+                if (result.errors.isEmpty() && selectedInstall?.installId == install.installId) {
+                    selectedOwnership = app.gamenative.mods.ModOwnershipStore.read(root, install.installId)
+                    selectedPreviousOwnership = app.gamenative.mods.ModOwnershipStore.readPrevious(root, install.installId)
+                    reviewedPlacementPlan = selectedOwnership?.reviewedPlanOrNull()
+                }
+                SnackbarManager.show(
+                    if (result.errors.isEmpty()) {
+                        context.getString(R.string.nexus_previous_deployment_restored)
+                    } else {
+                        context.getString(R.string.nexus_previous_deployment_restore_failed, result.errors.size)
+                    },
+                )
+                if (healthReport != null) {
+                    healthReport = NexusModManager.checkInstallHealthForApp(context, libraryItem.appId, gameRootDir, winePrefix)
+                }
+            } finally {
+                modApplyInProgress = false
+                loadingMessage = null
+            }
         }
     }
 
@@ -3195,14 +3274,15 @@ fun NexusModsDialog(
     }
 
     LaunchedEffect(selectedInstall?.installId) {
-        selectedOwnership = selectedInstall?.let { install ->
+        val ownership = selectedInstall?.let { install ->
             withContext(Dispatchers.IO) {
-                app.gamenative.mods.ModOwnershipStore.read(
-                    NexusModManager.cacheRoot(context, install.appId),
-                    install.installId,
-                )
+                val root = NexusModManager.cacheRoot(context, install.appId)
+                app.gamenative.mods.ModOwnershipStore.read(root, install.installId) to
+                    app.gamenative.mods.ModOwnershipStore.readPrevious(root, install.installId)
             }
         }
+        selectedOwnership = ownership?.first
+        selectedPreviousOwnership = ownership?.second
     }
 
     fun shareDiagnostic(fileName: String, content: String) {
@@ -3498,6 +3578,8 @@ fun NexusModsDialog(
                                     initialFomodSelections = fomodSelectionDraft,
                                     onFomodSelectionsChanged = { fomodSelectionDraft = it },
                                     previousOwnership = selectedOwnership,
+                                    canRestorePrevious = selectedPreviousOwnership?.reviewedPlanOrNull() != null,
+                                    onRestorePrevious = { restorePreviousDeployment(install.installId) },
                                     placementChoice = placementChoice,
                                     canUseLastPlacement = lastPlacementDrafts.isNotEmpty(),
                                     onPlacementChoiceChange = { choice ->
@@ -3577,6 +3659,8 @@ fun NexusModsDialog(
                                     installs.firstOrNull { it.installId == installId }?.let(::selectInstallForPlacement)
                                     selectedTab = ManageModsTab.PLACEMENT
                                 },
+                                onAdoptOwnership = ::adoptInstallOwnership,
+                                onRestorePrevious = ::restorePreviousDeployment,
                                 onExport = ::exportHealthReport,
                             )
                             StorageCleanupSection(

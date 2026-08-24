@@ -49,6 +49,26 @@ class ModInstallPlanContractTest {
     }
 
     @Test
+    fun healthManifest_includesSupportFactsWithoutLeakingPaths() {
+        val report = ModHealthReport(
+            issues = listOf(
+                ModHealthIssue(
+                    severity = ModHealthSeverity.WARNING,
+                    title = "Managed files changed",
+                    detail = "C:\\Games\\Example\\Data\\changed.esp",
+                ),
+            ),
+            facts = listOf("ownership-producers=automatic@3:2", "cache=C:\\private\\mods"),
+        )
+
+        val manifest = report.sanitizedManifest()
+
+        assertTrue("fact: ownership-producers=automatic@3:2" in manifest)
+        assertFalse("C:\\Games" in manifest)
+        assertFalse("C:\\private" in manifest)
+    }
+
+    @Test
     fun oneRiskPolicy_protectsExecutableRootsRegardlessOfPlanOrigin() {
         val rootDll = file("dxgi.dll", PlannedFileStatus.PLACED, "FOMOD mapping").copy(
             targetRelativePath = "dxgi.dll",

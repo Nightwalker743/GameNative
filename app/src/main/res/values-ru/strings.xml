@@ -2309,4 +2309,12 @@ https://gamenative.app
     <string name="nexus_confirm_risky_game_root_files_description">Файлы DLL, EXE и загрузчики могут изменить запуск игры. Подтверждайте, только если архиву можно доверять, а предпросмотр совпадает с инструкцией по установке.</string>
     <string name="nexus_building_install_plan">Создание плана размещения файлов…</string>
     <string name="nexus_reapply_missing_files">Повторно применить отсутствующие файлы</string>
+    <string name="nexus_adopt_ownership">Принять владение файлами</string>
+    <string name="nexus_ownership_adopted">Владение файлами зарегистрировано без изменения файлов игры.</string>
+    <string name="nexus_ownership_adoption_failed">Не удалось принять владение файлами (проблем: %1$d)</string>
+    <string name="nexus_restore_previous_deployment">Восстановить предыдущее развёртывание</string>
+    <string name="nexus_restore_previous_deployment_description">Заменяет текущий план размещения последним рабочим планом этого мода.</string>
+    <string name="nexus_restoring_previous_deployment">Восстановление предыдущего развёртывания…</string>
+    <string name="nexus_previous_deployment_restored">Предыдущее развёртывание восстановлено.</string>
+    <string name="nexus_previous_deployment_restore_failed">Не удалось восстановить предыдущее развёртывание (проблем: %1$d)</string>
 </resources>

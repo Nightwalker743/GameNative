@@ -2062,6 +2062,14 @@
     <string name="nexus_confirm_risky_game_root_files_description">DLL, EXE, and loader files can change how the game starts. Confirm only when this archive is trusted and the preview matches its installation instructions.</string>
     <string name="nexus_building_install_plan">Building the file placement plan…</string>
     <string name="nexus_reapply_missing_files">Reapply missing files</string>
+    <string name="nexus_adopt_ownership">Adopt verified files</string>
+    <string name="nexus_ownership_adopted">Verified files were adopted without changing them</string>
+    <string name="nexus_ownership_adoption_failed">Could not safely adopt ownership (%1$d issue(s))</string>
+    <string name="nexus_restore_previous_deployment">Restore previous deployment</string>
+    <string name="nexus_restore_previous_deployment_description">Returns this mod to its previous reviewed file plan. Externally modified files are preserved.</string>
+    <string name="nexus_restoring_previous_deployment">Restoring previous deployment</string>
+    <string name="nexus_previous_deployment_restored">Previous deployment restored</string>
+    <string name="nexus_previous_deployment_restore_failed">Could not restore the previous deployment (%1$d issue(s))</string>
     <string name="nexus_mod_order_applied">Mod order applied%1$s%2$s</string>
     <string name="nexus_mod_order_applied_with_errors">Mod order applied with %1$d error(s)%2$s%3$s</string>
     <string name="nexus_apply_mod_order_failed">Failed to apply mod order</string>

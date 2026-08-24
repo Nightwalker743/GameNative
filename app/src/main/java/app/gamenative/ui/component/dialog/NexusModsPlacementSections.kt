@@ -133,6 +133,8 @@ internal fun PlacementSection(
     initialFomodSelections: Map<String, Set<String>>,
     onFomodSelectionsChanged: (Map<String, Set<String>>) -> Unit,
     previousOwnership: ModOwnershipManifest?,
+    canRestorePrevious: Boolean,
+    onRestorePrevious: () -> Unit,
     placementChoice: PlacementChoice,
     canUseLastPlacement: Boolean,
     onPlacementChoiceChange: (PlacementChoice) -> Unit,
@@ -363,6 +365,17 @@ internal fun PlacementSection(
                         text = message,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+
+                if (canRestorePrevious) {
+                    OutlinedButton(onClick = onRestorePrevious, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.nexus_restore_previous_deployment))
+                    }
+                    Text(
+                        stringResource(R.string.nexus_restore_previous_deployment_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 

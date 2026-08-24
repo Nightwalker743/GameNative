@@ -2372,4 +2372,12 @@
     <string name="nexus_confirm_risky_game_root_files_description">DLL, EXE 및 로더 파일은 게임 시작 방식을 바꿀 수 있습니다. 아카이브를 신뢰할 수 있고 미리보기가 설치 안내와 일치할 때만 확인하세요.</string>
     <string name="nexus_building_install_plan">파일 배치 계획 생성 중…</string>
     <string name="nexus_reapply_missing_files">누락된 파일 다시 적용</string>
+    <string name="nexus_adopt_ownership">파일 소유권 등록</string>
+    <string name="nexus_ownership_adopted">게임 파일을 변경하지 않고 파일 소유권을 등록했습니다.</string>
+    <string name="nexus_ownership_adoption_failed">파일 소유권을 등록하지 못했습니다(문제 %1$d개)</string>
+    <string name="nexus_restore_previous_deployment">이전 배포 복원</string>
+    <string name="nexus_restore_previous_deployment_description">현재 파일 배치 계획을 이 모드에서 마지막으로 작동한 계획으로 바꿉니다.</string>
+    <string name="nexus_restoring_previous_deployment">이전 배포 복원 중…</string>
+    <string name="nexus_previous_deployment_restored">이전 배포를 복원했습니다.</string>
+    <string name="nexus_previous_deployment_restore_failed">이전 배포를 복원하지 못했습니다(문제 %1$d개)</string>
 </resources>

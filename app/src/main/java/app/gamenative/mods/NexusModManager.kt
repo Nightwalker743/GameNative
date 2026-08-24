@@ -70,6 +70,8 @@ enum class ModHealthAction {
     REAPPLY_MISSING,
     RECONFIGURE,
     REBUILD_PROFILE,
+    ADOPT_OWNERSHIP,
+    RESTORE_PREVIOUS,
 }
 
 data class ModHealthIssue(
@@ -83,6 +85,7 @@ data class ModHealthIssue(
 
 data class ModHealthReport(
     val issues: List<ModHealthIssue>,
+    val facts: List<String> = emptyList(),
 ) {
     val errorCount: Int get() = issues.count { it.severity == ModHealthSeverity.ERROR }
     val warningCount: Int get() = issues.count { it.severity == ModHealthSeverity.WARNING }
@@ -91,6 +94,7 @@ data class ModHealthReport(
         appendLine("health-version: 1")
         appendLine("errors: $errorCount")
         appendLine("warnings: $warningCount")
+        facts.forEach { fact -> appendLine("fact: ${ModDiagnosticSanitizer.text(fact)}") }
         issues.forEach { issue ->
             append(issue.severity.name)
             append(' ')
@@ -741,6 +745,58 @@ object NexusModManager {
         )
     }
 
+    suspend fun adoptHistoricalDeployment(
+        context: Context,
+        install: ModInstall,
+        recipes: List<ModPlacementRecipe>,
+        gameRootDir: File?,
+        winePrefix: String,
+        profileId: String = "",
+        priority: Int = 0,
+    ): ModPlacementResult = ModDeploymentCoordinator.withGameLock(install.appId) {
+        withContext(Dispatchers.IO) {
+            val root = cacheRoot(context, install.appId)
+            if (install.status != ModInstallStatus.APPLIED.name || ModOwnershipStore.read(root, install.installId) != null) {
+                return@withContext ModPlacementResult(
+                    created = 0,
+                    skipped = 0,
+                    backedUp = 0,
+                    errors = mapOf(install.modName to "Ownership adoption is only available for an applied historical install without an ownership manifest"),
+                    manifests = emptyList(),
+                )
+            }
+            val plan = ModMaterializer.materializationPlan(
+                install = install,
+                recipes = recipes,
+                gameRootDir = gameRootDir,
+                winePrefix = winePrefix,
+            )
+            val verification = ModDeploymentVerifier.verify(plan)
+            if (!plan.isComplete || !verification.successful) {
+                return@withContext ModPlacementResult(
+                    created = 0,
+                    skipped = 0,
+                    backedUp = 0,
+                    errors = plan.errors + verification.issues.associate { issue ->
+                        issue.targetPath to "${issue.type}: ${issue.detail}"
+                    },
+                    manifests = emptyList(),
+                )
+            }
+            val manifests = dao(context).getOverwriteManifests(install.installId)
+            val ownership = ModOwnershipStore.create(
+                appId = install.appId,
+                plan = plan,
+                overwriteManifests = manifests,
+                profileId = profileId,
+                priority = priority,
+            )
+            ModOwnershipStore.writePending(root, ownership)
+            ModOwnershipStore.commit(root, install.installId)
+            ModPlacementResult(0, plan.files.size, 0, emptyMap(), emptyList())
+        }
+    }
+
     fun lastPlacementRecipesForApp(appId: String, installId: String): List<ModPlacementRecipe> {
         val root = runCatching { JSONObject(PrefManager.nexusLastPlacementJson) }.getOrElse { JSONObject() }
         val recipes = root.optJSONArray(appId) ?: return emptyList()
@@ -1126,7 +1182,14 @@ object NexusModManager {
             val journal = journals[install.installId]
 
             if (journal?.checkpoint == ModDeploymentCheckpoint.RECOVERY_REQUIRED) {
-                add(ModHealthSeverity.ERROR, "Deployment recovery is required", journal.detail, install, ModHealthAction.RECONFIGURE)
+                val canRestore = ModOwnershipStore.readPrevious(ownershipRoot, install.installId)?.reviewedPlanOrNull() != null
+                add(
+                    ModHealthSeverity.ERROR,
+                    "Deployment recovery is required",
+                    journal.detail,
+                    install,
+                    if (canRestore) ModHealthAction.RESTORE_PREVIOUS else ModHealthAction.RECONFIGURE,
+                )
             }
 
             if (status == null) {
@@ -1147,9 +1210,9 @@ object NexusModManager {
                     add(
                         ModHealthSeverity.WARNING,
                         "Ownership adoption is required",
-                        "This historical install remains usable, but destructive cleanup is blocked until it is safely reapplied.",
+                        "This historical install remains usable. Verify its current files to adopt conservative ownership without changing them.",
                         install,
-                        ModHealthAction.RECONFIGURE,
+                        ModHealthAction.ADOPT_OWNERSHIP,
                     )
                 } else if (ownership.state != ModOwnershipState.ACTIVE) {
                     add(ModHealthSeverity.ERROR, "Ownership state does not match the applied mod", ownership.state.name, install)
@@ -1248,7 +1311,33 @@ object NexusModManager {
             .take(3)
             .forEach { add(ModHealthSeverity.WARNING, "Orphaned extracted cache", it.name) }
 
-        ModHealthReport(issues)
+        val ownershipProducers = ownershipByInstallId.values
+            .groupingBy { "${it.planProducerId}@${it.planProducerVersion}" }
+            .eachCount()
+            .entries
+            .sortedBy { it.key }
+            .joinToString(",") { "${it.key}:${it.value}" }
+            .ifBlank { "none" }
+        val journalCheckpoints = journals.values
+            .groupingBy { it.checkpoint.name }
+            .eachCount()
+            .entries
+            .sortedBy { it.key }
+            .joinToString(",") { "${it.key}:${it.value}" }
+            .ifBlank { "none" }
+
+        ModHealthReport(
+            issues = issues,
+            facts = listOf(
+                "installs=${installs.size}",
+                "ownership-manifests=${ownershipByInstallId.size}",
+                "ownership-producers=$ownershipProducers",
+                "deployment-journals=${journals.size}",
+                "journal-checkpoints=$journalCheckpoints",
+                "profile-enabled=${enabledPriorities.size}",
+                "overlay-targets=${ModProfileOverlayPlanner.build(ownershipByInstallId.values.toList(), enabledPriorities).targets.size}",
+            ),
+        )
     }
 
     suspend fun reconcilePendingDeploymentsForApp(context: Context, appId: String): List<ModDeploymentJournal> =

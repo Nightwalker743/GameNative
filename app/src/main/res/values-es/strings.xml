@@ -2375,4 +2375,12 @@
     <string name="nexus_confirm_risky_game_root_files_description">Los archivos DLL, EXE y de carga pueden cambiar el inicio del juego. Confirma solo si confías en el archivo y la vista previa coincide con sus instrucciones de instalación.</string>
     <string name="nexus_building_install_plan">Creando el plan de ubicación de archivos…</string>
     <string name="nexus_reapply_missing_files">Reaplicar archivos que faltan</string>
+    <string name="nexus_adopt_ownership">Adoptar propiedad de archivos</string>
+    <string name="nexus_ownership_adopted">La propiedad de los archivos se registró sin modificar los archivos del juego.</string>
+    <string name="nexus_ownership_adoption_failed">No se pudo adoptar la propiedad de los archivos (%1$d problema(s))</string>
+    <string name="nexus_restore_previous_deployment">Restaurar despliegue anterior</string>
+    <string name="nexus_restore_previous_deployment_description">Sustituye el plan de ubicación actual por el último plan funcional de este mod.</string>
+    <string name="nexus_restoring_previous_deployment">Restaurando el despliegue anterior…</string>
+    <string name="nexus_previous_deployment_restored">Se restauró el despliegue anterior.</string>
+    <string name="nexus_previous_deployment_restore_failed">No se pudo restaurar el despliegue anterior (%1$d problema(s))</string>
 </resources>
