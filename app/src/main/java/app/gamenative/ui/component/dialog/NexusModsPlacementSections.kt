@@ -369,7 +369,11 @@ internal fun PlacementSection(
                 }
 
                 if (canRestorePrevious) {
-                    OutlinedButton(onClick = onRestorePrevious, modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = onRestorePrevious,
+                        enabled = applyStatusMessage == null,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
                         Text(stringResource(R.string.nexus_restore_previous_deployment))
                     }
                     Text(

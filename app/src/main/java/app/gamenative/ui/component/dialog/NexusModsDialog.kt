@@ -701,6 +701,7 @@ private fun InstallHealthSection(
                         Text(issue.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (issue.installId.isNotBlank()) {
                             TextButton(
+                                enabled = !loading,
                                 onClick = {
                                     when (issue.recommendedAction) {
                                         ModHealthAction.REAPPLY_MISSING,
@@ -1956,6 +1957,9 @@ fun NexusModsDialog(
                     },
                 )
                 healthReport = NexusModManager.checkInstallHealthForApp(context, libraryItem.appId, gameRootDir, winePrefix)
+            } catch (error: Throwable) {
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                SnackbarManager.show(context.getString(R.string.nexus_ownership_adoption_failed, 1))
             } finally {
                 healthLoading = false
             }
@@ -1996,6 +2000,9 @@ fun NexusModsDialog(
                 if (healthReport != null) {
                     healthReport = NexusModManager.checkInstallHealthForApp(context, libraryItem.appId, gameRootDir, winePrefix)
                 }
+            } catch (error: Throwable) {
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                SnackbarManager.show(context.getString(R.string.nexus_previous_deployment_restore_failed, 1))
             } finally {
                 modApplyInProgress = false
                 loadingMessage = null
