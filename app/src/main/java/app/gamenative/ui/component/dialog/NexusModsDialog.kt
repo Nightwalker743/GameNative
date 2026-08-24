@@ -114,6 +114,8 @@ import app.gamenative.mods.ModHealthSeverity
 import app.gamenative.mods.ModImportProgress
 import app.gamenative.mods.ModInstallPlan
 import app.gamenative.mods.ModMaterializer
+import app.gamenative.mods.ModOwnershipManifest
+import app.gamenative.mods.ModOwnershipStore
 import app.gamenative.mods.PlannedFileStatus
 import app.gamenative.mods.PlacementRiskPolicy
 import app.gamenative.mods.ModPathDetector
@@ -848,6 +850,7 @@ fun NexusModsDialog(
     var automaticPlacementLoading by remember { mutableStateOf(false) }
     var selectedOwnership by remember { mutableStateOf<app.gamenative.mods.ModOwnershipManifest?>(null) }
     var selectedPreviousOwnership by remember { mutableStateOf<app.gamenative.mods.ModOwnershipManifest?>(null) }
+    var placementOwnershipManifests by remember(libraryItem.appId) { mutableStateOf<List<ModOwnershipManifest>>(emptyList()) }
     var lastPlacementDrafts by remember(libraryItem.appId) { mutableStateOf<List<RecipeDraft>>(emptyList()) }
     var detectedDefaultDraft by remember(libraryItem.appId) { mutableStateOf<RecipeDraft?>(null) }
     val defaultDraft = detectedDefaultDraft ?: fallbackDefaultDraft
@@ -3292,6 +3295,17 @@ fun NexusModsDialog(
         selectedPreviousOwnership = ownership?.second
     }
 
+    LaunchedEffect(
+        libraryItem.appId,
+        installs.map { it.installId to it.status },
+        selectedOwnership?.planDigest,
+    ) {
+        placementOwnershipManifests = withContext(Dispatchers.IO) {
+            val root = NexusModManager.cacheRoot(context, libraryItem.appId)
+            installs.mapNotNull { install -> ModOwnershipStore.read(root, install.installId) }
+        }
+    }
+
     fun shareDiagnostic(fileName: String, content: String) {
         scope.launch {
             val file = withContext(Dispatchers.IO) {
@@ -3585,6 +3599,8 @@ fun NexusModsDialog(
                                     initialFomodSelections = fomodSelectionDraft,
                                     onFomodSelectionsChanged = { fomodSelectionDraft = it },
                                     previousOwnership = selectedOwnership,
+                                    ownershipManifests = placementOwnershipManifests,
+                                    installNamesById = installs.associate { it.installId to it.modName },
                                     canRestorePrevious = selectedPreviousOwnership?.reviewedPlanOrNull() != null,
                                     onRestorePrevious = { restorePreviousDeployment(install.installId) },
                                     placementChoice = placementChoice,

@@ -2,8 +2,10 @@ package app.gamenative.ui.component.dialog
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -29,6 +31,8 @@ import androidx.compose.material.icons.filled.FolderOff
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.CreateNewFolder
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SnippetFolder
@@ -88,6 +92,8 @@ import app.gamenative.utils.StorageUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.text.DateFormat
+import java.util.Date
 @Composable
 internal fun StatusChip(status: String) {
     val (label, color, contentColor) = when (status) {
@@ -133,6 +139,8 @@ internal fun PlacementSection(
     initialFomodSelections: Map<String, Set<String>>,
     onFomodSelectionsChanged: (Map<String, Set<String>>) -> Unit,
     previousOwnership: ModOwnershipManifest?,
+    ownershipManifests: List<ModOwnershipManifest>,
+    installNamesById: Map<String, String>,
     canRestorePrevious: Boolean,
     onRestorePrevious: () -> Unit,
     placementChoice: PlacementChoice,
@@ -345,6 +353,10 @@ internal fun PlacementSection(
                             draft = draft,
                             entries = entries,
                             roots = roots,
+                            plan = visiblePlan,
+                            ownershipManifests = ownershipManifests,
+                            selectedInstallId = install.installId,
+                            installNamesById = installNamesById,
                             canRemove = drafts.size > 1,
                             onUpdate = { onUpdateDraft(index, it) },
                             onRemove = { onRemoveDraft(index) },
@@ -724,6 +736,10 @@ private fun PlacementDraftEditor(
     draft: RecipeDraft,
     entries: List<ModArchiveEntry>,
     roots: List<ResolvedModTargetRoot>,
+    plan: ModInstallPlan?,
+    ownershipManifests: List<ModOwnershipManifest>,
+    selectedInstallId: String,
+    installNamesById: Map<String, String>,
     canRemove: Boolean,
     onUpdate: (RecipeDraft) -> Unit,
     onRemove: () -> Unit,
@@ -856,6 +872,10 @@ private fun PlacementDraftEditor(
         ContainerDestinationPickerDialog(
             roots = roots,
             currentDraft = draft,
+            plan = plan,
+            ownershipManifests = ownershipManifests,
+            selectedInstallId = selectedInstallId,
+            installNamesById = installNamesById,
             onSelect = {
                 onUpdate(it)
                 showDestinationPicker = false
@@ -1112,15 +1132,19 @@ private fun ArchiveBrowserDialog(
 private fun ContainerDestinationPickerDialog(
     roots: List<ResolvedModTargetRoot>,
     currentDraft: RecipeDraft,
+    plan: ModInstallPlan?,
+    ownershipManifests: List<ModOwnershipManifest>,
+    selectedInstallId: String,
+    installNamesById: Map<String, String>,
     onSelect: (RecipeDraft) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var currentRootName by remember(currentDraft.targetRoot, roots) {
         mutableStateOf(roots.firstOrNull { it.type.name == currentDraft.targetRoot }?.type?.name.orEmpty())
     }
-    var currentDir by remember(currentDraft.targetRoot, currentDraft.targetRelativePath, roots) {
+    var selectedDestination by remember(currentDraft.targetRoot, currentDraft.targetRelativePath, roots) {
         val root = roots.firstOrNull { it.type.name == currentDraft.targetRoot }
-        val current = root?.let { targetRoot ->
+        mutableStateOf(root?.let { targetRoot ->
             val candidate = if (currentDraft.targetRelativePath.isBlank()) {
                 targetRoot.dir
             } else {
@@ -1128,38 +1152,59 @@ private fun ContainerDestinationPickerDialog(
             }
             runCatching { candidate.canonicalFile }
                 .getOrNull()
-                ?.takeIf { it.isDirectory && it.isInsideOrEqual(targetRoot.dir) }
-        }
-        mutableStateOf(current)
+                ?.takeIf { it.isInsideOrEqual(targetRoot.dir) }
+        })
     }
-    var subDirs by remember { mutableStateOf<List<File>>(emptyList()) }
+    var currentDir by remember(currentDraft.targetRoot, currentDraft.targetRelativePath, roots) {
+        val root = roots.firstOrNull { it.type.name == currentDraft.targetRoot }
+        val desired = root?.let { targetRoot ->
+            if (currentDraft.targetRelativePath.isBlank()) targetRoot.dir else File(targetRoot.dir, currentDraft.targetRelativePath)
+        }
+        var existing = desired
+        while (existing != null && !existing.isDirectory) existing = existing.parentFile
+        mutableStateOf(existing?.takeIf { root != null && it.isInsideOrEqual(root.dir) })
+    }
+    var browserEntries by remember { mutableStateOf<List<DestinationBrowserEntry>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    var showHidden by remember { mutableStateOf(false) }
+    var showNewFolderDialog by remember { mutableStateOf(false) }
+    var newFolderName by remember { mutableStateOf("") }
     val currentRoot = roots.firstOrNull { it.type.name == currentRootName }
 
-    LaunchedEffect(currentDir, currentRoot) {
+    LaunchedEffect(currentDir, currentRoot, plan, ownershipManifests, query, showHidden, selectedDestination) {
         val dir = currentDir
         if (dir != null && dir.isDirectory) {
             loading = true
             try {
                 val root = currentRoot
-                subDirs = withContext(Dispatchers.IO) {
-                    dir.listFiles()
-                        ?.filter {
-                            it.isDirectory &&
-                                !it.name.startsWith(".") &&
-                                (root == null || it.isInsideOrEqual(root.dir))
-                        }
-                        ?.sortedBy { it.name.lowercase() }
-                        ?: emptyList()
+                browserEntries = withContext(Dispatchers.IO) {
+                    if (root == null) {
+                        emptyList()
+                    } else {
+                        val virtualName = selectedDestination
+                            ?.takeIf { !it.exists() && it.parentFile?.canonicalFile == dir.canonicalFile }
+                            ?.name
+                        destinationBrowserEntries(
+                            directory = dir,
+                            root = root,
+                            plan = plan,
+                            ownership = ownershipManifests,
+                            selectedInstallId = selectedInstallId,
+                            showHidden = showHidden,
+                            query = query,
+                            virtualFolderName = virtualName,
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
-                subDirs = emptyList()
+                browserEntries = emptyList()
             } finally {
                 loading = false
             }
         } else {
-            subDirs = emptyList()
+            browserEntries = emptyList()
         }
     }
 
@@ -1193,6 +1238,25 @@ private fun ContainerDestinationPickerDialog(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (roots.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            roots.forEach { root ->
+                                OutlinedButton(
+                                    onClick = {
+                                        currentRootName = root.type.name
+                                        currentDir = root.dir
+                                        selectedDestination = root.dir
+                                        query = ""
+                                    },
+                                ) {
+                                    Text(root.label, maxLines = 1)
+                                }
+                            }
+                        }
+                    }
                 }
 
                 if (currentDir != null) {
@@ -1207,6 +1271,8 @@ private fun ContainerDestinationPickerDialog(
                                     } else {
                                         null
                                     }
+                                    selectedDestination = currentDir
+                                    query = ""
                                 }
                                 .padding(horizontal = 20.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -1214,6 +1280,32 @@ private fun ContainerDestinationPickerDialog(
                         ) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), modifier = Modifier.size(18.dp))
                             Text(currentDir?.name.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    HorizontalDivider()
+                    Column(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        NoExtractOutlinedTextField(
+                            value = query,
+                            onValueChange = { query = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(stringResource(R.string.nexus_search_destination)) },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                            singleLine = true,
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = showHidden, onCheckedChange = { showHidden = it })
+                            Text(stringResource(R.string.nexus_show_hidden_files), modifier = Modifier.weight(1f))
+                            TextButton(onClick = {
+                                newFolderName = ""
+                                showNewFolderDialog = true
+                            }) {
+                                Icon(Icons.Default.CreateNewFolder, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.nexus_new_destination_folder))
+                            }
                         }
                     }
                     HorizontalDivider()
@@ -1228,6 +1320,8 @@ private fun ContainerDestinationPickerDialog(
                                     .clickable {
                                         currentRootName = root.type.name
                                         currentDir = root.dir
+                                        selectedDestination = root.dir
+                                        query = ""
                                     }
                                     .padding(horizontal = 20.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -1263,7 +1357,7 @@ private fun ContainerDestinationPickerDialog(
                     Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
                     }
-                } else if (subDirs.isEmpty()) {
+                } else if (browserEntries.isEmpty()) {
                     Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(
@@ -1272,22 +1366,41 @@ private fun ContainerDestinationPickerDialog(
                                 modifier = Modifier.size(32.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Text(stringResource(R.string.nexus_no_subdirectories), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.nexus_destination_folder_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 } else {
                     LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        items(subDirs, key = { it.absolutePath }) { dir ->
+                        items(browserEntries, key = { "${it.file.absolutePath}:${it.virtual}" }) { entry ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { currentDir = dir }
+                                    .clickable(enabled = entry.directory && !entry.virtual) {
+                                        currentDir = entry.file
+                                        selectedDestination = entry.file
+                                        query = ""
+                                    }
                                     .padding(horizontal = 20.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                Icon(Icons.Default.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                Text(dir.name, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Icon(
+                                    if (entry.directory) Icons.Default.Folder else Icons.Default.Description,
+                                    contentDescription = null,
+                                    tint = if (entry.directory) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Text(entry.file.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    DestinationEntryMetadata(entry, installNamesById, selectedInstallId)
+                                }
+                                if (entry.directory && !entry.virtual) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowForward,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
                             HorizontalDivider(
                                 modifier = Modifier.padding(horizontal = 20.dp),
@@ -1310,7 +1423,7 @@ private fun ContainerDestinationPickerDialog(
                         Text(stringResource(R.string.cancel))
                     }
                     val selectedRoot = currentRoot
-                    val selectedDir = currentDir
+                    val selectedDir = selectedDestination ?: currentDir
                     if (selectedRoot != null && selectedDir != null) {
                         Button(
                             onClick = {
@@ -1334,6 +1447,94 @@ private fun ContainerDestinationPickerDialog(
                     }
                 }
             }
+        }
+    }
+
+    if (showNewFolderDialog) {
+        val validName = validVirtualDestinationFolderName(newFolderName)
+        AlertDialog(
+            onDismissRequest = { showNewFolderDialog = false },
+            title = { Text(stringResource(R.string.nexus_new_destination_folder)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.nexus_new_destination_folder_description))
+                    NoExtractOutlinedTextField(
+                        value = newFolderName,
+                        onValueChange = { newFolderName = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.nexus_folder_name)) },
+                        isError = newFolderName.isNotBlank() && !validName,
+                        singleLine = true,
+                    )
+                    Text(
+                        stringResource(R.string.nexus_folder_created_when_applied),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        selectedDestination = File(currentDir, newFolderName.trim())
+                        showNewFolderDialog = false
+                    },
+                    enabled = validName,
+                ) { Text(stringResource(R.string.nexus_use_folder)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNewFolderDialog = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+}
+
+@Composable
+private fun DestinationEntryMetadata(
+    entry: DestinationBrowserEntry,
+    installNamesById: Map<String, String>,
+    selectedInstallId: String,
+) {
+    val details = listOfNotNull(
+        StorageUtils.formatBinarySize(entry.sizeBytes).takeIf { !entry.directory && entry.sizeBytes > 0L },
+        DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+            .format(Date(entry.modifiedAt)).takeIf { entry.modifiedAt > 0L },
+        stringResource(R.string.nexus_will_be_created).takeIf { entry.virtual },
+    )
+    if (details.isNotEmpty()) {
+        Text(
+            details.joinToString(" • "),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+    entry.impacts.forEach { impact ->
+        val label = when (impact) {
+            DestinationEntryImpact.WILL_ADD -> stringResource(R.string.nexus_impact_will_add)
+            DestinationEntryImpact.WILL_REPLACE -> stringResource(R.string.nexus_impact_will_replace)
+            DestinationEntryImpact.WILL_BACK_UP -> stringResource(R.string.nexus_impact_will_backup)
+            DestinationEntryImpact.PLAN_CONFLICT -> stringResource(R.string.nexus_impact_plan_conflict)
+            DestinationEntryImpact.MANAGED_BY_THIS_MOD -> stringResource(R.string.nexus_impact_managed_by_this_mod)
+            DestinationEntryImpact.MANAGED_BY_ANOTHER_MOD -> {
+                val names = entry.ownerInstallIds.filterNot { it == selectedInstallId }
+                    .map { installNamesById[it] ?: it }
+                    .take(2)
+                    .joinToString(", ")
+                stringResource(R.string.nexus_impact_managed_by_mod, names)
+            }
+            DestinationEntryImpact.MODIFIED -> stringResource(R.string.nexus_impact_modified)
+            DestinationEntryImpact.GAME_OR_UNMANAGED -> stringResource(R.string.nexus_impact_game_or_unmanaged)
+            DestinationEntryImpact.WILL_RECEIVE_FILES -> stringResource(R.string.nexus_impact_will_receive_files)
+        }
+        Surface(shape = RoundedCornerShape(999.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+            Text(
+                label,
+                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
         }
     }
 }
