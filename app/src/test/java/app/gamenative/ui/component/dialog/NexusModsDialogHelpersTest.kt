@@ -84,6 +84,18 @@ class NexusModsDialogHelpersTest {
         assertEquals(recipe.targetFileName, recipe.toDraft().toRecipe(recipe.installId).targetFileName)
     }
 
+    @Test
+    fun unresolvedSources_requireAnExplicitDestinationWithoutDroppingExistingMappings() {
+        val current = listOf(RecipeDraft(sourceSubpath = "Data", targetRelativePath = "Data"))
+
+        val drafts = draftsWithUnresolvedSources(current, listOf("Docs/readme.txt", "Docs/readme.txt"), RecipeDraft())
+
+        assertEquals(2, drafts.size)
+        assertEquals(current.single(), drafts.first())
+        assertEquals("Docs/readme.txt", drafts.last().sourceSubpath)
+        assertEquals("", drafts.last().targetRoot)
+    }
+
     private fun install(status: ModInstallStatus): ModInstall =
         ModInstall(
             installId = "install",

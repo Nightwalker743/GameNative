@@ -149,6 +149,7 @@ internal fun PlacementSection(
     canUseLastPlacement: Boolean,
     onPlacementChoiceChange: (PlacementChoice) -> Unit,
     onUseAutomaticCandidate: (AutomaticPlacementCandidate) -> Unit = {},
+    onResolveAutomaticPlan: (List<String>) -> Unit = {},
     onUseLastPlacement: () -> Unit,
     onPresetSelected: (List<RecipeDraft>) -> Unit,
     onUpdateDraft: (Int, RecipeDraft) -> Unit,
@@ -174,8 +175,7 @@ internal fun PlacementSection(
         ?.withRiskApproval(riskyAutomaticPlanApproved)
     val visiblePlan = if (placementChoice == PlacementChoice.AUTOMATIC) automaticPlan else configuredPlan
     val reconfigurationDiff = remember(previousOwnership, visiblePlan) {
-        visiblePlan?.let { ModOwnershipPlanDiffer.compare(previousOwnership, it) }
-            ?.takeIf { previousOwnership != null && it.hasChanges }
+        visiblePlan?.takeIf { previousOwnership != null }?.let { ModOwnershipPlanDiffer.compare(previousOwnership, it) }
     }
     val targetInspection = remember(automaticPlan, roots) {
         automaticPlan?.let { ModTargetResolver.inspectPlan(it, roots) }
@@ -279,16 +279,29 @@ internal fun PlacementSection(
                         ownershipManifests = ownershipManifests,
                         selectedInstallId = install.installId,
                         installNamesById = installNamesById,
-                        onResolve = { onPlacementChoiceChange(PlacementChoice.CUSTOM) },
+                        onResolve = {
+                            val unresolvedSources = automaticPlan.files.filter {
+                                it.status == PlannedFileStatus.UNSUPPORTED ||
+                                    it.status == PlannedFileStatus.MISSING ||
+                                    it.status == PlannedFileStatus.CONFLICTED ||
+                                    it.targetRelativePath in targetInspection?.ambiguousPaths.orEmpty()
+                            }.map { it.sourceRelativePath }.distinct()
+                            onResolveAutomaticPlan(unresolvedSources)
+                        },
                         onUseCandidate = onUseAutomaticCandidate,
                         onExport = { onExportPlan(automaticPlan) },
                     )
                 } else if (placementChoice == PlacementChoice.AUTOMATIC) {
-                    Text(
-                        stringResource(R.string.nexus_plan_blocked),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            stringResource(R.string.nexus_plan_blocked),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        OutlinedButton(onClick = { onResolveAutomaticPlan(emptyList()) }, modifier = Modifier.fillMaxWidth()) {
+                            Text(stringResource(R.string.nexus_placement_custom))
+                        }
+                    }
                 } else if (configuredPlan != null) {
                     PlacementPlanReview(
                         automaticPlacement = null,

@@ -3721,6 +3721,14 @@ fun NexusModsDialog(
                                             defaultDraft,
                                         )
                                     },
+                                    onResolveAutomaticPlan = { unresolvedSources ->
+                                        placementApplyStatusMessage = null
+                                        reviewedPlacementPlan = null
+                                        placementChoice = PlacementChoice.CUSTOM
+                                        val resolvedDrafts = draftsWithUnresolvedSources(recipeDrafts.toList(), unresolvedSources, defaultDraft)
+                                        recipeDrafts.clear()
+                                        recipeDrafts += resolvedDrafts
+                                    },
                                     applyStatusMessage = placementApplyStatusMessage,
                                     onExportPlan = { plan -> exportPlacementPlan(install, plan) },
                                     onSaveAndApply = ::saveAndApply,

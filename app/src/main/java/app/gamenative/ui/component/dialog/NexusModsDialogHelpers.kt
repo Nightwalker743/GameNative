@@ -346,6 +346,23 @@ internal fun compatibleLastPlacementDrafts(
     }
 }
 
+internal fun draftsWithUnresolvedSources(
+    current: List<RecipeDraft>,
+    unresolvedSources: List<String>,
+    fallback: RecipeDraft,
+): List<RecipeDraft> {
+    val existingSources = current.flatMap { ModPlacementSources.decode(it.sourceSubpath) }.toSet()
+    val unresolvedDrafts = unresolvedSources.distinct().filterNot { it in existingSources }.map { source ->
+        fallback.copy(
+            sourceSubpath = ModPlacementSources.encode(listOf(source)),
+            targetRoot = "",
+            targetRelativePath = "",
+            includeSourceDirectory = false,
+        )
+    }
+    return current + unresolvedDrafts
+}
+
 internal fun archiveContainsSource(entries: List<ModArchiveEntry>, source: String): Boolean {
     val normalizedSource = normalizeArchivePath(source)
     if (normalizedSource.isBlank()) return true
