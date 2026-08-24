@@ -2431,4 +2431,7 @@
     <string name="nexus_plan_group_ignored">Ignorados</string>
     <string name="nexus_plan_group_blocked">Bloqueados</string>
     <string name="nexus_plan_group_unchanged">Sin cambios</string>
+    <string name="nexus_previous_rule_page">Página anterior de reglas de ubicación</string>
+    <string name="nexus_next_rule_page">Página siguiente de reglas de ubicación</string>
+    <string name="nexus_placement_rule_range">Reglas de ubicación %1$d–%2$d de %3$d</string>
 </resources>

@@ -2437,4 +2437,7 @@
     <string name="nexus_plan_group_ignored">Ignorate</string>
     <string name="nexus_plan_group_blocked">Blocate</string>
     <string name="nexus_plan_group_unchanged">Neschimbate</string>
+    <string name="nexus_previous_rule_page">Pagina anterioară cu reguli de plasare</string>
+    <string name="nexus_next_rule_page">Pagina următoare cu reguli de plasare</string>
+    <string name="nexus_placement_rule_range">Reguli de plasare %1$d–%2$d din %3$d</string>
 </resources>

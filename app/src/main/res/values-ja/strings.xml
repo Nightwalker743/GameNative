@@ -2387,4 +2387,7 @@
     <string name="nexus_plan_group_ignored">無視</string>
     <string name="nexus_plan_group_blocked">ブロック</string>
     <string name="nexus_plan_group_unchanged">変更なし</string>
+    <string name="nexus_previous_rule_page">前の配置ルールページ</string>
+    <string name="nexus_next_rule_page">次の配置ルールページ</string>
+    <string name="nexus_placement_rule_range">配置ルール %1$d～%2$d / %3$d</string>
 </resources>

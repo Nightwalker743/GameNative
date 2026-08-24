@@ -2424,4 +2424,7 @@
     <string name="nexus_plan_group_ignored">Ignorati</string>
     <string name="nexus_plan_group_blocked">Bloccati</string>
     <string name="nexus_plan_group_unchanged">Invariati</string>
+    <string name="nexus_previous_rule_page">Pagina precedente delle regole di posizionamento</string>
+    <string name="nexus_next_rule_page">Pagina successiva delle regole di posizionamento</string>
+    <string name="nexus_placement_rule_range">Regole di posizionamento %1$d–%2$d di %3$d</string>
 </resources>

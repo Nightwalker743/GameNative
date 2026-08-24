@@ -2373,4 +2373,7 @@
     <string name="nexus_plan_group_ignored">Ignoriert</string>
     <string name="nexus_plan_group_blocked">Blockiert</string>
     <string name="nexus_plan_group_unchanged">Unverändert</string>
+    <string name="nexus_previous_rule_page">Vorherige Seite mit Platzierungsregeln</string>
+    <string name="nexus_next_rule_page">Nächste Seite mit Platzierungsregeln</string>
+    <string name="nexus_placement_rule_range">Platzierungsregeln %1$d–%2$d von %3$d</string>
 </resources>

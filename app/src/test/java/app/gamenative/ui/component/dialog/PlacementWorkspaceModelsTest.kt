@@ -33,6 +33,15 @@ class PlacementWorkspaceModelsTest {
 
         assertFalse(placementLayoutModel(RecipeDraft(), entries).visible)
         assertFalse(placementLayoutModel(RecipeDraft(sourceSubpath = "readme.txt"), entries).visible)
+        assertFalse(placementLayoutModel(RecipeDraft(sourceSubpath = "Data", targetFileName = "file.txt"), entries).visible)
+    }
+
+    @Test
+    fun placementDraftPage_boundsLargeRuleSets() {
+        assertEquals(0 until 20, placementDraftPage(6_654, 0).let { it.startIndex until it.endIndexExclusive })
+        val last = placementDraftPage(6_654, Int.MAX_VALUE)
+        assertEquals(332, last.pageIndex)
+        assertEquals(6_640 until 6_654, last.startIndex until last.endIndexExclusive)
     }
 
     @Test

@@ -22,10 +22,38 @@ internal data class PlacementLayoutModel(
     val duplicateFolderWarning: Boolean,
 )
 
+internal data class PlacementDraftPage(
+    val pageIndex: Int,
+    val pageCount: Int,
+    val startIndex: Int,
+    val endIndexExclusive: Int,
+)
+
+internal fun placementDraftPage(
+    totalRules: Int,
+    requestedPage: Int,
+    pageSize: Int = 20,
+): PlacementDraftPage {
+    require(pageSize > 0)
+    val safeTotal = totalRules.coerceAtLeast(0)
+    val pageCount = maxOf(1, (safeTotal + pageSize - 1) / pageSize)
+    val pageIndex = requestedPage.coerceIn(0, pageCount - 1)
+    val startIndex = (pageIndex * pageSize).coerceAtMost(safeTotal)
+    return PlacementDraftPage(
+        pageIndex = pageIndex,
+        pageCount = pageCount,
+        startIndex = startIndex,
+        endIndexExclusive = (startIndex + pageSize).coerceAtMost(safeTotal),
+    )
+}
+
 internal fun placementLayoutModel(
     draft: RecipeDraft,
     entries: List<app.gamenative.mods.ModArchiveEntry>,
 ): PlacementLayoutModel {
+    if (draft.targetFileName.isNotBlank()) {
+        return PlacementLayoutModel(false, false, emptyList(), "", false)
+    }
     val sources = ModPlacementSources.decode(draft.sourceSubpath).filter(String::isNotBlank)
     val folders = sources.filter { source ->
         entries.any { entry ->

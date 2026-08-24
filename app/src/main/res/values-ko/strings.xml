@@ -2428,4 +2428,7 @@
     <string name="nexus_plan_group_ignored">무시됨</string>
     <string name="nexus_plan_group_blocked">차단됨</string>
     <string name="nexus_plan_group_unchanged">변경 없음</string>
+    <string name="nexus_previous_rule_page">이전 배치 규칙 페이지</string>
+    <string name="nexus_next_rule_page">다음 배치 규칙 페이지</string>
+    <string name="nexus_placement_rule_range">배치 규칙 %1$d~%2$d / %3$d</string>
 </resources>

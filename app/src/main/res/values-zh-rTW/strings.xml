@@ -2439,4 +2439,7 @@
     <string name="nexus_plan_group_ignored">已忽略</string>
     <string name="nexus_plan_group_blocked">已阻止</string>
     <string name="nexus_plan_group_unchanged">未變更</string>
+    <string name="nexus_previous_rule_page">上一頁放置規則</string>
+    <string name="nexus_next_rule_page">下一頁放置規則</string>
+    <string name="nexus_placement_rule_range">放置規則 %1$d–%2$d，共 %3$d 條</string>
 </resources>

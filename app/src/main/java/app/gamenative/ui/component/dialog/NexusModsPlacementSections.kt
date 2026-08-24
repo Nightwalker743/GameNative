@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -37,6 +38,8 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SnippetFolder
 import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -63,6 +66,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -163,16 +167,27 @@ internal fun PlacementSection(
     var showArchiveBrowser by remember(install.installId, entries) { mutableStateOf(false) }
     var showFomodWizard by remember(install.installId, fomodInstaller) { mutableStateOf(false) }
     var showAdvancedPlacement by remember(install.installId) { mutableStateOf(placementChoice != PlacementChoice.AUTOMATIC) }
+    var customDraftPage by remember(install.installId) { mutableStateOf(0) }
+    val visibleDraftPage = remember(drafts.size, customDraftPage) {
+        placementDraftPage(drafts.size, customDraftPage)
+    }
     LaunchedEffect(placementChoice) {
         if (placementChoice != PlacementChoice.AUTOMATIC) showAdvancedPlacement = true
     }
+    LaunchedEffect(visibleDraftPage.pageIndex) {
+        if (customDraftPage != visibleDraftPage.pageIndex) customDraftPage = visibleDraftPage.pageIndex
+    }
     val destinationsValid = drafts.all { draft -> roots.any { it.type.name == draft.targetRoot } }
-    val automaticPlan = automaticPlacement.recommended?.plan
-        ?.let(PlacementRiskPolicy::enforce)
-        ?.withRiskApproval(riskyAutomaticPlanApproved)
-    val configuredPlan = reviewedPlan
-        ?.let(PlacementRiskPolicy::enforce)
-        ?.withRiskApproval(riskyAutomaticPlanApproved)
+    val automaticPlan = remember(automaticPlacement.recommended?.plan, riskyAutomaticPlanApproved) {
+        automaticPlacement.recommended?.plan
+            ?.let(PlacementRiskPolicy::enforce)
+            ?.withRiskApproval(riskyAutomaticPlanApproved)
+    }
+    val configuredPlan = remember(reviewedPlan, riskyAutomaticPlanApproved) {
+        reviewedPlan
+            ?.let(PlacementRiskPolicy::enforce)
+            ?.withRiskApproval(riskyAutomaticPlanApproved)
+    }
     val visiblePlan = if (placementChoice == PlacementChoice.AUTOMATIC) automaticPlan else configuredPlan
     val reconfigurationDiff = remember(previousOwnership, visiblePlan) {
         visiblePlan?.takeIf { previousOwnership != null }?.let { ModOwnershipPlanDiffer.compare(previousOwnership, it) }
@@ -390,7 +405,16 @@ internal fun PlacementSection(
                         )
                     }
                 } else {
-                    drafts.forEachIndexed { index, draft ->
+                    if (visibleDraftPage.pageCount > 1) {
+                        PlacementDraftPager(
+                            page = visibleDraftPage,
+                            totalRules = drafts.size,
+                            onPrevious = { customDraftPage-- },
+                            onNext = { customDraftPage++ },
+                        )
+                    }
+                    (visibleDraftPage.startIndex until visibleDraftPage.endIndexExclusive).forEach { index ->
+                        val draft = drafts[index]
                         PlacementDraftEditor(
                             index = index,
                             draft = draft,
@@ -515,6 +539,39 @@ internal fun PlacementSection(
 }
 
 @Composable
+private fun PlacementDraftPager(
+    page: PlacementDraftPage,
+    totalRules: Int,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+) {
+    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surface) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onPrevious, enabled = page.pageIndex > 0) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.nexus_previous_rule_page))
+            }
+            Text(
+                stringResource(
+                    R.string.nexus_placement_rule_range,
+                    page.startIndex + 1,
+                    page.endIndexExclusive,
+                    totalRules,
+                ),
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.labelLarge,
+            )
+            IconButton(onClick = onNext, enabled = page.pageIndex < page.pageCount - 1) {
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.nexus_next_rule_page))
+            }
+        }
+    }
+}
+
+@Composable
 private fun PlacementPlanReview(
     automaticPlacement: AutomaticPlacementResult?,
     plan: ModInstallPlan,
@@ -532,7 +589,13 @@ private fun PlacementPlanReview(
     var showWhy by remember(plan.digest) { mutableStateOf(false) }
     var showAllFiles by remember(plan.digest) { mutableStateOf(false) }
     var browseTarget by remember(plan.digest) { mutableStateOf<RecipeDraft?>(null) }
-    val rows = remember(plan, diff, roots) { placementReviewRows(plan, diff, roots) }
+    var rows by remember(plan.digest, diff, roots) { mutableStateOf<List<PlacementReviewRow>>(emptyList()) }
+    var rowsLoading by remember(plan.digest, diff, roots) { mutableStateOf(true) }
+    LaunchedEffect(plan, diff, roots) {
+        rowsLoading = true
+        rows = withContext(Dispatchers.IO) { placementReviewRows(plan, diff, roots) }
+        rowsLoading = false
+    }
     Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(stringResource(R.string.nexus_plan_review_title), style = MaterialTheme.typography.labelLarge)
@@ -623,8 +686,12 @@ private fun PlacementPlanReview(
                 Text("\u2022 $warning", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = { showAllFiles = true }) {
-                    Text(stringResource(R.string.nexus_review_all_files, rows.size))
+                OutlinedButton(onClick = { showAllFiles = true }, enabled = !rowsLoading) {
+                    if (rowsLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(stringResource(R.string.nexus_review_all_files, rows.size.takeUnless { rowsLoading } ?: plan.files.size))
                 }
                 TextButton(onClick = onExport) {
                     Text(stringResource(R.string.nexus_plan_export))
@@ -993,11 +1060,11 @@ private fun PlacementDraftEditor(
     val layout = remember(draft.sourceSubpath, draft.targetRelativePath, draft.includeSourceDirectory, entries) {
         placementLayoutModel(draft, entries)
     }
-    val recommendedKeepFolder = remember(draft.sourceSubpath, draft.targetRelativePath, entries) {
-        AutomaticPlacementPlanner.inferIncludeSourceDirectory(
-            ModPlacementSources.decode(draft.sourceSubpath),
-            entries,
-            draft.targetRelativePath,
+    val recommendedKeepFolder = remember(draft.sourceSubpath, draft.targetRelativePath, entries, layout.visible) {
+        layout.visible && AutomaticPlacementPlanner.inferIncludeSourceDirectory(
+            selectedPaths = ModPlacementSources.decode(draft.sourceSubpath),
+            entries = entries,
+            targetRelativePath = draft.targetRelativePath,
         )
     }
 
@@ -1495,18 +1562,23 @@ private fun ContainerDestinationPickerDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth(0.94f)
-                .height(540.dp),
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surface,
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            val compactHeight = maxHeight < 600.dp
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth(0.94f)
+                    .fillMaxHeight(if (compactHeight) 0.98f else 0.94f),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surface,
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Column(
+                        Modifier.padding(if (compactHeight) 12.dp else 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
                     Text(
                         stringResource(if (readOnly) R.string.nexus_destination_contents else R.string.nexus_destination_folder),
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = if (compactHeight) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
                     )
                     if (currentDir == null || currentRoot == null) {
                         Text(
@@ -1543,7 +1615,7 @@ private fun ContainerDestinationPickerDialog(
                 }
 
                 if (currentDir != null) {
-                    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant) {
+                    if (!compactHeight) Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant) {
                         Row(
                             modifier = Modifier
                                 .clickable {
@@ -1566,33 +1638,18 @@ private fun ContainerDestinationPickerDialog(
                         }
                     }
                     HorizontalDivider()
-                    Column(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        NoExtractOutlinedTextField(
-                            value = query,
-                            onValueChange = { query = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text(stringResource(R.string.nexus_search_destination)) },
-                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                            singleLine = true,
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = showHidden, onCheckedChange = { showHidden = it })
-                            Text(stringResource(R.string.nexus_show_hidden_files), modifier = Modifier.weight(1f))
-                            if (!readOnly) {
-                                TextButton(onClick = {
-                                    newFolderName = ""
-                                    showNewFolderDialog = true
-                                }) {
-                                    Icon(Icons.Default.CreateNewFolder, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(stringResource(R.string.nexus_new_destination_folder))
-                                }
-                            }
-                        }
-                    }
+                    DestinationBrowserTools(
+                        compact = compactHeight,
+                        query = query,
+                        onQueryChange = { query = it },
+                        showHidden = showHidden,
+                        onShowHiddenChange = { showHidden = it },
+                        readOnly = readOnly,
+                        onNewFolder = {
+                            newFolderName = ""
+                            showNewFolderDialog = true
+                        },
+                    )
                     HorizontalDivider()
                 }
 
@@ -1608,7 +1665,7 @@ private fun ContainerDestinationPickerDialog(
                                         selectedDestination = root.dir
                                         query = ""
                                     }
-                                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                                    .padding(horizontal = 20.dp, vertical = if (compactHeight) 8.dp else 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
@@ -1665,7 +1722,7 @@ private fun ContainerDestinationPickerDialog(
                                         selectedDestination = entry.file
                                         query = ""
                                     }
-                                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                                    .padding(horizontal = 20.dp, vertical = if (compactHeight) 8.dp else 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
@@ -1700,7 +1757,7 @@ private fun ContainerDestinationPickerDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                        .padding(horizontal = 20.dp, vertical = if (compactHeight) 6.dp else 12.dp),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -1740,6 +1797,7 @@ private fun ContainerDestinationPickerDialog(
             }
         }
     }
+    }
 
     if (showNewFolderDialog && !readOnly) {
         val validName = validVirtualDestinationFolderName(newFolderName)
@@ -1777,6 +1835,73 @@ private fun ContainerDestinationPickerDialog(
                 TextButton(onClick = { showNewFolderDialog = false }) { Text(stringResource(R.string.cancel)) }
             },
         )
+    }
+}
+
+@Composable
+private fun DestinationBrowserTools(
+    compact: Boolean,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    showHidden: Boolean,
+    onShowHiddenChange: (Boolean) -> Unit,
+    readOnly: Boolean,
+    onNewFolder: () -> Unit,
+) {
+    if (compact) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            NoExtractOutlinedTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier.weight(1f),
+                label = { Text(stringResource(R.string.nexus_search_destination)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+            )
+            IconButton(onClick = { onShowHiddenChange(!showHidden) }) {
+                Icon(
+                    if (showHidden) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                    contentDescription = stringResource(R.string.nexus_show_hidden_files),
+                    tint = if (showHidden) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (!readOnly) {
+                IconButton(onClick = onNewFolder) {
+                    Icon(
+                        Icons.Default.CreateNewFolder,
+                        contentDescription = stringResource(R.string.nexus_new_destination_folder),
+                    )
+                }
+            }
+        }
+    } else {
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            NoExtractOutlinedTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.nexus_search_destination)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = showHidden, onCheckedChange = onShowHiddenChange)
+                Text(stringResource(R.string.nexus_show_hidden_files), modifier = Modifier.weight(1f))
+                if (!readOnly) {
+                    TextButton(onClick = onNewFolder) {
+                        Icon(Icons.Default.CreateNewFolder, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.nexus_new_destination_folder))
+                    }
+                }
+            }
+        }
     }
 }
 
