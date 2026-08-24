@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -59,7 +61,11 @@ import app.gamenative.mods.effectiveType
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
 import java.io.File
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 @Composable
 internal fun FomodSummarySection(
     installer: FomodInstaller,
@@ -113,6 +119,9 @@ internal fun FomodWizardDialog(
 ) {
     var previewImage by remember { mutableStateOf<File?>(null) }
     var pendingResult by remember { mutableStateOf<PendingFomodResult?>(null) }
+    var generatingPlan by remember(installId, installer) { mutableStateOf(false) }
+    var generationError by remember(installId, installer) { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     val selectedByGroup = remember(installer) {
         mutableStateMapOf<String, Set<String>>().apply {
             installer.steps.forEachIndexed { stepIndex, step ->
@@ -202,6 +211,14 @@ internal fun FomodWizardDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                generationError?.let { message ->
+                    Text(
+                        text = message,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
                 HorizontalDivider()
@@ -306,30 +323,57 @@ internal fun FomodWizardDialog(
                     Button(
                         onClick = {
                             val selectedKeys = selectedByGroup.values.flatten().toSet()
-                            val result = FomodRecipeGenerator.generateForPluginKeys(
-                                installId = installId,
-                                installer = installer,
-                                selectedPluginKeys = selectedKeys,
-                                targetRoot = baseDraft.targetRoot,
-                                targetRelativePath = baseDraft.targetRelativePath.ifBlank { "Data" },
-                                mode = ModPlacementMode.OVERWRITE_COPY.name,
-                                extractedRoot = extractedRoot,
-                                environment = environment,
+                            val selectedOptions = fomodSelectedOptionLabels(
+                                installer,
+                                selectedKeys,
+                                fallbackStepNames,
+                                environment,
                             )
-                            pendingResult = PendingFomodResult(
-                                drafts = result.recipes.map { it.toDraft() },
-                                plan = result.plan,
-                                unsupportedCount = result.plan?.let { plan ->
-                                    plan.unresolvedCount + plan.blockingIssues.size
-                                } ?: (result.unsupportedMappings.size + result.blockingIssues.size),
-                                selectedOptions = fomodSelectedOptionLabels(installer, selectedKeys, fallbackStepNames, environment),
-                                conditionalRuleCount = installer.conditionalFileInstalls.size,
-                            )
+                            generationError = null
+                            generatingPlan = true
+                            scope.launch {
+                                try {
+                                    val result = withContext(Dispatchers.IO) {
+                                        FomodRecipeGenerator.generateForPluginKeys(
+                                            installId = installId,
+                                            installer = installer,
+                                            selectedPluginKeys = selectedKeys,
+                                            targetRoot = baseDraft.targetRoot,
+                                            targetRelativePath = baseDraft.targetRelativePath.ifBlank { "Data" },
+                                            mode = ModPlacementMode.OVERWRITE_COPY.name,
+                                            extractedRoot = extractedRoot,
+                                            environment = environment,
+                                        )
+                                    }
+                                    if (selectedByGroup.values.flatten().toSet() == selectedKeys) {
+                                        pendingResult = PendingFomodResult(
+                                            drafts = result.recipes.map { it.toDraft() },
+                                            plan = result.plan,
+                                            unsupportedCount = result.plan?.let { plan ->
+                                                plan.unresolvedCount + plan.blockingIssues.size
+                                            } ?: (result.unsupportedMappings.size + result.blockingIssues.size),
+                                            selectedOptions = selectedOptions,
+                                            conditionalRuleCount = installer.conditionalFileInstalls.size,
+                                        )
+                                    }
+                                } catch (error: Throwable) {
+                                    if (error is CancellationException) throw error
+                                    generationError = error.message ?: error.javaClass.simpleName
+                                } finally {
+                                    generatingPlan = false
+                                }
+                            }
                         },
-                        enabled = invalidGroups.isEmpty(),
+                        enabled = invalidGroups.isEmpty() && !generatingPlan,
                         modifier = Modifier.padding(start = 8.dp),
                     ) {
-                        Text(stringResource(R.string.nexus_fomod_use_choices))
+                        if (generatingPlan) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.size(8.dp))
+                            Text(stringResource(R.string.nexus_building_install_plan))
+                        } else {
+                            Text(stringResource(R.string.nexus_fomod_use_choices))
+                        }
                     }
                 }
             }

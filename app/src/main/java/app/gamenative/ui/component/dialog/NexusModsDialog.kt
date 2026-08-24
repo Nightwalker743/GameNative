@@ -3099,7 +3099,13 @@ fun NexusModsDialog(
     ) {
         val install = selectedInstall
         val snapshot = recipeDrafts.toList()
-        if (install == null || !install.canPlaceFiles() || placementChoice == PlacementChoice.AUTOMATIC || snapshot.isEmpty()) {
+        if (
+            install == null ||
+            !install.canPlaceFiles() ||
+            placementChoice == PlacementChoice.AUTOMATIC ||
+            snapshot.isEmpty() ||
+            reviewedPlacementPlan != null
+        ) {
             placementPlanPreview = null
             return@LaunchedEffect
         }

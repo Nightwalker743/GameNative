@@ -94,12 +94,13 @@ object FomodPlanExpander {
         mode: String = ModPlacementMode.OVERWRITE_COPY.name,
     ): ModInstallPlan {
         val root = extractedRoot.canonicalFile
+        val sourceResolver = CaseInsensitiveSourceResolver(root)
         val expanded = mutableListOf<ExpandedFomodFile>()
         val missing = mutableListOf<PlannedModFile>()
 
         evaluation.mappings.forEach { expected ->
             val sourcePath = joinPath(installer.basePath, expected.mapping.source)
-            val source = resolveCaseInsensitive(root, sourcePath)
+            val source = sourceResolver.resolve(sourcePath)
             when {
                 source == null || !source.exists() -> missing += expected.missingFile(sourcePath)
                 expected.mapping.directory && !source.isDirectory -> missing += expected.missingFile(sourcePath)
@@ -198,18 +199,34 @@ object FomodPlanExpander {
         risk = PlacementRisk.REVIEW,
     )
 
-    private fun resolveCaseInsensitive(root: File, relativePath: String): File? {
-        val segments = normalizedArchiveKey(relativePath)?.split('/').orEmpty()
-        val displaySegments = normalizeArchiveDisplayPath(relativePath).split('/').filter(String::isNotBlank)
-        if (segments.size != displaySegments.size) return null
-        var current = root
-        displaySegments.forEach { segment ->
-            val matches = current.listFiles().orEmpty().filter { it.name.equals(segment, ignoreCase = true) }
-            if (matches.size != 1) return null
-            current = matches.single()
+    private class CaseInsensitiveSourceResolver(
+        private val root: File,
+    ) {
+        private val directoryListings = mutableMapOf<String, Map<String, List<File>>>()
+        private val resolvedPaths = mutableMapOf<String, File?>()
+
+        fun resolve(relativePath: String): File? {
+            val key = normalizedArchiveKey(relativePath) ?: return null
+            if (resolvedPaths.containsKey(key)) return resolvedPaths[key]
+            val displaySegments = normalizeArchiveDisplayPath(relativePath).split('/').filter(String::isNotBlank)
+            if (key.split('/').size != displaySegments.size) return null
+            var current = root
+            displaySegments.forEach { segment ->
+                val children = directoryListings.getOrPut(current.path) {
+                    current.listFiles().orEmpty().groupBy { it.name.lowercase(Locale.ROOT) }
+                }
+                val matches = children[segment.lowercase(Locale.ROOT)].orEmpty()
+                if (matches.size != 1) {
+                    resolvedPaths[key] = null
+                    return null
+                }
+                current = matches.single()
+            }
+            val candidate = runCatching { current.canonicalFile }.getOrNull()
+                ?.takeIf { it == root || it.path.startsWith(root.path + File.separator) }
+            resolvedPaths[key] = candidate
+            return candidate
         }
-        val candidate = runCatching { current.canonicalFile }.getOrNull() ?: return null
-        return candidate.takeIf { it == root || it.path.startsWith(root.path + File.separator) }
     }
 
     private fun joinPath(vararg paths: String): String =

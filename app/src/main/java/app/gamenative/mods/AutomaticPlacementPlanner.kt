@@ -135,8 +135,14 @@ object AutomaticPlacementPlanner {
         entries: List<ModArchiveEntry>,
         targetRelativePath: String,
     ): Boolean {
-        val index = ModArchiveIndex.build(entries)
-        val selectedDirectories = selectedPaths.filter(index::isDirectory)
+        val selectedDirectories = selectedPaths.filter { selectedPath ->
+            val selectedKey = normalizedArchiveKey(selectedPath) ?: return@filter false
+            val childPrefix = "$selectedKey/"
+            entries.any { entry ->
+                val entryKey = normalizedArchiveKey(entry.path)
+                entryKey == selectedKey && entry.directory || entryKey?.startsWith(childPrefix) == true
+            }
+        }
         if (selectedDirectories.isEmpty()) return false
         val targetName = normalizeArchiveDisplayPath(targetRelativePath).substringAfterLast('/')
         return selectedDirectories.any { source ->

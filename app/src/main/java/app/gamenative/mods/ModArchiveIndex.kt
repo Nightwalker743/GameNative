@@ -59,6 +59,19 @@ data class ModArchiveIndex(
 
     companion object {
         private val semanticAnchors = ModPlacementRulePacks.archiveSemanticAnchors
+        private val managerMetadataDirectories = setOf("bashtags", "omod conversion data")
+        private val documentationDirectories = setOf("doc", "docs", "documentation", "manual", "manuals", "readmes")
+        private val documentationNamePrefixes = setOf(
+            "readme",
+            "changelog",
+            "changes",
+            "license",
+            "copying",
+            "credits",
+            "authors",
+            "install instructions",
+            "installation instructions",
+        )
 
         fun build(entries: List<ModArchiveEntry>): ModArchiveIndex {
             val indexedFiles = entries.asSequence()
@@ -75,38 +88,48 @@ data class ModArchiveIndex(
                 }
                 .sortedWith(compareBy<IndexedArchiveFile> { it.normalizedKey }.thenBy { it.displayPath })
                 .toList()
-            val displayPaths = sortedMapOf<String, String>()
+            val displayPaths = mutableMapOf<String, String>()
             val counts = mutableMapOf<String, Int>()
             val bytes = mutableMapOf<String, Long>()
             val anchors = mutableMapOf<String, MutableSet<String>>()
             entries.asSequence().filter { it.directory }.forEach { entry ->
                 val display = normalizeArchiveDisplayPath(entry.path)
                 val key = normalizedArchiveKey(display)
-                if (display.isNotBlank() && key != null) displayPaths.merge(key, display, ::stableDisplayPath)
+                if (display.isNotBlank() && key != null) displayPaths.rememberDisplayPath(key, display)
             }
             indexedFiles.forEach { file ->
                 val displaySegments = file.displayPath.split('/')
                 val keySegments = file.normalizedKey.split('/')
                 val fileAnchors = keySegments.filterTo(mutableSetOf()) { it in semanticAnchors }
-                (1 until keySegments.size).forEach { count ->
-                    val key = keySegments.take(count).joinToString("/")
-                    val display = displaySegments.take(count).joinToString("/")
-                    displayPaths.merge(key, display, ::stableDisplayPath)
+                val keyBuilder = StringBuilder()
+                val displayBuilder = StringBuilder()
+                (0 until keySegments.lastIndex).forEach { index ->
+                    if (index > 0) {
+                        keyBuilder.append('/')
+                        displayBuilder.append('/')
+                    }
+                    keyBuilder.append(keySegments[index])
+                    displayBuilder.append(displaySegments[index])
+                    val key = keyBuilder.toString()
+                    val display = displayBuilder.toString()
+                    displayPaths.rememberDisplayPath(key, display)
                     counts[key] = counts.getOrDefault(key, 0) + 1
                     bytes[key] = bytes.getOrDefault(key, 0L) + file.sizeBytes
                     anchors.getOrPut(key, ::mutableSetOf).addAll(fileAnchors)
                 }
             }
-            val nodes = displayPaths.map { (key, display) ->
-                ArchiveTreeNode(
-                    displayPath = display,
-                    normalizedKey = key,
-                    descendantFileCount = counts.getOrDefault(key, 0),
-                    descendantBytes = bytes.getOrDefault(key, 0L),
-                    semanticAnchors = anchors[key].orEmpty(),
-                    optionStyleWrapper = looksLikeOptionWrapper(display.substringAfterLast('/')),
-                )
-            }
+            val nodes = displayPaths.entries
+                .sortedBy { it.key }
+                .map { (key, display) ->
+                    ArchiveTreeNode(
+                        displayPath = display,
+                        normalizedKey = key,
+                        descendantFileCount = counts.getOrDefault(key, 0),
+                        descendantBytes = bytes.getOrDefault(key, 0L),
+                        semanticAnchors = anchors[key].orEmpty(),
+                        optionStyleWrapper = looksLikeOptionWrapper(display.substringAfterLast('/')),
+                    )
+                }
             return ModArchiveIndex(
                 files = indexedFiles,
                 nodes = nodes,
@@ -118,19 +141,23 @@ data class ModArchiveIndex(
 
         private fun classify(path: String): ArchiveContentRole {
             val normalized = path.lowercase(Locale.ROOT)
+            val segments = normalized.split('/')
             val name = normalized.substringAfterLast('/')
             if (normalized.startsWith("__macosx/") || name in setOf(".ds_store", "thumbs.db", "desktop.ini")) {
+                return ArchiveContentRole.METADATA
+            }
+            if (segments.dropLast(1).any { it in managerMetadataDirectories }) {
                 return ArchiveContentRole.METADATA
             }
             if (normalized.contains("/fomod/") || normalized.startsWith("fomod/")) {
                 return ArchiveContentRole.INSTALLER_SUPPORT
             }
             if (
-                name.startsWith("readme") ||
-                name.startsWith("changelog") ||
-                name.startsWith("license") ||
+                segments.dropLast(1).any { it in documentationDirectories } ||
+                documentationNamePrefixes.any(name::startsWith) ||
                 name.endsWith(".md") ||
-                name.endsWith(".pdf")
+                name.endsWith(".pdf") ||
+                segments.size == 1 && listOf(".htm", ".html", ".rtf").any(name::endsWith)
             ) {
                 return ArchiveContentRole.DOCUMENTATION
             }
@@ -148,6 +175,14 @@ data class ModArchiveIndex(
 
         private fun stableDisplayPath(left: String, right: String): String =
             minOf(left, right, compareBy<String> { it.lowercase(Locale.ROOT) }.thenBy { it })
+
+        private fun MutableMap<String, String>.rememberDisplayPath(key: String, display: String) {
+            val existing = this[key]
+            when {
+                existing == null -> this[key] = display
+                existing != display -> this[key] = stableDisplayPath(existing, display)
+            }
+        }
     }
 }
 

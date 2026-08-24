@@ -21,6 +21,29 @@ class AutomaticPlacementPlannerTest {
     }
 
     @Test
+    fun bethesdaPlan_ignoresDocumentationAndManagerMetadataButKeepsRuntimeText() {
+        val plan = AutomaticPlacementPlanner.plan(
+            "Skyrim Special Edition",
+            archive(
+                "Data/Interface/Translations/example_english.txt",
+                "BashTags/Example.txt",
+                "Docs/Example Readme + Credits.html",
+                "credits.html",
+            ),
+        ).recommended!!.plan
+
+        assertTrue(plan.blockingIssues.toString(), plan.isComplete)
+        assertEquals(
+            PlannedFileStatus.PLACED,
+            plan.files.single { it.sourceRelativePath.contains("Translations") }.status,
+        )
+        assertTrue(
+            plan.files.filterNot { it.sourceRelativePath.contains("Translations") }
+                .all { it.status == PlannedFileStatus.INTENTIONALLY_IGNORED },
+        )
+    }
+
+    @Test
     fun bethesdaPlan_stripsOneWrapperAndDataContainer() {
         val candidate = AutomaticPlacementPlanner.plan(
             "Fallout 4",

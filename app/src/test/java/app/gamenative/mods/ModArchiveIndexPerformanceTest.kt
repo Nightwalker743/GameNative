@@ -13,7 +13,7 @@ import org.junit.Test
 
 class ModArchiveIndexPerformanceTest {
     @Test
-    fun fiftyThousandEntries_indexWithinGenerousRegressionBudget() {
+    fun fiftyThousandEntries_indexWithinInteractiveRegressionBudget() {
         val entries = List(50_000) { index ->
             ModArchiveEntry(
                 path = "Data/Textures/Set${index / 100}/texture$index.dds",
@@ -27,11 +27,11 @@ class ModArchiveIndexPerformanceTest {
 
         assertEquals(50_000, archiveIndex.files.size)
         assertEquals(100, archiveIndex.filesUnder("Data/Textures/Set42").size)
-        assertTrue("Indexing took ${elapsed}ms", elapsed < 15_000)
+        assertTrue("Indexing took ${elapsed}ms", elapsed < 3_000)
     }
 
     @Test
-    fun fiftyThousandEntries_completePlanningWithinGenerousRegressionBudget() {
+    fun fiftyThousandEntries_completePlanningWithinInteractiveRegressionBudget() {
         val entries = List(50_000) { index ->
             ModArchiveEntry(
                 path = "Data/Textures/Set${index / 100}/texture$index.dds",
@@ -47,7 +47,7 @@ class ModArchiveIndexPerformanceTest {
 
         assertTrue(plan.blockingIssues.toString(), plan.isComplete)
         assertEquals(50_000, plan.placedCount)
-        assertTrue("Planning took ${elapsed}ms", elapsed < 20_000)
+        assertTrue("Planning took ${elapsed}ms", elapsed < 5_000)
     }
 
     @Test
