@@ -1,0 +1,242 @@
+package app.gamenative.ui.component.dialog
+
+import app.gamenative.data.ModPlacementMode
+import app.gamenative.mods.ModInstallPlan
+import app.gamenative.mods.ModOwnershipManifest
+import app.gamenative.mods.ModOwnershipState
+import app.gamenative.mods.ModPlacementSources
+import app.gamenative.mods.ModPlanChangeType
+import app.gamenative.mods.ModReconfigurationDiff
+import app.gamenative.mods.PlannedFileStatus
+import app.gamenative.mods.PlannedModFile
+import app.gamenative.mods.ResolvedModTargetRoot
+import app.gamenative.mods.WindowsPathIdentity
+import java.io.File
+import java.util.Locale
+
+internal data class PlacementLayoutModel(
+    val visible: Boolean,
+    val multipleFolders: Boolean,
+    val selectedNames: List<String>,
+    val resultExample: String,
+    val duplicateFolderWarning: Boolean,
+)
+
+internal fun placementLayoutModel(
+    draft: RecipeDraft,
+    entries: List<app.gamenative.mods.ModArchiveEntry>,
+): PlacementLayoutModel {
+    val sources = ModPlacementSources.decode(draft.sourceSubpath).filter(String::isNotBlank)
+    val folders = sources.filter { source ->
+        entries.any { entry ->
+            val path = normalizeArchivePath(entry.path)
+            path.equals(source, ignoreCase = true) && entry.directory ||
+                path.startsWith("${normalizeArchivePath(source)}/", ignoreCase = true)
+        }
+    }
+    val selectedNames = folders.map { it.substringAfterLast('/') }.distinct()
+    val destination = draft.targetRelativePath.trim('/').ifBlank { "<game folder>" }
+    val result = when {
+        selectedNames.isEmpty() || !draft.includeSourceDirectory -> "$destination/<selected contents>"
+        selectedNames.size == 1 -> "$destination/${selectedNames.single()}/<contents>"
+        else -> "$destination/{${selectedNames.take(3).joinToString(", ")}${if (selectedNames.size > 3) ", ..." else ""}}/<contents>"
+    }
+    return PlacementLayoutModel(
+        visible = folders.isNotEmpty(),
+        multipleFolders = folders.size > 1,
+        selectedNames = selectedNames,
+        resultExample = result,
+        duplicateFolderWarning = draft.includeSourceDirectory && selectedNames.any { selected ->
+            destination.substringAfterLast('/').equals(selected, ignoreCase = true)
+        },
+    )
+}
+
+internal enum class DestinationEntryImpact {
+    WILL_ADD,
+    WILL_REPLACE,
+    WILL_BACK_UP,
+    PLAN_CONFLICT,
+    MANAGED_BY_THIS_MOD,
+    MANAGED_BY_ANOTHER_MOD,
+    MODIFIED,
+    GAME_OR_UNMANAGED,
+    WILL_RECEIVE_FILES,
+}
+
+internal data class DestinationBrowserEntry(
+    val file: File,
+    val directory: Boolean,
+    val sizeBytes: Long,
+    val modifiedAt: Long,
+    val impacts: Set<DestinationEntryImpact>,
+    val ownerInstallIds: Set<String>,
+    val virtual: Boolean = false,
+)
+
+internal fun destinationBrowserEntries(
+    directory: File,
+    root: ResolvedModTargetRoot,
+    plan: ModInstallPlan?,
+    ownership: List<ModOwnershipManifest>,
+    selectedInstallId: String,
+    showHidden: Boolean,
+    query: String,
+    virtualFolderName: String? = null,
+): List<DestinationBrowserEntry> {
+    val planFiles = plan?.files.orEmpty()
+    val activeOwnership = ownership.filter { it.state == ModOwnershipState.ACTIVE }
+    val normalizedQuery = query.trim().lowercase(Locale.ROOT)
+    val children = directory.listFiles().orEmpty()
+        .asSequence()
+        .filter { showHidden || !it.name.startsWith('.') }
+        .filter { normalizedQuery.isBlank() || normalizedQuery in it.name.lowercase(Locale.ROOT) }
+        .map { child ->
+            destinationBrowserEntry(child, root, planFiles, activeOwnership, selectedInstallId)
+        }
+        .toMutableList()
+    virtualFolderName?.takeIf { name ->
+        name.isNotBlank() && (normalizedQuery.isBlank() || normalizedQuery in name.lowercase(Locale.ROOT))
+    }?.let { name ->
+        children += DestinationBrowserEntry(
+            file = File(directory, name),
+            directory = true,
+            sizeBytes = 0L,
+            modifiedAt = 0L,
+            impacts = setOf(DestinationEntryImpact.WILL_RECEIVE_FILES),
+            ownerInstallIds = emptySet(),
+            virtual = true,
+        )
+    }
+    return children.sortedWith(compareByDescending<DestinationBrowserEntry> { it.directory }.thenBy { it.file.name.lowercase(Locale.ROOT) })
+}
+
+private fun destinationBrowserEntry(
+    file: File,
+    root: ResolvedModTargetRoot,
+    planFiles: List<PlannedModFile>,
+    ownership: List<ModOwnershipManifest>,
+    selectedInstallId: String,
+): DestinationBrowserEntry {
+    val relative = runCatching {
+        file.canonicalFile.relativeTo(root.dir.canonicalFile).path.replace(File.separatorChar, '/')
+    }.getOrDefault("")
+    val logicalKey = WindowsPathIdentity.targetKey(root.type.name, relative)
+    val absoluteKey = WindowsPathIdentity.absoluteKey(file)
+    val exactPlan = planFiles.filter { it.normalizedTargetKey == logicalKey }
+    val directoryPrefix = logicalKey?.let { "$it/" }
+    val receivesFiles = file.isDirectory && directoryPrefix != null && planFiles.any {
+        it.status == PlannedFileStatus.PLACED && it.normalizedTargetKey?.startsWith(directoryPrefix) == true
+    }
+    val ownedFiles = ownership.flatMap { manifest ->
+        manifest.files.filter { it.active && it.normalizedTargetKey == absoluteKey }.map { manifest.installId to it }
+    }
+    val impacts = linkedSetOf<DestinationEntryImpact>()
+    if (receivesFiles) impacts += DestinationEntryImpact.WILL_RECEIVE_FILES
+    if (exactPlan.any { it.status == PlannedFileStatus.CONFLICTED }) impacts += DestinationEntryImpact.PLAN_CONFLICT
+    exactPlan.filter { it.status == PlannedFileStatus.PLACED }.forEach { planned ->
+        if (!file.exists()) {
+            impacts += DestinationEntryImpact.WILL_ADD
+        } else {
+            impacts += DestinationEntryImpact.WILL_REPLACE
+            if (planned.mode == ModPlacementMode.OVERWRITE_COPY.name) impacts += DestinationEntryImpact.WILL_BACK_UP
+        }
+    }
+    if (ownedFiles.any { it.first == selectedInstallId }) impacts += DestinationEntryImpact.MANAGED_BY_THIS_MOD
+    if (ownedFiles.any { it.first != selectedInstallId }) impacts += DestinationEntryImpact.MANAGED_BY_ANOTHER_MOD
+    if (ownedFiles.any { (_, owned) -> file.isFile && (file.length() != owned.installedSize || file.lastModified() != owned.installedMtime) }) {
+        impacts += DestinationEntryImpact.MODIFIED
+    }
+    if (file.isFile && ownedFiles.isEmpty() && exactPlan.isEmpty()) impacts += DestinationEntryImpact.GAME_OR_UNMANAGED
+    return DestinationBrowserEntry(
+        file = file,
+        directory = file.isDirectory,
+        sizeBytes = if (file.isFile) file.length() else 0L,
+        modifiedAt = file.lastModified(),
+        impacts = impacts,
+        ownerInstallIds = ownedFiles.mapTo(linkedSetOf()) { it.first },
+    )
+}
+
+internal fun validVirtualDestinationFolderName(value: String): Boolean {
+    val name = value.trim()
+    return name.isNotEmpty() &&
+        '/' !in name && '\\' !in name &&
+        WindowsPathIdentity.normalizedRelativeKey(name) != null
+}
+
+internal enum class PlacementReviewCategory {
+    ADDED,
+    REPLACED,
+    MOVED,
+    REMOVED,
+    IGNORED,
+    BLOCKED,
+    UNCHANGED,
+}
+
+internal data class PlacementReviewRow(
+    val category: PlacementReviewCategory,
+    val source: String,
+    val previousTarget: String = "",
+    val target: String = "",
+    val reason: String = "",
+    val sizeBytes: Long = 0L,
+) {
+    fun matches(query: String): Boolean {
+        val needle = query.trim().lowercase(Locale.ROOT)
+        return needle.isBlank() || listOf(source, previousTarget, target, reason).any { needle in it.lowercase(Locale.ROOT) }
+    }
+}
+
+internal fun placementReviewRows(
+    plan: ModInstallPlan,
+    diff: ModReconfigurationDiff?,
+    roots: List<ResolvedModTargetRoot>,
+): List<PlacementReviewRow> {
+    val changesBySource = diff?.changes.orEmpty().groupBy { it.sourceRelativePath }
+    val rows = plan.files.map { file ->
+        val change = changesBySource[file.sourceRelativePath].orEmpty().firstOrNull { it.type != ModPlanChangeType.UNCHANGED }
+        val category = when (file.status) {
+            PlannedFileStatus.INTENTIONALLY_IGNORED -> PlacementReviewCategory.IGNORED
+            PlannedFileStatus.UNSUPPORTED, PlannedFileStatus.MISSING, PlannedFileStatus.CONFLICTED -> PlacementReviewCategory.BLOCKED
+            PlannedFileStatus.PLACED -> when (change?.type) {
+                ModPlanChangeType.MOVED -> PlacementReviewCategory.MOVED
+                ModPlanChangeType.CHANGED -> PlacementReviewCategory.REPLACED
+                ModPlanChangeType.STALE -> PlacementReviewCategory.REMOVED
+                ModPlanChangeType.ADDED -> if (plannedTargetExists(file, roots)) PlacementReviewCategory.REPLACED else PlacementReviewCategory.ADDED
+                ModPlanChangeType.UNCHANGED, null -> if (plannedTargetExists(file, roots) && diff == null) {
+                    PlacementReviewCategory.REPLACED
+                } else {
+                    PlacementReviewCategory.UNCHANGED
+                }
+            }
+        }
+        PlacementReviewRow(
+            category = category,
+            source = file.sourceRelativePath,
+            previousTarget = change?.previousTarget.orEmpty(),
+            target = file.targetDisplay(),
+            reason = file.reason,
+            sizeBytes = file.sizeBytes,
+        )
+    }.toMutableList()
+    diff?.changes.orEmpty().filter { it.type == ModPlanChangeType.STALE }.forEach { change ->
+        rows += PlacementReviewRow(
+            category = PlacementReviewCategory.REMOVED,
+            source = change.sourceRelativePath,
+            previousTarget = change.previousTarget,
+            reason = "No longer produced by this placement",
+        )
+    }
+    return rows.sortedWith(compareBy<PlacementReviewRow> { it.category.ordinal }.thenBy { it.source.lowercase(Locale.ROOT) })
+}
+
+private fun plannedTargetExists(file: PlannedModFile, roots: List<ResolvedModTargetRoot>): Boolean {
+    val root = roots.firstOrNull { it.type.name == file.targetRoot } ?: return false
+    val relative = file.targetRelativePath ?: return false
+    return app.gamenative.mods.ModTargetResolver.resolveWithin(root.dir, relative)?.exists() == true
+}
+
+private fun PlannedModFile.targetDisplay(): String =
+    listOfNotNull(targetRoot, targetRelativePath).filter(String::isNotBlank).joinToString("/")
