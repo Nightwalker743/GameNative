@@ -1,5 +1,11 @@
 package app.gamenative.mods
 
+import app.gamenative.data.ModInstall
+import app.gamenative.data.ModPlacementMode
+import app.gamenative.data.ModPlacementRecipe
+import app.gamenative.data.ModTargetRoot
+import java.io.File
+import kotlin.io.path.createTempDirectory
 import kotlin.system.measureTimeMillis
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -42,5 +48,49 @@ class ModArchiveIndexPerformanceTest {
         assertTrue(plan.blockingIssues.toString(), plan.isComplete)
         assertEquals(50_000, plan.placedCount)
         assertTrue("Planning took ${elapsed}ms", elapsed < 20_000)
+    }
+
+    @Test
+    fun twoThousandNestedFiles_materializeWithinGenerousRegressionBudget() {
+        val root = createTempDirectory("materialization_performance").toFile()
+        try {
+            val extracted = File(root, "extracted").apply { mkdirs() }
+            val game = File(root, "game").apply { mkdirs() }
+            repeat(2_000) { index ->
+                File(extracted, "Data/Textures/Set${index / 20}/texture$index.dds").apply {
+                    parentFile?.mkdirs()
+                    createNewFile()
+                }
+            }
+            val install = ModInstall(
+                installId = "performance",
+                appId = "STEAM_1",
+                nexusGameDomain = "game",
+                nexusModId = 1,
+                nexusFileId = 2,
+                modName = "Large tree",
+                fileName = "large.zip",
+                archivePath = File(root, "large.zip").absolutePath,
+                extractedPath = extracted.absolutePath,
+            )
+            val recipe = ModPlacementRecipe(
+                installId = install.installId,
+                sourceSubpath = "Data",
+                targetRoot = ModTargetRoot.GAME_DIR.name,
+                targetRelativePath = "Data",
+                mode = ModPlacementMode.OVERWRITE_COPY.name,
+            )
+            lateinit var plan: ModMaterializationPlan
+
+            val elapsed = measureTimeMillis {
+                plan = ModMaterializer.materializationPlan(install, listOf(recipe), game, "", captureTargetHashes = false)
+            }
+
+            assertTrue(plan.errors.toString(), plan.isComplete)
+            assertEquals(2_000, plan.files.size)
+            assertTrue("Materialization planning took ${elapsed}ms", elapsed < 15_000)
+        } finally {
+            root.deleteRecursively()
+        }
     }
 }
