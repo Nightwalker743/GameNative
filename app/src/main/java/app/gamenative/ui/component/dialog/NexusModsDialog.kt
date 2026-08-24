@@ -3177,6 +3177,14 @@ fun NexusModsDialog(
             }
             applied
         }
+        if (selectedInstall?.installId == install.installId) {
+            val ownership = withContext(Dispatchers.IO) {
+                val root = NexusModManager.cacheRoot(context, install.appId)
+                ModOwnershipStore.read(root, install.installId) to ModOwnershipStore.readPrevious(root, install.installId)
+            }
+            selectedOwnership = ownership.first
+            selectedPreviousOwnership = ownership.second
+        }
         val message = if (result.errors.isEmpty()) {
             lastPlacementDrafts = recipes.map { it.toDraft() }
             val cleanupSuffix = if (result.warnings.isNotEmpty()) {
