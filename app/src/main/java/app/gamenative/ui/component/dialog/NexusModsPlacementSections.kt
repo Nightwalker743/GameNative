@@ -859,9 +859,9 @@ private fun PlacementChoiceSelector(
 private fun PlacementChoiceButton(
     text: String,
     selected: Boolean,
-    enabled: Boolean = true,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     val content: @Composable () -> Unit = {
         Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
