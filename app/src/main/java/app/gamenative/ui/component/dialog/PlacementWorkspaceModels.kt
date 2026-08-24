@@ -89,6 +89,7 @@ internal fun destinationBrowserEntries(
     val normalizedQuery = query.trim().lowercase(Locale.ROOT)
     val children = directory.listFiles().orEmpty()
         .asSequence()
+        .filter { it.isInsideOrEqual(root.dir) }
         .filter { showHidden || !it.name.startsWith('.') }
         .filter { normalizedQuery.isBlank() || normalizedQuery in it.name.lowercase(Locale.ROOT) }
         .map { child ->

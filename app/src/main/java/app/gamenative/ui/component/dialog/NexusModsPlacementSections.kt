@@ -1491,15 +1491,6 @@ private fun ContainerDestinationPickerDialog(
         }
     }
 
-    val breadcrumb = remember(currentDir, currentRoot) {
-        val dir = currentDir ?: return@remember ""
-        val root = currentRoot ?: return@remember dir.name
-        val relative = runCatching {
-            dir.canonicalFile.relativeToOrNull(root.dir.canonicalFile)?.path.orEmpty()
-        }.getOrDefault("")
-        if (relative.isBlank()) root.label else "${root.label} / ${relative.replace(File.separatorChar, '/')}"
-    }
-
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -1517,13 +1508,19 @@ private fun ContainerDestinationPickerDialog(
                         stringResource(if (readOnly) R.string.nexus_destination_contents else R.string.nexus_destination_folder),
                         style = MaterialTheme.typography.headlineSmall,
                     )
-                    Text(
-                        text = if (currentDir == null) stringResource(R.string.nexus_choose_game_container_location) else breadcrumb,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    if (currentDir == null || currentRoot == null) {
+                        Text(
+                            text = stringResource(R.string.nexus_choose_game_container_location),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        DestinationBreadcrumb(currentRoot, currentDir!!) { destination ->
+                            currentDir = destination
+                            selectedDestination = destination
+                            query = ""
+                        }
+                    }
                     if (roots.isNotEmpty()) {
                         Row(
                             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -1780,6 +1777,35 @@ private fun ContainerDestinationPickerDialog(
                 TextButton(onClick = { showNewFolderDialog = false }) { Text(stringResource(R.string.cancel)) }
             },
         )
+    }
+}
+
+@Composable
+private fun DestinationBreadcrumb(
+    root: ResolvedModTargetRoot,
+    directory: File,
+    onNavigate: (File) -> Unit,
+) {
+    val relativeSegments = remember(root, directory) {
+        runCatching {
+            directory.canonicalFile.relativeTo(root.dir.canonicalFile).path
+                .replace(File.separatorChar, '/')
+                .split('/')
+                .filter(String::isNotBlank)
+        }.getOrDefault(emptyList())
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TextButton(onClick = { onNavigate(root.dir) }) { Text(root.label, maxLines = 1) }
+        var destination = root.dir
+        relativeSegments.forEach { segment ->
+            destination = File(destination, segment)
+            val segmentDestination = destination
+            Text("/", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = { onNavigate(segmentDestination) }) { Text(segment, maxLines = 1) }
+        }
     }
 }
 
