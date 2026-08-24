@@ -73,6 +73,7 @@ import app.gamenative.data.ModInstallStatus
 import app.gamenative.data.ModPlacementMode
 import app.gamenative.data.ModTargetRoot
 import app.gamenative.mods.AutomaticPlacementPlanner
+import app.gamenative.mods.AutomaticPlacementCandidate
 import app.gamenative.mods.AutomaticPlacementResult
 import app.gamenative.mods.FomodInstaller
 import app.gamenative.mods.FomodEnvironmentSnapshot
@@ -80,6 +81,7 @@ import app.gamenative.mods.ModArchiveEntry
 import app.gamenative.mods.ModInstallPlan
 import app.gamenative.mods.ModOwnershipManifest
 import app.gamenative.mods.ModOwnershipPlanDiffer
+import app.gamenative.mods.ModReconfigurationDiff
 import app.gamenative.mods.ModPlacementPreset
 import app.gamenative.mods.ModPlacementSources
 import app.gamenative.mods.ModTargetResolver
@@ -146,6 +148,7 @@ internal fun PlacementSection(
     placementChoice: PlacementChoice,
     canUseLastPlacement: Boolean,
     onPlacementChoiceChange: (PlacementChoice) -> Unit,
+    onUseAutomaticCandidate: (AutomaticPlacementCandidate) -> Unit = {},
     onUseLastPlacement: () -> Unit,
     onPresetSelected: (List<RecipeDraft>) -> Unit,
     onUpdateDraft: (Int, RecipeDraft) -> Unit,
@@ -269,8 +272,15 @@ internal fun PlacementSection(
                     PlacementPlanReview(
                         automaticPlacement = automaticPlacement,
                         plan = automaticPlan,
+                        roots = roots,
+                        diff = reconfigurationDiff,
                         caseMerges = targetInspection?.caseMerges.orEmpty(),
                         ambiguousPaths = targetInspection?.ambiguousPaths.orEmpty(),
+                        ownershipManifests = ownershipManifests,
+                        selectedInstallId = install.installId,
+                        installNamesById = installNamesById,
+                        onResolve = { onPlacementChoiceChange(PlacementChoice.CUSTOM) },
+                        onUseCandidate = onUseAutomaticCandidate,
                         onExport = { onExportPlan(automaticPlan) },
                     )
                 } else if (placementChoice == PlacementChoice.AUTOMATIC) {
@@ -278,6 +288,21 @@ internal fun PlacementSection(
                         stringResource(R.string.nexus_plan_blocked),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
+                    )
+                } else if (configuredPlan != null) {
+                    PlacementPlanReview(
+                        automaticPlacement = null,
+                        plan = configuredPlan,
+                        roots = roots,
+                        diff = reconfigurationDiff,
+                        caseMerges = emptyList(),
+                        ambiguousPaths = emptyList(),
+                        ownershipManifests = ownershipManifests,
+                        selectedInstallId = install.installId,
+                        installNamesById = installNamesById,
+                        onResolve = null,
+                        onUseCandidate = onUseAutomaticCandidate,
+                        onExport = { onExportPlan(configuredPlan) },
                     )
                 }
 
@@ -331,24 +356,6 @@ internal fun PlacementSection(
                                     color = MaterialTheme.colorScheme.onErrorContainer,
                                 )
                             }
-                        }
-                    }
-                }
-
-                reconfigurationDiff?.let { diff ->
-                    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surface) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(stringResource(R.string.nexus_reconfiguration_preview), style = MaterialTheme.typography.labelLarge)
-                            Text(
-                                stringResource(
-                                    R.string.nexus_reconfiguration_summary,
-                                    diff.added,
-                                    diff.changed,
-                                    diff.moved,
-                                    diff.stale,
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
                         }
                     }
                 }
@@ -496,13 +503,23 @@ internal fun PlacementSection(
 
 @Composable
 private fun PlacementPlanReview(
-    automaticPlacement: AutomaticPlacementResult,
+    automaticPlacement: AutomaticPlacementResult?,
     plan: ModInstallPlan,
+    roots: List<ResolvedModTargetRoot>,
+    diff: ModReconfigurationDiff?,
     caseMerges: List<String>,
     ambiguousPaths: List<String>,
+    ownershipManifests: List<ModOwnershipManifest>,
+    selectedInstallId: String,
+    installNamesById: Map<String, String>,
+    onResolve: (() -> Unit)?,
+    onUseCandidate: (AutomaticPlacementCandidate) -> Unit,
     onExport: () -> Unit,
 ) {
     var showWhy by remember(plan.digest) { mutableStateOf(false) }
+    var showAllFiles by remember(plan.digest) { mutableStateOf(false) }
+    var browseTarget by remember(plan.digest) { mutableStateOf<RecipeDraft?>(null) }
+    val rows = remember(plan, diff, roots) { placementReviewRows(plan, diff, roots) }
     Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(stringResource(R.string.nexus_plan_review_title), style = MaterialTheme.typography.labelLarge)
@@ -520,21 +537,28 @@ private fun PlacementPlanReview(
                 Text(if (showWhy) stringResource(R.string.nexus_hide_placement_reason) else stringResource(R.string.nexus_why_this_placement))
             }
             if (showWhy) {
-                automaticPlacement.recommended?.evidence.orEmpty().forEach { evidence ->
+                automaticPlacement?.recommended?.evidence.orEmpty().forEach { evidence ->
                     Text("\u2022 $evidence", style = MaterialTheme.typography.bodySmall)
                 }
-                if (automaticPlacement.candidates.size > 1) {
+                if (automaticPlacement?.candidates.orEmpty().size > 1) {
                     Text(stringResource(R.string.nexus_plan_ranked), style = MaterialTheme.typography.labelMedium)
-                    automaticPlacement.candidates.take(3).forEachIndexed { index, candidate ->
-                        Text(
-                            stringResource(
-                                R.string.nexus_plan_score,
-                                index + 1,
-                                candidate.label,
-                                (candidate.plan.coverage * 100).toInt(),
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                    automaticPlacement?.candidates.orEmpty().take(3).forEachIndexed { index, candidate ->
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                stringResource(
+                                    R.string.nexus_plan_score,
+                                    index + 1,
+                                    candidate.label,
+                                    (candidate.plan.coverage * 100).toInt(),
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            if (candidate.plan.digest != plan.digest) {
+                                TextButton(onClick = { onUseCandidate(candidate) }) {
+                                    Text(stringResource(R.string.nexus_use_this_placement))
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -565,12 +589,185 @@ private fun PlacementPlanReview(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
+                if (onResolve != null) {
+                    Button(onClick = onResolve, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.nexus_resolve_files, plan.unresolvedCount + ambiguousPaths.size))
+                    }
+                    Text(
+                        stringResource(R.string.nexus_resolve_files_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
-            TextButton(onClick = onExport) {
-                Text(stringResource(R.string.nexus_plan_export))
+            if (diff?.hasChanges == true) {
+                Text(
+                    stringResource(R.string.nexus_reconfiguration_summary, diff.added, diff.changed, diff.moved, diff.stale),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            plan.warnings.take(5).forEach { warning ->
+                Text("\u2022 $warning", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(onClick = { showAllFiles = true }) {
+                    Text(stringResource(R.string.nexus_review_all_files, rows.size))
+                }
+                TextButton(onClick = onExport) {
+                    Text(stringResource(R.string.nexus_plan_export))
+                }
             }
         }
     }
+
+    if (showAllFiles) {
+        PlacementPlanFilesDialog(
+            rows = rows,
+            onBrowseDestination = { row ->
+                browseTarget = RecipeDraft(targetRoot = row.targetRoot, targetRelativePath = row.targetRelativePath)
+            },
+            onDismiss = { showAllFiles = false },
+        )
+    }
+
+    browseTarget?.let { target ->
+        ContainerDestinationPickerDialog(
+            roots = roots,
+            currentDraft = target,
+            plan = plan,
+            ownershipManifests = ownershipManifests,
+            selectedInstallId = selectedInstallId,
+            installNamesById = installNamesById,
+            readOnly = true,
+            onSelect = {},
+            onDismiss = { browseTarget = null },
+        )
+    }
+}
+
+@Composable
+private fun PlacementPlanFilesDialog(
+    rows: List<PlacementReviewRow>,
+    onBrowseDestination: (PlacementReviewRow) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var query by remember(rows) { mutableStateOf("") }
+    var category by remember(rows) { mutableStateOf<PlacementReviewCategory?>(null) }
+    val categories = remember(rows) { rows.map { it.category }.distinct() }
+    val filtered = remember(rows, query, category) {
+        rows.filter { (category == null || it.category == category) && it.matches(query) }
+    }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(0.96f).height(640.dp),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(stringResource(R.string.nexus_all_planned_files), style = MaterialTheme.typography.headlineSmall)
+                    NoExtractOutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.nexus_search_planned_files)) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        singleLine = true,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        PlacementChoiceButton(
+                            text = stringResource(R.string.nexus_all_files_count, rows.size),
+                            selected = category == null,
+                            onClick = { category = null },
+                        )
+                        categories.forEach { option ->
+                            PlacementChoiceButton(
+                                text = "${placementReviewCategoryLabel(option)} (${rows.count { it.category == option }})",
+                                selected = category == option,
+                                onClick = { category = option },
+                            )
+                        }
+                    }
+                }
+                HorizontalDivider()
+                if (filtered.isEmpty()) {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text(stringResource(R.string.nexus_no_matching_planned_files), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+                        filtered.groupBy { it.category }.forEach { (group, groupRows) ->
+                            item(key = "header:${group.name}") {
+                                Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant) {
+                                    Text(
+                                        "${placementReviewCategoryLabel(group)} (${groupRows.size})",
+                                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                                        style = MaterialTheme.typography.labelLarge,
+                                    )
+                                }
+                            }
+                            items(groupRows, key = { "${group.name}:${it.source}:${it.target}:${it.previousTarget}" }) { row ->
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Text(row.source, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace)
+                                    if (row.previousTarget.isNotBlank()) {
+                                        Text(
+                                            stringResource(R.string.nexus_previous_destination_value, row.previousTarget),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                    if (row.target.isNotBlank()) {
+                                        Text(
+                                            stringResource(R.string.nexus_destination_value, row.target),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                    if (row.reason.isNotBlank()) {
+                                        Text(row.reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    if (row.sizeBytes > 0L) {
+                                        Text(StorageUtils.formatBinarySize(row.sizeBytes), style = MaterialTheme.typography.labelSmall)
+                                    }
+                                    if (row.targetRoot.isNotBlank()) {
+                                        TextButton(onClick = { onBrowseDestination(row) }) {
+                                            Text(stringResource(R.string.nexus_browse_destination))
+                                        }
+                                    }
+                                }
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 20.dp), thickness = 0.5.dp)
+                            }
+                        }
+                    }
+                }
+                HorizontalDivider()
+                Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.End) {
+                    Button(onClick = onDismiss) { Text(stringResource(R.string.close)) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun placementReviewCategoryLabel(category: PlacementReviewCategory): String = when (category) {
+    PlacementReviewCategory.ADDED -> stringResource(R.string.nexus_plan_group_added)
+    PlacementReviewCategory.REPLACED -> stringResource(R.string.nexus_plan_group_replaced)
+    PlacementReviewCategory.MOVED -> stringResource(R.string.nexus_plan_group_moved)
+    PlacementReviewCategory.REMOVED -> stringResource(R.string.nexus_plan_group_removed)
+    PlacementReviewCategory.IGNORED -> stringResource(R.string.nexus_plan_group_ignored)
+    PlacementReviewCategory.BLOCKED -> stringResource(R.string.nexus_plan_group_blocked)
+    PlacementReviewCategory.UNCHANGED -> stringResource(R.string.nexus_plan_group_unchanged)
 }
 
 @Composable
@@ -1208,6 +1405,7 @@ private fun ContainerDestinationPickerDialog(
     ownershipManifests: List<ModOwnershipManifest>,
     selectedInstallId: String,
     installNamesById: Map<String, String>,
+    readOnly: Boolean = false,
     onSelect: (RecipeDraft) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -1302,7 +1500,10 @@ private fun ContainerDestinationPickerDialog(
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(stringResource(R.string.nexus_destination_folder), style = MaterialTheme.typography.headlineSmall)
+                    Text(
+                        stringResource(if (readOnly) R.string.nexus_destination_contents else R.string.nexus_destination_folder),
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
                     Text(
                         text = if (currentDir == null) stringResource(R.string.nexus_choose_game_container_location) else breadcrumb,
                         style = MaterialTheme.typography.bodySmall,
@@ -1370,13 +1571,15 @@ private fun ContainerDestinationPickerDialog(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = showHidden, onCheckedChange = { showHidden = it })
                             Text(stringResource(R.string.nexus_show_hidden_files), modifier = Modifier.weight(1f))
-                            TextButton(onClick = {
-                                newFolderName = ""
-                                showNewFolderDialog = true
-                            }) {
-                                Icon(Icons.Default.CreateNewFolder, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text(stringResource(R.string.nexus_new_destination_folder))
+                            if (!readOnly) {
+                                TextButton(onClick = {
+                                    newFolderName = ""
+                                    showNewFolderDialog = true
+                                }) {
+                                    Icon(Icons.Default.CreateNewFolder, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(stringResource(R.string.nexus_new_destination_folder))
+                                }
                             }
                         }
                     }
@@ -1491,12 +1694,18 @@ private fun ContainerDestinationPickerDialog(
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.cancel))
+                    if (!readOnly) {
+                        TextButton(onClick = onDismiss) {
+                            Text(stringResource(R.string.cancel))
+                        }
                     }
                     val selectedRoot = currentRoot
                     val selectedDir = selectedDestination ?: currentDir
-                    if (selectedRoot != null && selectedDir != null) {
+                    if (readOnly) {
+                        Button(onClick = onDismiss, modifier = Modifier.padding(start = 8.dp)) {
+                            Text(stringResource(R.string.close))
+                        }
+                    } else if (selectedRoot != null && selectedDir != null) {
                         Button(
                             onClick = {
                                 val relative = runCatching {
@@ -1522,7 +1731,7 @@ private fun ContainerDestinationPickerDialog(
         }
     }
 
-    if (showNewFolderDialog) {
+    if (showNewFolderDialog && !readOnly) {
         val validName = validVirtualDestinationFolderName(newFolderName)
         AlertDialog(
             onDismissRequest = { showNewFolderDialog = false },

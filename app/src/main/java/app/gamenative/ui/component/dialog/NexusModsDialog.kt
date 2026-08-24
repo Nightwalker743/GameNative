@@ -85,6 +85,7 @@ import app.gamenative.mods.BethesdaPluginDependencyIssue
 import app.gamenative.mods.BethesdaPluginManager
 import app.gamenative.mods.AuthorizedNexusWebsiteDownload
 import app.gamenative.mods.AutomaticPlacementPlanner
+import app.gamenative.mods.AutomaticPlacementCandidate
 import app.gamenative.mods.AutomaticPlacementResult
 import app.gamenative.mods.BrowserFirstNexusWebsiteDownload
 import app.gamenative.mods.FomodInstaller
@@ -184,6 +185,12 @@ internal enum class PlacementChoice {
     LAST_USED,
     CUSTOM,
 }
+
+private data class PlacementPlanPreview(
+    val installId: String,
+    val drafts: List<RecipeDraft>,
+    val plan: ModInstallPlan,
+)
 
 private enum class ManageModsTab {
     IMPORT,
@@ -842,6 +849,7 @@ fun NexusModsDialog(
     var pendingProfileDelete by remember { mutableStateOf<ModProfile?>(null) }
     var placementChoice by remember { mutableStateOf(PlacementChoice.AUTOMATIC) }
     var reviewedPlacementPlan by remember { mutableStateOf<ModInstallPlan?>(null) }
+    var placementPlanPreview by remember { mutableStateOf<PlacementPlanPreview?>(null) }
     var automaticOptionSelections by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var riskyAutomaticPlanApproved by remember { mutableStateOf(false) }
     var fomodSelectionDraft by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
@@ -3086,6 +3094,37 @@ fun NexusModsDialog(
 
     LaunchedEffect(
         selectedInstall?.installId,
+        placementChoice,
+        recipeDrafts.toList(),
+    ) {
+        val install = selectedInstall
+        val snapshot = recipeDrafts.toList()
+        if (install == null || !install.canPlaceFiles() || placementChoice == PlacementChoice.AUTOMATIC || snapshot.isEmpty()) {
+            placementPlanPreview = null
+            return@LaunchedEffect
+        }
+        delay(200)
+        val recipes = BethesdaPlacementRecipeExpander.expand(
+            gameName = libraryItem.name,
+            install = install,
+            recipes = snapshot.map { it.toRecipe(install.installId) },
+        )
+        val preview = withContext(Dispatchers.IO) {
+            runCatching {
+                ModMaterializer.materializationPlan(
+                    install = install,
+                    recipes = recipes,
+                    gameRootDir = gameRootDir,
+                    winePrefix = winePrefix,
+                    captureTargetHashes = false,
+                ).reviewedPlan
+            }.getOrNull()
+        }
+        placementPlanPreview = preview?.let { PlacementPlanPreview(install.installId, snapshot, it) }
+    }
+
+    LaunchedEffect(
+        selectedInstall?.installId,
         configurationDraftLoaded,
         placementChoice,
         automaticOptionSelections,
@@ -3208,7 +3247,10 @@ fun NexusModsDialog(
                 return
             }
         }
-        val initialReviewedPlan = automaticPlan ?: reviewedPlacementPlan
+        val currentPreview = placementPlanPreview?.takeIf {
+            it.installId == install.installId && it.drafts == recipeDrafts.toList()
+        }?.plan
+        val initialReviewedPlan = automaticPlan ?: reviewedPlacementPlan ?: currentPreview
         if (
             selectedFomodInstaller != null &&
             placementChoice != PlacementChoice.CUSTOM &&
@@ -3595,7 +3637,9 @@ fun NexusModsDialog(
                                         placementApplyStatusMessage = null
                                         riskyAutomaticPlanApproved = approved
                                     },
-                                    reviewedPlan = reviewedPlacementPlan,
+                                    reviewedPlan = reviewedPlacementPlan ?: placementPlanPreview?.takeIf {
+                                        it.installId == install.installId && it.drafts == recipeDrafts.toList()
+                                    }?.plan,
                                     initialFomodSelections = fomodSelectionDraft,
                                     onFomodSelectionsChanged = { fomodSelectionDraft = it },
                                     previousOwnership = selectedOwnership,
@@ -3664,6 +3708,18 @@ fun NexusModsDialog(
                                         } else {
                                             SnackbarManager.show(context.getString(R.string.nexus_fomod_choices_added))
                                         }
+                                    },
+                                    onUseAutomaticCandidate = { candidate: AutomaticPlacementCandidate ->
+                                        placementApplyStatusMessage = null
+                                        placementChoice = PlacementChoice.CUSTOM
+                                        reviewedPlacementPlan = candidate.plan
+                                        recipeDrafts.clear()
+                                        recipeDrafts += automaticDraftsFor(
+                                            AutomaticPlacementResult(listOf(candidate), candidate),
+                                            libraryItem.name,
+                                            archiveEntries,
+                                            defaultDraft,
+                                        )
                                     },
                                     applyStatusMessage = placementApplyStatusMessage,
                                     onExportPlan = { plan -> exportPlacementPlan(install, plan) },

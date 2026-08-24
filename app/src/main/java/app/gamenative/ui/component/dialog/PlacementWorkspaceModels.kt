@@ -180,6 +180,8 @@ internal data class PlacementReviewRow(
     val source: String,
     val previousTarget: String = "",
     val target: String = "",
+    val targetRoot: String = "",
+    val targetRelativePath: String = "",
     val reason: String = "",
     val sizeBytes: Long = 0L,
 ) {
@@ -217,6 +219,8 @@ internal fun placementReviewRows(
             source = file.sourceRelativePath,
             previousTarget = change?.previousTarget.orEmpty(),
             target = file.targetDisplay(),
+            targetRoot = file.targetRoot.orEmpty(),
+            targetRelativePath = file.targetRelativePath.orEmpty(),
             reason = file.reason,
             sizeBytes = file.sizeBytes,
         )
