@@ -66,7 +66,11 @@ class PlacementReviewAndroidTest {
                     riskyAutomaticPlanApproved = false,
                     onRiskyAutomaticPlanApprovalChange = {},
                     reviewedPlan = null,
+                    initialFomodSelections = emptyMap(),
+                    onFomodSelectionsChanged = {},
                     previousOwnership = null,
+                    canRestorePrevious = true,
+                    onRestorePrevious = {},
                     placementChoice = PlacementChoice.AUTOMATIC,
                     canUseLastPlacement = false,
                     onPlacementChoiceChange = {},
@@ -85,6 +89,9 @@ class PlacementReviewAndroidTest {
 
         compose.onNodeWithText(compose.activity.getString(R.string.nexus_plan_review_title)).assertExists()
         compose.onNodeWithText(compose.activity.getString(R.string.nexus_plan_export))
+            .assertExists()
+            .assertHasClickAction()
+        compose.onNodeWithText(compose.activity.getString(R.string.nexus_restore_previous_deployment))
             .assertExists()
             .assertHasClickAction()
     }
