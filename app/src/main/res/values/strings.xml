@@ -1977,8 +1977,6 @@
     <string name="nexus_impact_game_or_unmanaged">Game or unmanaged file</string>
     <string name="nexus_impact_will_receive_files">Will receive files</string>
     <string name="nexus_install_method">Install method</string>
-    <string name="nexus_create_folder_for_selection">Create a folder for the selection</string>
-    <string name="nexus_create_folder_for_selection_description">On: The selected folder is installed into the destination. Off: Only its contents are placed there.</string>
     <string name="nexus_advanced_placement">Advanced placement</string>
     <string name="nexus_hide_advanced_placement">Hide advanced placement</string>
     <string name="nexus_advanced_placement_description">Automatic placement is recommended. Open advanced placement only to choose presets, reuse an earlier layout, or map files yourself.</string>
