@@ -139,8 +139,8 @@ internal fun PlacementSection(
     initialFomodSelections: Map<String, Set<String>>,
     onFomodSelectionsChanged: (Map<String, Set<String>>) -> Unit,
     previousOwnership: ModOwnershipManifest?,
-    ownershipManifests: List<ModOwnershipManifest>,
-    installNamesById: Map<String, String>,
+    ownershipManifests: List<ModOwnershipManifest> = emptyList(),
+    installNamesById: Map<String, String> = emptyMap(),
     canRestorePrevious: Boolean,
     onRestorePrevious: () -> Unit,
     placementChoice: PlacementChoice,
@@ -158,6 +158,10 @@ internal fun PlacementSection(
 ) {
     var showArchiveBrowser by remember(install.installId, entries) { mutableStateOf(false) }
     var showFomodWizard by remember(install.installId, fomodInstaller) { mutableStateOf(false) }
+    var showAdvancedPlacement by remember(install.installId) { mutableStateOf(placementChoice != PlacementChoice.AUTOMATIC) }
+    LaunchedEffect(placementChoice) {
+        if (placementChoice != PlacementChoice.AUTOMATIC) showAdvancedPlacement = true
+    }
     val destinationsValid = drafts.all { draft -> roots.any { it.type.name == draft.targetRoot } }
     val automaticPlan = automaticPlacement.recommended?.plan
         ?.let(PlacementRiskPolicy::enforce)
@@ -232,10 +236,29 @@ internal fun PlacementSection(
                     selected = placementChoice,
                     hasPresets = presetOptions.isNotEmpty(),
                     canUseLastPlacement = canUseLastPlacement,
+                    showAdvanced = showAdvancedPlacement,
                     onSelect = {
                         if (it == PlacementChoice.LAST_USED) onUseLastPlacement() else onPlacementChoiceChange(it)
                     },
                 )
+                TextButton(onClick = { showAdvancedPlacement = !showAdvancedPlacement }) {
+                    Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        if (showAdvancedPlacement) {
+                            stringResource(R.string.nexus_hide_advanced_placement)
+                        } else {
+                            stringResource(R.string.nexus_advanced_placement)
+                        },
+                    )
+                }
+                if (!showAdvancedPlacement) {
+                    Text(
+                        stringResource(R.string.nexus_advanced_placement_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
 
                 if (placementChoice == PlacementChoice.AUTOMATIC && automaticPlanLoading) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -357,6 +380,7 @@ internal fun PlacementSection(
                             ownershipManifests = ownershipManifests,
                             selectedInstallId = install.installId,
                             installNamesById = installNamesById,
+                            showAdvanced = showAdvancedPlacement,
                             canRemove = drafts.size > 1,
                             onUpdate = { onUpdateDraft(index, it) },
                             onRemove = { onRemoveDraft(index) },
@@ -478,6 +502,7 @@ private fun PlacementPlanReview(
     ambiguousPaths: List<String>,
     onExport: () -> Unit,
 ) {
+    var showWhy by remember(plan.digest) { mutableStateOf(false) }
     Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(stringResource(R.string.nexus_plan_review_title), style = MaterialTheme.typography.labelLarge)
@@ -491,21 +516,26 @@ private fun PlacementPlanReview(
                 ),
                 style = MaterialTheme.typography.bodySmall,
             )
-            automaticPlacement.recommended?.evidence.orEmpty().forEach { evidence ->
-                Text("• $evidence", style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = { showWhy = !showWhy }) {
+                Text(if (showWhy) stringResource(R.string.nexus_hide_placement_reason) else stringResource(R.string.nexus_why_this_placement))
             }
-            if (automaticPlacement.candidates.size > 1) {
-                Text(stringResource(R.string.nexus_plan_ranked), style = MaterialTheme.typography.labelMedium)
-                automaticPlacement.candidates.take(3).forEachIndexed { index, candidate ->
-                    Text(
-                        stringResource(
-                            R.string.nexus_plan_score,
-                            index + 1,
-                            candidate.label,
-                            (candidate.plan.coverage * 100).toInt(),
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+            if (showWhy) {
+                automaticPlacement.recommended?.evidence.orEmpty().forEach { evidence ->
+                    Text("\u2022 $evidence", style = MaterialTheme.typography.bodySmall)
+                }
+                if (automaticPlacement.candidates.size > 1) {
+                    Text(stringResource(R.string.nexus_plan_ranked), style = MaterialTheme.typography.labelMedium)
+                    automaticPlacement.candidates.take(3).forEachIndexed { index, candidate ->
+                        Text(
+                            stringResource(
+                                R.string.nexus_plan_score,
+                                index + 1,
+                                candidate.label,
+                                (candidate.plan.coverage * 100).toInt(),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                 }
             }
             caseMerges.take(5).forEach { merge ->
@@ -578,18 +608,20 @@ private fun PlacementChoiceSelector(
     selected: PlacementChoice,
     hasPresets: Boolean,
     canUseLastPlacement: Boolean,
+    showAdvanced: Boolean,
     onSelect: (PlacementChoice) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.nexus_placement_label), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val compact = maxWidth < 420.dp
-            val choices = listOf(
+            val allChoices = listOf(
                 Triple(PlacementChoice.AUTOMATIC, stringResource(R.string.nexus_placement_automatic), true),
                 Triple(PlacementChoice.PRESET, stringResource(R.string.nexus_placement_preset), hasPresets),
                 Triple(PlacementChoice.LAST_USED, stringResource(R.string.nexus_placement_last_used), canUseLastPlacement),
                 Triple(PlacementChoice.CUSTOM, stringResource(R.string.nexus_placement_custom), true),
             )
+            val choices = if (showAdvanced || selected != PlacementChoice.AUTOMATIC) allChoices else allChoices.take(1)
             val rows = if (compact) choices.chunked(2) else listOf(choices)
             Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 rows.forEach { rowChoices ->
@@ -740,6 +772,7 @@ private fun PlacementDraftEditor(
     ownershipManifests: List<ModOwnershipManifest>,
     selectedInstallId: String,
     installNamesById: Map<String, String>,
+    showAdvanced: Boolean,
     canRemove: Boolean,
     onUpdate: (RecipeDraft) -> Unit,
     onRemove: () -> Unit,
@@ -747,6 +780,16 @@ private fun PlacementDraftEditor(
     var showSourcePicker by remember(index) { mutableStateOf(false) }
     var showDestinationPicker by remember(index) { mutableStateOf(false) }
     var showManualPaths by remember(index) { mutableStateOf(false) }
+    val layout = remember(draft.sourceSubpath, draft.targetRelativePath, draft.includeSourceDirectory, entries) {
+        placementLayoutModel(draft, entries)
+    }
+    val recommendedKeepFolder = remember(draft.sourceSubpath, draft.targetRelativePath, entries) {
+        AutomaticPlacementPlanner.inferIncludeSourceDirectory(
+            ModPlacementSources.decode(draft.sourceSubpath),
+            entries,
+            draft.targetRelativePath,
+        )
+    }
 
     Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -774,34 +817,63 @@ private fun PlacementDraftEditor(
             )
             DestinationScopeText(draft, roots)
 
-            DropdownField(
-                label = stringResource(R.string.nexus_install_method),
-                value = placementModeLabelText(draft.mode),
-                options = ModPlacementMode.entries.map { placementModeLabelText(it.name) to it.name },
-                onSelect = { onUpdate(draft.copy(mode = it)) },
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Checkbox(
-                    checked = draft.includeSourceDirectory,
-                    onCheckedChange = { onUpdate(draft.copy(includeSourceDirectory = it)) },
-                )
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(stringResource(R.string.nexus_create_folder_for_selection))
+            if (layout.visible) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(stringResource(R.string.nexus_folder_layout), style = MaterialTheme.typography.labelLarge)
+                    val names = layout.selectedNames.take(2).joinToString(", ") + if (layout.selectedNames.size > 2) ", ..." else ""
+                    val contentsLabel = if (layout.multipleFolders) {
+                        stringResource(R.string.nexus_merge_selected_folder_contents)
+                    } else {
+                        stringResource(R.string.nexus_install_contents_of, names)
+                    }
+                    val folderLabel = if (layout.multipleFolders) {
+                        stringResource(R.string.nexus_keep_selected_folder_names)
+                    } else {
+                        stringResource(R.string.nexus_install_folder_and_contents, names)
+                    }
+                    PlacementChoiceButton(
+                        text = contentsLabel + if (!recommendedKeepFolder) stringResource(R.string.nexus_recommended_suffix) else "",
+                        selected = !draft.includeSourceDirectory,
+                        onClick = { onUpdate(draft.copy(includeSourceDirectory = false)) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    PlacementChoiceButton(
+                        text = folderLabel + if (recommendedKeepFolder) stringResource(R.string.nexus_recommended_suffix) else "",
+                        selected = draft.includeSourceDirectory,
+                        onClick = { onUpdate(draft.copy(includeSourceDirectory = true)) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                     Text(
-                        text = stringResource(R.string.nexus_create_folder_for_selection_description),
+                        stringResource(R.string.nexus_folder_layout_result, layout.resultExample),
                         style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (layout.duplicateFolderWarning) {
+                        Text(
+                            stringResource(R.string.nexus_duplicate_folder_warning),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
 
-            TextButton(onClick = { showManualPaths = !showManualPaths }) {
-                Text(if (showManualPaths) stringResource(R.string.nexus_hide_manual_paths) else stringResource(R.string.nexus_manual_paths))
+            if (showAdvanced) {
+                DropdownField(
+                    label = stringResource(R.string.nexus_install_method),
+                    value = placementModeLabelText(draft.mode),
+                    options = ModPlacementMode.entries.map { placementModeLabelText(it.name) to it.name },
+                    onSelect = { onUpdate(draft.copy(mode = it)) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                TextButton(onClick = { showManualPaths = !showManualPaths }) {
+                    Text(if (showManualPaths) stringResource(R.string.nexus_hide_manual_paths) else stringResource(R.string.nexus_manual_paths))
+                }
             }
 
-            if (showManualPaths) {
+            if (showAdvanced && showManualPaths) {
                 NoExtractOutlinedTextField(
                     value = sourceManualText(draft.sourceSubpath),
                     onValueChange = { value ->
