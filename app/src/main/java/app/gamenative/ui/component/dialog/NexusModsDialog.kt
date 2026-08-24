@@ -3085,11 +3085,11 @@ fun NexusModsDialog(
         }
     }
 
-    fun buildRecipes(install: ModInstall): List<ModPlacementRecipe> =
+    fun buildRecipes(install: ModInstall, drafts: List<RecipeDraft>): List<ModPlacementRecipe> =
         BethesdaPlacementRecipeExpander.expand(
             gameName = libraryItem.name,
             install = install,
-            recipes = recipeDrafts.map { draft -> draft.toRecipe(install.installId) },
+            recipes = drafts.map { draft -> draft.toRecipe(install.installId) },
         )
 
     LaunchedEffect(
@@ -3141,17 +3141,22 @@ fun NexusModsDialog(
         val install = selectedInstall ?: return@LaunchedEffect
         if (!configurationDraftLoaded || !install.canPlaceFiles()) return@LaunchedEffect
         delay(200)
-        val recipes = recipeDrafts.map { it.toRecipe(install.installId) }
+        val draftSnapshot = recipeDrafts.toList()
+        val placementChoiceSnapshot = placementChoice.name
+        val automaticOptionsSnapshot = automaticOptionSelections
+        val riskyTargetsApprovedSnapshot = riskyAutomaticPlanApproved
+        val fomodSelectionsSnapshot = fomodSelectionDraft.mapValues { (_, values) -> values.sorted() }
         withContext(Dispatchers.IO) {
+            val recipes = draftSnapshot.map { it.toRecipe(install.installId) }
             ModConfigurationDraftStore.write(
                 NexusModManager.cacheRoot(context, install.appId),
                 ModConfigurationDraft(
                     installId = install.installId,
                     archiveIdentity = ModConfigurationDraftStore.archiveIdentity(install),
-                    placementChoice = placementChoice.name,
-                    automaticOptions = automaticOptionSelections,
-                    riskyTargetsApproved = riskyAutomaticPlanApproved,
-                    fomodSelections = fomodSelectionDraft.mapValues { (_, values) -> values.sorted() },
+                    placementChoice = placementChoiceSnapshot,
+                    automaticOptions = automaticOptionsSnapshot,
+                    riskyTargetsApproved = riskyTargetsApprovedSnapshot,
+                    fomodSelections = fomodSelectionsSnapshot,
                     recipes = recipes.map(ModConfigurationRecipe::from),
                 ),
             )
@@ -3233,9 +3238,6 @@ fun NexusModsDialog(
         }
     }
 
-    fun applyRecipes(install: ModInstall, allowOverwrite: Boolean) =
-        applyRecipes(install, buildRecipes(install), allowOverwrite)
-
     fun saveAndApply() {
         val install = selectedInstall ?: return
         if (!install.canPlaceFiles()) {
@@ -3252,28 +3254,24 @@ fun NexusModsDialog(
             null
         }
         if (placementChoice == PlacementChoice.AUTOMATIC) {
-            val inspection = automaticPlan?.let { ModTargetResolver.inspectPlan(it, roots) }
-            if (
-                automaticPlan?.isComplete != true ||
-                inspection?.ambiguousPaths?.isNotEmpty() == true
-            ) {
+            if (automaticPlan?.isComplete != true) {
                 SnackbarManager.show(context.getString(R.string.nexus_plan_blocked))
                 return
             }
         }
+        val draftSnapshot = recipeDrafts.toList()
         val currentPreview = placementPlanPreview?.takeIf {
-            it.installId == install.installId && it.drafts == recipeDrafts.toList()
+            it.installId == install.installId && it.drafts == draftSnapshot
         }?.plan
         val initialReviewedPlan = automaticPlan ?: reviewedPlacementPlan ?: currentPreview
         if (
             selectedFomodInstaller != null &&
             placementChoice != PlacementChoice.CUSTOM &&
-            recipeDrafts.any { draft -> ModPlacementSources.decode(draft.sourceSubpath).isEmpty() }
+            draftSnapshot.any { draft -> ModPlacementSources.decode(draft.sourceSubpath).isEmpty() }
         ) {
             SnackbarManager.show(context.getString(R.string.nexus_fomod_or_custom_required))
             return
         }
-        val recipes = buildRecipes(install)
         if (modApplyInProgress) {
             SnackbarManager.show(context.getString(R.string.nexus_mod_apply_already_running))
             return
@@ -3283,6 +3281,15 @@ fun NexusModsDialog(
             try {
                 placementApplyStatusMessage = null
                 loadingMessage = context.getString(R.string.nexus_checking_target_files)
+                val hasAmbiguousTargets = automaticPlan?.let { plan ->
+                    withContext(Dispatchers.IO) { ModTargetResolver.inspectPlan(plan, roots) }
+                        .ambiguousPaths.isNotEmpty()
+                } == true
+                if (hasAmbiguousTargets) {
+                    SnackbarManager.show(context.getString(R.string.nexus_plan_blocked))
+                    return@launch
+                }
+                val recipes = withContext(Dispatchers.Default) { buildRecipes(install, draftSnapshot) }
                 val reviewedPlan = withContext(Dispatchers.IO) {
                     val base = initialReviewedPlan ?: ModMaterializer.materializationPlan(
                         install = install,

@@ -57,6 +57,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -89,6 +90,7 @@ import app.gamenative.mods.ModReconfigurationDiff
 import app.gamenative.mods.ModPlacementPreset
 import app.gamenative.mods.ModPlacementSources
 import app.gamenative.mods.ModTargetResolver
+import app.gamenative.mods.ModTargetPlanInspection
 import app.gamenative.mods.PlannedFileStatus
 import app.gamenative.mods.PlacementRisk
 import app.gamenative.mods.PlacementRiskPolicy
@@ -167,7 +169,7 @@ internal fun PlacementSection(
     var showArchiveBrowser by remember(install.installId, entries) { mutableStateOf(false) }
     var showFomodWizard by remember(install.installId, fomodInstaller) { mutableStateOf(false) }
     var showAdvancedPlacement by remember(install.installId) { mutableStateOf(placementChoice != PlacementChoice.AUTOMATIC) }
-    var customDraftPage by remember(install.installId) { mutableStateOf(0) }
+    var customDraftPage by remember(install.installId) { mutableIntStateOf(0) }
     val visibleDraftPage = remember(drafts.size, customDraftPage) {
         placementDraftPage(drafts.size, customDraftPage)
     }
@@ -192,11 +194,17 @@ internal fun PlacementSection(
     val reconfigurationDiff = remember(previousOwnership, visiblePlan) {
         visiblePlan?.takeIf { previousOwnership != null }?.let { ModOwnershipPlanDiffer.compare(previousOwnership, it) }
     }
-    val targetInspection = remember(automaticPlan, roots) {
-        automaticPlan?.let { ModTargetResolver.inspectPlan(it, roots) }
+    var targetInspection by remember(automaticPlan, roots) { mutableStateOf<ModTargetPlanInspection?>(null) }
+    var targetInspectionLoading by remember(automaticPlan, roots) { mutableStateOf(automaticPlan != null) }
+    LaunchedEffect(automaticPlan, roots) {
+        targetInspectionLoading = automaticPlan != null
+        targetInspection = automaticPlan?.let { plan ->
+            withContext(Dispatchers.IO) { ModTargetResolver.inspectPlan(plan, roots) }
+        }
+        targetInspectionLoading = false
     }
     val applyBlocked = when {
-        placementChoice == PlacementChoice.AUTOMATIC -> automaticPlanLoading ||
+        placementChoice == PlacementChoice.AUTOMATIC -> automaticPlanLoading || targetInspectionLoading ||
             automaticPlan?.isComplete != true ||
             targetInspection?.ambiguousPaths?.isNotEmpty() == true
         visiblePlan != null -> !visiblePlan.isComplete
