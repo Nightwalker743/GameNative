@@ -17,14 +17,38 @@ data class GenericOptionGroup(
 object GenericOptionSetDetector {
     fun detect(index: ModArchiveIndex): List<GenericOptionGroup> {
         if (index.hasFomod) return emptyList()
-        val roots = index.nodes.filter { '/' !in it.displayPath && it.descendantFileCount > 0 }
-        val signatures = roots.associateWith { root ->
-            index.filesUnder(root.displayPath).mapTo(mutableSetOf()) { file ->
-                file.normalizedKey.removePrefix("${root.normalizedKey}/")
+        val directories = index.nodes.filter { it.descendantFileCount > 0 }
+        val siblingsByParent = directories.groupBy { node -> node.normalizedKey.substringBeforeLast('/', "") }
+        val detected = siblingsByParent.values.flatMap { siblings -> detectSiblingGroups(index, siblings) }
+            .sortedWith(compareBy<GenericOptionGroup> { it.choices.first().sourceDirectory.count { char -> char == '/' } }.thenBy { it.stableId })
+        val accepted = mutableListOf<GenericOptionGroup>()
+        detected.forEach { group ->
+            val nestedInsideAcceptedChoice = accepted.any { outer ->
+                outer.choices.any { choice ->
+                    group.choices.all { nested ->
+                        val path = normalizeArchiveDisplayPath(nested.sourceDirectory)
+                        val root = normalizeArchiveDisplayPath(choice.sourceDirectory)
+                        path.equals(root, ignoreCase = true) || path.startsWith("$root/", ignoreCase = true)
+                    }
+                }
+            }
+            if (!nestedInsideAcceptedChoice) accepted += group
+        }
+        return accepted
+    }
+
+    private fun detectSiblingGroups(
+        index: ModArchiveIndex,
+        siblings: List<ArchiveTreeNode>,
+    ): List<GenericOptionGroup> {
+        if (siblings.size < 2) return emptyList()
+        val signatures = siblings.associateWith { node ->
+            index.filesUnder(node.displayPath).mapTo(mutableSetOf()) { file ->
+                file.normalizedKey.removePrefix("${node.normalizedKey}/")
             }
         }
-        val related = roots.associateWith { root ->
-            roots.filter { other ->
+        val related = siblings.associateWith { root ->
+            siblings.filter { other ->
                 if (root == other) return@filter false
                 val overlap = signatures.getValue(root).intersect(signatures.getValue(other)).size
                 val smaller = minOf(signatures.getValue(root).size, signatures.getValue(other).size).coerceAtLeast(1)
@@ -33,7 +57,7 @@ object GenericOptionSetDetector {
         }
         val visited = mutableSetOf<String>()
         val groups = mutableListOf<List<ArchiveTreeNode>>()
-        roots.forEach { root ->
+        siblings.forEach { root ->
             if (!visited.add(root.normalizedKey)) return@forEach
             val component = mutableListOf(root)
             val queue = ArrayDeque(related.getValue(root))
@@ -46,7 +70,7 @@ object GenericOptionSetDetector {
             if (component.size > 1) groups += component
         }
         val optionRootKeys = groups.flatten().mapTo(mutableSetOf()) { it.normalizedKey }
-        val common = roots.filter { it.normalizedKey !in optionRootKeys }.map { it.displayPath }.sorted()
+        val common = siblings.filter { it.normalizedKey !in optionRootKeys }.map { it.displayPath }.sorted()
         return groups.map { choices ->
             GenericOptionGroup(
                 stableId = choices.map { it.normalizedKey }.sorted().joinToString("|").hashCode().toUInt().toString(16),

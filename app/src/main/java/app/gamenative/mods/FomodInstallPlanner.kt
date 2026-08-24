@@ -146,7 +146,7 @@ object FomodPlanExpander {
             if (missing.isNotEmpty()) add("${missing.size} selected FOMOD mapping(s) have missing or mismatched sources")
             if (planned.any { it.status == PlannedFileStatus.UNSUPPORTED }) add("Some selected FOMOD destinations are invalid")
         }
-        return ModInstallPlan(
+        return PlacementRiskPolicy.enforce(ModInstallPlan(
             files = planned.sortedWith(
                 compareBy<PlannedModFile> { it.normalizedTargetKey.orEmpty() }
                     .thenBy { it.sourceRelativePath.lowercase(Locale.ROOT) }
@@ -155,7 +155,7 @@ object FomodPlanExpander {
             blockingIssues = blockers.distinct(),
             producerId = "fomod",
             producerVersion = 1,
-        )
+        ))
     }
 
     private data class ExpandedFomodFile(

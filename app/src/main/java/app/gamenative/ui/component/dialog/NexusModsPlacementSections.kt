@@ -130,6 +130,8 @@ internal fun PlacementSection(
     riskyAutomaticPlanApproved: Boolean,
     onRiskyAutomaticPlanApprovalChange: (Boolean) -> Unit,
     reviewedPlan: ModInstallPlan?,
+    initialFomodSelections: Map<String, Set<String>>,
+    onFomodSelectionsChanged: (Map<String, Set<String>>) -> Unit,
     previousOwnership: ModOwnershipManifest?,
     placementChoice: PlacementChoice,
     canUseLastPlacement: Boolean,
@@ -428,6 +430,8 @@ internal fun PlacementSection(
             // first generated mapping here recursively prefixes that mapping whenever
             // an installer is reconfigured.
             baseDraft = fomodBaseDraft,
+            initialSelections = initialFomodSelections,
+            onSelectionsChanged = onFomodSelectionsChanged,
             onApply = { generatedDrafts, plan, unsupportedCount ->
                 showFomodWizard = false
                 onFomodRecipes(generatedDrafts, plan, unsupportedCount)

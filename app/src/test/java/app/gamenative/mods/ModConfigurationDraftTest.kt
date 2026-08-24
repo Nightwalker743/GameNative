@@ -1,0 +1,45 @@
+package app.gamenative.mods
+
+import app.gamenative.data.ModInstall
+import java.io.File
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+
+class ModConfigurationDraftTest {
+    @get:Rule
+    val temporaryFolder = TemporaryFolder()
+
+    @Test
+    fun draftRoundTrip_isScopedToTheExactArchive_andCanBeCleared() {
+        val root = temporaryFolder.newFolder("cache")
+        val install = install("hash-one")
+        val draft = ModConfigurationDraft(
+            installId = install.installId,
+            archiveIdentity = ModConfigurationDraftStore.archiveIdentity(install),
+            placementChoice = "CUSTOM",
+            automaticOptions = mapOf("runtime" to "x64"),
+            fomodSelections = mapOf("0:0" to listOf("0:0:1")),
+            recipes = listOf(ModConfigurationRecipe(sourceSubpath = "Data", targetRelativePath = "Data")),
+        )
+
+        ModConfigurationDraftStore.write(root, draft)
+
+        assertEquals(draft.copy(updatedAt = ModConfigurationDraftStore.read(root, install)!!.updatedAt), ModConfigurationDraftStore.read(root, install))
+        assertNull(ModConfigurationDraftStore.read(root, install("different-hash")))
+        ModConfigurationDraftStore.delete(root, install.installId)
+        assertNull(ModConfigurationDraftStore.read(root, install))
+    }
+
+    private fun install(hash: String) = ModInstall(
+        installId = "install",
+        appId = "game",
+        modName = "Mod",
+        fileName = "mod.zip",
+        archivePath = File(temporaryFolder.root, "mod.zip").absolutePath,
+        extractedPath = File(temporaryFolder.root, "extracted").absolutePath,
+        archiveSha256 = hash,
+    )
+}

@@ -30,10 +30,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +59,7 @@ import app.gamenative.mods.effectiveType
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
 import java.io.File
+import kotlinx.coroutines.flow.distinctUntilChanged
 @Composable
 internal fun FomodSummarySection(
     installer: FomodInstaller,
@@ -103,6 +106,8 @@ internal fun FomodWizardDialog(
     environment: FomodEnvironmentSnapshot,
     extractedRoot: File,
     baseDraft: RecipeDraft,
+    initialSelections: Map<String, Set<String>> = emptyMap(),
+    onSelectionsChanged: (Map<String, Set<String>>) -> Unit = {},
     onApply: (List<RecipeDraft>, ModInstallPlan?, Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -152,7 +157,23 @@ internal fun FomodWizardDialog(
                     put("$stepIndex:$groupIndex", defaults)
                 }
             }
+            initialSelections.forEach { (groupKey, selected) ->
+                val parts = groupKey.split(':').mapNotNull(String::toIntOrNull)
+                val group = parts.takeIf { it.size == 2 }
+                    ?.let { installer.steps.getOrNull(it[0])?.groups?.getOrNull(it[1]) }
+                    ?: return@forEach
+                val allowed = group.plugins.indices.mapTo(mutableSetOf()) { pluginIndex ->
+                    FomodRecipeGenerator.pluginKey(parts[0], parts[1], pluginIndex)
+                }
+                put(groupKey, selected.intersect(allowed))
+            }
         }
+    }
+
+    LaunchedEffect(selectedByGroup) {
+        snapshotFlow { selectedByGroup.toMap() }
+            .distinctUntilChanged()
+            .collect(onSelectionsChanged)
     }
 
     val selectedFlags = fomodSelectedFlags(installer, selectedByGroup)

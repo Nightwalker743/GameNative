@@ -101,6 +101,9 @@ import app.gamenative.mods.truncateAtCodePointBoundary
 import app.gamenative.mods.ModArchiveEntry
 import app.gamenative.mods.ModArchiveInstallAssessor
 import app.gamenative.mods.ModConflictAnalyzer
+import app.gamenative.mods.ModConfigurationDraft
+import app.gamenative.mods.ModConfigurationDraftStore
+import app.gamenative.mods.ModConfigurationRecipe
 import app.gamenative.mods.ModDownloadInfo
 import app.gamenative.mods.ModDownloadRegistry
 import app.gamenative.mods.ModDeploymentCoordinator
@@ -151,6 +154,7 @@ import app.gamenative.ui.util.LocalSnackbarHostController
 import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.StorageUtils
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
@@ -830,6 +834,8 @@ fun NexusModsDialog(
     var reviewedPlacementPlan by remember { mutableStateOf<ModInstallPlan?>(null) }
     var automaticOptionSelections by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var riskyAutomaticPlanApproved by remember { mutableStateOf(false) }
+    var fomodSelectionDraft by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
+    var configurationDraftLoaded by remember { mutableStateOf(false) }
     var automaticPlacementResult by remember { mutableStateOf<AutomaticPlacementResult?>(null) }
     var automaticPlacementLoading by remember { mutableStateOf(false) }
     var selectedOwnership by remember { mutableStateOf<app.gamenative.mods.ModOwnershipManifest?>(null) }
@@ -1919,9 +1925,11 @@ fun NexusModsDialog(
     }
 
     fun loadRecipes(install: ModInstall?) {
+        configurationDraftLoaded = false
         reviewedPlacementPlan = null
         automaticOptionSelections = emptyMap()
         riskyAutomaticPlanApproved = false
+        fomodSelectionDraft = emptyMap()
         automaticPlacementResult = null
         recipeDrafts.clear()
         if (install == null || !install.canPlaceFiles()) {
@@ -1929,18 +1937,29 @@ fun NexusModsDialog(
             return
         }
         scope.launch {
-            val recipes = withContext(Dispatchers.IO) { dao.getRecipesForInstall(install.installId) }
+            val (recipes, savedDraft) = withContext(Dispatchers.IO) {
+                dao.getRecipesForInstall(install.installId) to
+                    ModConfigurationDraftStore.read(NexusModManager.cacheRoot(context, install.appId), install)
+            }
+            val restoredRecipes = savedDraft?.recipes.orEmpty().map { it.toRecipe(install.installId) }
+            automaticOptionSelections = savedDraft?.automaticOptions.orEmpty()
+            riskyAutomaticPlanApproved = savedDraft?.riskyTargetsApproved == true
+            fomodSelectionDraft = savedDraft?.fomodSelections.orEmpty().mapValues { it.value.toSet() }
             recipeDrafts.clear()
-            if (recipes.isEmpty()) {
-                placementChoice = PlacementChoice.AUTOMATIC
+            val selectedRecipes = restoredRecipes.ifEmpty { recipes }
+            val restoredChoice = savedDraft?.placementChoice
+                ?.let { runCatching { PlacementChoice.valueOf(it) }.getOrNull() }
+            if (selectedRecipes.isEmpty()) {
+                placementChoice = restoredChoice ?: PlacementChoice.AUTOMATIC
                 recipeDrafts += automaticPlacementResult
                     ?.let { automaticDraftsFor(it, libraryItem.name, archiveEntries, defaultDraft) }
                     .orEmpty()
                     .ifEmpty { listOf(defaultDraft) }
             } else {
-                placementChoice = PlacementChoice.CUSTOM
-                recipeDrafts += recipes.map { it.toDraft() }
+                placementChoice = restoredChoice ?: PlacementChoice.CUSTOM
+                recipeDrafts += selectedRecipes.map { it.toDraft() }
             }
+            configurationDraftLoaded = true
         }
     }
 
@@ -2976,6 +2995,35 @@ fun NexusModsDialog(
             recipes = recipeDrafts.map { draft -> draft.toRecipe(install.installId) },
         )
 
+    LaunchedEffect(
+        selectedInstall?.installId,
+        configurationDraftLoaded,
+        placementChoice,
+        automaticOptionSelections,
+        riskyAutomaticPlanApproved,
+        fomodSelectionDraft,
+        recipeDrafts.toList(),
+    ) {
+        val install = selectedInstall ?: return@LaunchedEffect
+        if (!configurationDraftLoaded || !install.canPlaceFiles()) return@LaunchedEffect
+        delay(200)
+        val recipes = recipeDrafts.map { it.toRecipe(install.installId) }
+        withContext(Dispatchers.IO) {
+            ModConfigurationDraftStore.write(
+                NexusModManager.cacheRoot(context, install.appId),
+                ModConfigurationDraft(
+                    installId = install.installId,
+                    archiveIdentity = ModConfigurationDraftStore.archiveIdentity(install),
+                    placementChoice = placementChoice.name,
+                    automaticOptions = automaticOptionSelections,
+                    riskyTargetsApproved = riskyAutomaticPlanApproved,
+                    fomodSelections = fomodSelectionDraft.mapValues { (_, values) -> values.sorted() },
+                    recipes = recipes.map(ModConfigurationRecipe::from),
+                ),
+            )
+        }
+    }
+
     suspend fun applyRecipesInternal(
         install: ModInstall,
         recipes: List<ModPlacementRecipe>,
@@ -3447,6 +3495,8 @@ fun NexusModsDialog(
                                         riskyAutomaticPlanApproved = approved
                                     },
                                     reviewedPlan = reviewedPlacementPlan,
+                                    initialFomodSelections = fomodSelectionDraft,
+                                    onFomodSelectionsChanged = { fomodSelectionDraft = it },
                                     previousOwnership = selectedOwnership,
                                     placementChoice = placementChoice,
                                     canUseLastPlacement = lastPlacementDrafts.isNotEmpty(),

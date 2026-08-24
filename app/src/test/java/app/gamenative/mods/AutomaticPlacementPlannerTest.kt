@@ -86,6 +86,24 @@ class AutomaticPlacementPlannerTest {
     }
 
     @Test
+    fun nestedStructuralVariants_areDetectedWithoutDependingOnFolderNames() {
+        val entries = archive(
+            "Package/Choices/Blue/Data/textures/x.dds",
+            "Package/Choices/Red/Data/textures/x.dds",
+            "Package/Choices/Common/Data/scripts/y.pex",
+        )
+        val result = AutomaticPlacementPlanner.plan("Skyrim Special Edition", entries)
+        val group = result.optionGroups.single()
+
+        assertEquals(
+            setOf("Package/Choices/Blue", "Package/Choices/Red"),
+            group.choices.mapTo(mutableSetOf()) { it.sourceDirectory },
+        )
+        assertEquals(listOf("Package/Choices/Common"), group.commonSourceDirectories)
+        assertFalse(result.recommended!!.plan.isComplete)
+    }
+
+    @Test
     fun mixedDataAndRootBinary_areSeparatedAndRootBinaryRequiresReview() {
         val plan = AutomaticPlacementPlanner.plan(
             "Skyrim Special Edition",
