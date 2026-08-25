@@ -27,9 +27,11 @@ import app.gamenative.mods.ModImportProgress
 import app.gamenative.mods.ModPlacementPreset
 import app.gamenative.mods.ModPlacementPresetDetector
 import app.gamenative.mods.ModPlacementSources
+import app.gamenative.mods.ModProfileOverlayTransition
 import app.gamenative.mods.ModTargetResolver
 import app.gamenative.mods.NexusCollectionFile
 import app.gamenative.mods.NexusModFile
+import app.gamenative.mods.NexusModInfo
 import app.gamenative.mods.ResolvedModTargetRoot
 import java.io.File
 import kotlinx.coroutines.CoroutineStart
@@ -100,6 +102,28 @@ internal fun ModInstall.profileStatus(enabledInProfile: Boolean): String =
         canPlaceFiles() && status != ModInstallStatus.DISABLED.name && !enabledInProfile -> "PROFILE_DISABLED"
         else -> status
     }
+
+internal fun requiresManagedOverlayRebuild(
+    configuredInstallIds: Set<String>,
+    activeOwnershipInstallIds: Set<String>,
+    transition: ModProfileOverlayTransition,
+): Boolean =
+    configuredInstallIds.isNotEmpty() &&
+        configuredInstallIds.all(activeOwnershipInstallIds::contains) &&
+        transition.requiresRebuild &&
+        transition.safeToRebuild
+
+internal fun shouldApplyProfileInstall(
+    install: ModInstall,
+    hasActiveOwnership: Boolean,
+    hasConflict: Boolean,
+    needsAssetRepair: Boolean,
+    hasMissingTarget: Boolean,
+): Boolean =
+    install.status != ModInstallStatus.APPLIED.name ||
+        (hasConflict && !hasActiveOwnership) ||
+        needsAssetRepair ||
+        hasMissingTarget
 
 internal fun ModDownloadInfo.toImportProgress(): ModImportProgress =
     ModImportProgress(
@@ -225,6 +249,16 @@ internal fun automaticDraftsFor(
 ): List<RecipeDraft> {
     val result = AutomaticPlacementPlanner.plan(gameName, entries, selectedOptions)
     return automaticDraftsFor(result, gameName, entries, fallback)
+}
+
+internal fun NexusCollectionFile.toEmbeddedNexusModInfo(): NexusModInfo? {
+    val resolvedModName = modName.ifBlank { return null }
+    return NexusModInfo(
+        modId = modId,
+        name = resolvedModName,
+        summary = "",
+        version = version,
+    )
 }
 
 internal fun automaticDraftsFor(

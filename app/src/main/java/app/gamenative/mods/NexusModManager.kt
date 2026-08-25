@@ -761,7 +761,7 @@ object NexusModManager {
                     created = 0,
                     skipped = 0,
                     backedUp = 0,
-                    errors = mapOf(install.modName to "Ownership adoption is only available for an applied historical install without an ownership manifest"),
+                    errors = mapOf(install.modName to "File tracking setup is only available for an older applied mod that is not tracked yet"),
                     manifests = emptyList(),
                 )
             }
@@ -873,7 +873,7 @@ object NexusModManager {
         val ownership = ModOwnershipStore.read(ownershipRoot, install.installId)
         if (ownership == null) {
             dao.updateInstallEnabled(install.installId, false, ModInstallStatus.DISABLED.name)
-            return@withContext listOf("Ownership adoption is required before deployed files can be removed safely")
+            return@withContext listOf("Verify and track this mod's installed files before disabling or removing it safely")
         }
         val cleanup = ModOwnershipReconciler.removeOwnedFiles(ownership, manifests, restoreBackups = restoreBackups)
         ModOwnershipStore.writePending(
@@ -1169,8 +1169,10 @@ object NexusModManager {
                 .filter { it.enabled }
                 .associate { it.installId to it.priority }
         }.orEmpty()
+        val overlay = ModProfileOverlayPlanner.build(ownershipByInstallId.values.toList(), enabledPriorities)
         val overlayFindings = ModDeploymentVerifier.verify(
-            ModProfileOverlayPlanner.build(ownershipByInstallId.values.toList(), enabledPriorities),
+            overlay,
+            ModVerificationDepth.CHANGED_CONTENT,
         ).issues
 
         installs.forEach { install ->
@@ -1209,8 +1211,8 @@ object NexusModManager {
                 } else if (ownership == null) {
                     add(
                         ModHealthSeverity.WARNING,
-                        "Ownership adoption is required",
-                        "This historical install remains usable. Verify its current files to adopt conservative ownership without changing them.",
+                        "Finish tracking installed files",
+                        "This mod was installed before file tracking was added. Verify the files already in place so GameNative can disable or remove the mod safely. No files will be moved or replaced.",
                         install,
                         ModHealthAction.ADOPT_OWNERSHIP,
                     )
@@ -1218,7 +1220,7 @@ object NexusModManager {
                     add(ModHealthSeverity.ERROR, "Ownership state does not match the applied mod", ownership.state.name, install)
                 } else {
                     val findingsForInstall = overlayFindings.filter { it.installId == install.installId } +
-                        ModDeploymentVerifier.verify(ownership).issues.filter { it.type == ModVerificationIssueType.STALE }
+                        ModDeploymentVerifier.verifyStale(ownership).issues
                     findingsForInstall.groupBy { it.type }.forEach { (type, findings) ->
                         val severity = if (type == ModVerificationIssueType.STALE) ModHealthSeverity.WARNING else ModHealthSeverity.ERROR
                         add(
@@ -1254,8 +1256,7 @@ object NexusModManager {
                     }
                 }
             } else if (ownership != null) {
-                ModDeploymentVerifier.verify(ownership).issues
-                    .filter { it.type == ModVerificationIssueType.STALE }
+                ModDeploymentVerifier.verifyStale(ownership).issues
                     .take(3)
                     .forEach { finding ->
                         add(ModHealthSeverity.WARNING, "Stale managed file was preserved", finding.targetPath, install)
@@ -1335,7 +1336,7 @@ object NexusModManager {
                 "deployment-journals=${journals.size}",
                 "journal-checkpoints=$journalCheckpoints",
                 "profile-enabled=${enabledPriorities.size}",
-                "overlay-targets=${ModProfileOverlayPlanner.build(ownershipByInstallId.values.toList(), enabledPriorities).targets.size}",
+                "overlay-targets=${overlay.targets.size}",
             ),
         )
     }

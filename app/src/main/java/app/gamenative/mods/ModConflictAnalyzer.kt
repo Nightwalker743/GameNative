@@ -1,6 +1,7 @@
 package app.gamenative.mods
 
 import app.gamenative.data.ModInstall
+import app.gamenative.data.ModInstallStatus
 import app.gamenative.data.ModPlacementRecipe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -29,10 +30,24 @@ object ModConflictAnalyzer {
         prioritiesByInstallId: Map<String, Int>,
         gameRootDir: File?,
         winePrefix: String,
+        ownershipByInstallId: Map<String, ModOwnershipManifest> = emptyMap(),
     ): List<ModFileConflictReport> = withContext(Dispatchers.IO) {
         val installById = installs.associateBy { it.installId }
         val plannedFiles = installs.flatMap { install ->
             val recipes = recipesByInstallId[install.installId].orEmpty()
+            val ownership = ownershipByInstallId[install.installId]
+                ?.takeIf { install.status == ModInstallStatus.APPLIED.name && it.state == ModOwnershipState.ACTIVE }
+            if (ownership != null) {
+                return@flatMap ownership.files
+                    .filter { it.active }
+                    .map { file ->
+                        PlannedFile(
+                            installId = install.installId,
+                            source = File(install.extractedPath, file.sourceRelativePath),
+                            target = File(file.targetPath),
+                        )
+                    }
+            }
             runCatching {
                 val plan = ModMaterializer.materializationPlan(
                     install,

@@ -156,14 +156,18 @@ import app.gamenative.ui.screen.auth.NexusOAuthBrowserLauncher
 import app.gamenative.ui.util.LocalSnackbarHostController
 import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.StorageUtils
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.File
@@ -371,8 +375,10 @@ private data class ProfileOrderPlan(
     val configuredInstalls: List<ModInstall>,
     val installsToApply: List<ModInstall>,
     val rebuildManagedOverlay: Boolean,
+    val overlayTransitionBlockerCount: Int,
     val missingTargetRepairInstallIds: Set<String>,
     val recipesByInstallId: Map<String, List<ModPlacementRecipe>>,
+    val ownershipByInstallId: Map<String, ModOwnershipManifest>,
     val reviewedPlansByInstallId: Map<String, ModInstallPlan>,
     val recipesToPersistByInstallId: Map<String, List<ModPlacementRecipe>>,
     val unconfiguredCount: Int,
@@ -1298,12 +1304,18 @@ fun NexusModsDialog(
                 val recipesByInstallId = usableInstalls.associate { install ->
                     install.installId to dao.getRecipesForInstall(install.installId)
                 }
+                val ownershipRoot = NexusModManager.cacheRoot(context, libraryItem.appId)
+                val ownershipByInstallId = usableInstalls.mapNotNull { install ->
+                    ModOwnershipStore.read(ownershipRoot, install.installId)
+                        ?.let { install.installId to it }
+                }.toMap()
                 val conflicts = ModConflictAnalyzer.analyze(
                     installs = usableInstalls,
                     recipesByInstallId = recipesByInstallId,
                     prioritiesByInstallId = priorities,
                     gameRootDir = gameRootDir,
                     winePrefix = winePrefix,
+                    ownershipByInstallId = ownershipByInstallId,
                 )
                 val game = BethesdaPluginManager.detectGame(libraryItem.name)
                 val detectedPlugins = game?.let {
@@ -1314,6 +1326,7 @@ fun NexusModsDialog(
                         gameRootDir = gameRootDir,
                         winePrefix = winePrefix,
                         pluginsFile = BethesdaPluginManager.pluginsFile(winePrefix, it),
+                        ownershipByInstallId = ownershipByInstallId,
                     )
                 }.orEmpty()
                 ModDiagnosticsSnapshot(
@@ -1595,6 +1608,7 @@ fun NexusModsDialog(
                             install.installId,
                         )
                     }
+                    val ownershipByInstallId = allOwnership.associateBy { it.installId }
                     val reviewedPlansByInstallId = allOwnership.mapNotNull { ownership ->
                         ownership.reviewedPlanOrNull()?.let { ownership.installId to it }
                     }.toMap()
@@ -1613,9 +1627,11 @@ fun NexusModsDialog(
                         allOwnership,
                         desiredPriorities,
                     )
-                    val rebuildManagedOverlay = configuredInstalls.isNotEmpty() &&
-                        configuredInstalls.all { it.installId in configuredOwnershipIds } &&
-                        overlayTransition.safeToRebuild
+                    val rebuildManagedOverlay = requiresManagedOverlayRebuild(
+                        configuredInstallIds = configuredInstalls.mapTo(mutableSetOf()) { it.installId },
+                        activeOwnershipInstallIds = configuredOwnershipIds,
+                        transition = overlayTransition,
+                    )
                     val game = BethesdaPluginManager.detectGame(libraryItem.name)
                     val plugins = game?.let {
                         BethesdaPluginManager.detectPlugins(
@@ -1625,6 +1641,7 @@ fun NexusModsDialog(
                             gameRootDir = gameRootDir,
                             winePrefix = winePrefix,
                             pluginsFile = BethesdaPluginManager.pluginsFile(winePrefix, it),
+                            ownershipByInstallId = ownershipByInstallId,
                             defaultEnabled = true,
                         )
                     }.orEmpty()
@@ -1641,23 +1658,33 @@ fun NexusModsDialog(
                     val assetRepairInstallIds = pluginAssetIssues.mapNotNull { it.plugin.installId }.toSet()
                     val missingTargetRepairInstallIds = configuredInstalls
                         .filter { install ->
-                            NexusModManager.hasMissingAppliedTargets(
-                                install = install,
-                                recipes = recipesByInstallId[install.installId].orEmpty(),
-                                gameRootDir = gameRootDir,
-                                winePrefix = winePrefix,
-                                reviewedPlan = reviewedPlansByInstallId[install.installId],
-                            )
+                            val ownership = ownershipByInstallId[install.installId]
+                            if (ownership?.state == app.gamenative.mods.ModOwnershipState.ACTIVE) {
+                                app.gamenative.mods.ModDeploymentVerifier.verifyPresence(ownership).issues.any {
+                                    it.type == app.gamenative.mods.ModVerificationIssueType.MISSING
+                                }
+                            } else {
+                                NexusModManager.hasMissingAppliedTargets(
+                                    install = install,
+                                    recipes = recipesByInstallId[install.installId].orEmpty(),
+                                    gameRootDir = gameRootDir,
+                                    winePrefix = winePrefix,
+                                    reviewedPlan = reviewedPlansByInstallId[install.installId],
+                                )
+                            }
                         }
                         .mapTo(mutableSetOf()) { it.installId }
                     val installsToApply = if (rebuildManagedOverlay) {
                         configuredInstalls
                     } else {
                         configuredInstalls.filter { install ->
-                            install.status != ModInstallStatus.APPLIED.name ||
-                                install.installId in conflictInstallIds ||
-                                install.installId in assetRepairInstallIds ||
-                                install.installId in missingTargetRepairInstallIds
+                            shouldApplyProfileInstall(
+                                install = install,
+                                hasActiveOwnership = install.installId in configuredOwnershipIds,
+                                hasConflict = install.installId in conflictInstallIds,
+                                needsAssetRepair = install.installId in assetRepairInstallIds,
+                                hasMissingTarget = install.installId in missingTargetRepairInstallIds,
+                            )
                         }
                     }
                     ProfileOrderPlan(
@@ -1667,8 +1694,14 @@ fun NexusModsDialog(
                         configuredInstalls = configuredInstalls,
                         installsToApply = installsToApply,
                         rebuildManagedOverlay = rebuildManagedOverlay,
+                        overlayTransitionBlockerCount = if (overlayTransition.requiresRebuild && !overlayTransition.safeToRebuild) {
+                            overlayTransition.currentVerification.issues.size
+                        } else {
+                            0
+                        },
                         missingTargetRepairInstallIds = missingTargetRepairInstallIds,
                         recipesByInstallId = recipesByInstallId,
+                        ownershipByInstallId = ownershipByInstallId,
                         reviewedPlansByInstallId = reviewedPlansByInstallId,
                         recipesToPersistByInstallId = recipesToPersistByInstallId,
                         unconfiguredCount = unconfiguredInstalls.size,
@@ -1683,6 +1716,15 @@ fun NexusModsDialog(
                 bethesdaPlugins = plan.plugins
                 bethesdaPluginIssues = plan.pluginIssues
                 bethesdaPluginAssetIssues = plan.pluginAssetIssues
+                if (plan.overlayTransitionBlockerCount > 0) {
+                    SnackbarManager.show(
+                        context.getString(
+                            R.string.nexus_mod_order_blocked_managed_files,
+                            plan.overlayTransitionBlockerCount,
+                        ),
+                    )
+                    return@launch
+                }
                 if (plan.pluginIssues.hasBlockingPluginIssues()) {
                     SnackbarManager.show(context.getString(R.string.nexus_fix_plugin_warnings_before_apply))
                     return@launch
@@ -1818,6 +1860,14 @@ fun NexusModsDialog(
                             val pluginsFile = BethesdaPluginManager.pluginsFile(winePrefix, game)
                             if (pluginsFile != null) {
                                 val appliedInstalls = plan.configuredInstalls.map { it.copy(status = ModInstallStatus.APPLIED.name) }
+                                val appliedOwnership = plan.ownershipByInstallId.toMutableMap().apply {
+                                    plan.installsToApply.forEach { install ->
+                                        ModOwnershipStore.read(
+                                            NexusModManager.cacheRoot(context, libraryItem.appId),
+                                            install.installId,
+                                        )?.let { put(install.installId, it) }
+                                    }
+                                }
                                 val detectedPlugins = applyCollectionPluginOrder(
                                     BethesdaPluginManager.detectPlugins(
                                         installs = appliedInstalls,
@@ -1826,6 +1876,7 @@ fun NexusModsDialog(
                                         gameRootDir = gameRootDir,
                                         winePrefix = winePrefix,
                                         pluginsFile = pluginsFile,
+                                        ownershipByInstallId = appliedOwnership,
                                         defaultEnabled = true,
                                     ),
                                     collectionPluginOrder,
@@ -1964,13 +2015,13 @@ fun NexusModsDialog(
                     if (result.errors.isEmpty()) {
                         context.getString(R.string.nexus_ownership_adopted)
                     } else {
-                        context.getString(R.string.nexus_ownership_adoption_failed, result.errors.size)
+                        context.getString(R.string.nexus_file_tracking_setup_failed, result.errors.size)
                     },
                 )
                 healthReport = NexusModManager.checkInstallHealthForApp(context, libraryItem.appId, gameRootDir, winePrefix)
             } catch (error: Throwable) {
                 if (error is kotlinx.coroutines.CancellationException) throw error
-                SnackbarManager.show(context.getString(R.string.nexus_ownership_adoption_failed, 1))
+                SnackbarManager.show(context.getString(R.string.nexus_file_tracking_setup_failed, 1))
             } finally {
                 healthLoading = false
             }
@@ -1982,6 +2033,7 @@ fun NexusModsDialog(
         if (modApplyInProgress || profileApplyInProgress) return
         scope.launch {
             modApplyInProgress = true
+            diagnosticsPaused = true
             try {
                 loadingMessage = context.getString(R.string.nexus_restoring_previous_deployment)
                 val profile = activeProfile ?: ModProfileManager.ensureActiveProfile(dao, libraryItem.appId)
@@ -2017,6 +2069,7 @@ fun NexusModsDialog(
             } finally {
                 modApplyInProgress = false
                 loadingMessage = null
+                diagnosticsPaused = false
             }
         }
     }
@@ -2522,14 +2575,19 @@ fun NexusModsDialog(
                 error = context.getString(R.string.nexus_collection_manual_external_entry),
             )
         }
+        val embeddedFile = collectionFile.toFallbackNexusFile()
+        val embeddedModInfo = collectionFile.toEmbeddedNexusModInfo()
         return try {
-            val modInfo = apiClient.getModInfo(collectionFile.gameDomain, collectionFile.modId)
+            val modInfo = embeddedModInfo
+                ?: apiClient.getModInfo(collectionFile.gameDomain, collectionFile.modId)
             val files = apiClient.getModFiles(collectionFile.gameDomain, collectionFile.modId)
             val file = files.firstOrNull { it.fileId == collectionFile.fileId }
-                ?: collectionFile.toFallbackNexusFile()
+                ?: embeddedFile
             PendingCollectionMod(collectionFile, modInfo, file)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            val fallbackFile = collectionFile.toFallbackNexusFile()
+            val fallbackFile = embeddedFile
             if (fallbackFile != null) {
                 PendingCollectionMod(
                     collectionFile = collectionFile,
@@ -2565,10 +2623,21 @@ fun NexusModsDialog(
                     SnackbarManager.show(context.getString(R.string.nexus_collection_no_downloadable_mods))
                     return@launch
                 }
-                val resolvedMods = mutableListOf<PendingCollectionMod>()
-                collection.files.forEachIndexed { index, file ->
-                    loadingMessage = context.getString(R.string.nexus_resolving_collection_item, index + 1, collection.files.size)
-                    resolvedMods += resolveCollectionMod(file)
+                var resolvedCount = 0
+                val resolutionGate = Semaphore(4)
+                val resolvedMods = coroutineScope {
+                    collection.files.map { file ->
+                        async {
+                            val resolved = resolutionGate.withPermit { resolveCollectionMod(file) }
+                            resolvedCount++
+                            loadingMessage = context.getString(
+                                R.string.nexus_resolving_collection_item,
+                                resolvedCount,
+                                collection.files.size,
+                            )
+                            resolved
+                        }
+                    }.awaitAll()
                 }
                 pendingFileSelection = null
                 pendingCollectionSelection = PendingCollectionSelection(collection, resolvedMods)
@@ -3198,12 +3267,20 @@ fun NexusModsDialog(
         }
         val message = if (result.errors.isEmpty()) {
             lastPlacementDrafts = recipes.map { it.toDraft() }
+            placementNeededInstallIds = placementNeededInstallIds - install.installId
             val cleanupSuffix = if (result.warnings.isNotEmpty()) {
                 context.getString(R.string.nexus_old_files_left_in_place_suffix, result.warnings.size)
             } else {
                 ""
             }
-            context.getString(R.string.nexus_applied_items_backups, result.created, result.backedUp, cleanupSuffix)
+            context.getString(
+                R.string.nexus_placement_complete_summary,
+                result.created + result.skipped,
+                result.created,
+                result.skipped,
+                result.backedUp,
+                cleanupSuffix,
+            )
         } else {
             context.getString(R.string.nexus_applied_with_errors, result.errors.size)
         }
@@ -3224,6 +3301,7 @@ fun NexusModsDialog(
         }
         scope.launch {
             modApplyInProgress = true
+            diagnosticsPaused = true
             try {
                 placementApplyStatusMessage = null
                 applyRecipesInternal(install, recipes, allowOverwrite, reviewedPlan)
@@ -3234,6 +3312,7 @@ fun NexusModsDialog(
             } finally {
                 modApplyInProgress = false
                 loadingMessage = null
+                diagnosticsPaused = false
             }
         }
     }
@@ -3278,6 +3357,7 @@ fun NexusModsDialog(
         }
         scope.launch {
             modApplyInProgress = true
+            diagnosticsPaused = true
             try {
                 placementApplyStatusMessage = null
                 loadingMessage = context.getString(R.string.nexus_checking_target_files)
@@ -3342,6 +3422,7 @@ fun NexusModsDialog(
             } finally {
                 modApplyInProgress = false
                 loadingMessage = null
+                diagnosticsPaused = false
             }
         }
     }

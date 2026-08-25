@@ -48,6 +48,50 @@ class ModOwnershipManifestTest {
     }
 
     @Test
+    fun overlayTransition_skipsContentVerificationWhenNoWinnerCanChange() {
+        val target = temporaryFolder.newFile("unchanged-order.txt").apply { writeText("current") }
+        val manifest = manifest("managed", target, "not-the-current-hash", priority = 10)
+
+        val transition = ModProfileOverlayPlanner.transition(
+            listOf(manifest),
+            desiredPriorities = mapOf("managed" to 10),
+        )
+
+        assertFalse(transition.requiresRebuild)
+        assertTrue(transition.currentVerification.successful)
+    }
+
+    @Test
+    fun changedContentVerification_hashesOnlyWhenRecordedMetadataChanged() {
+        val target = temporaryFolder.newFile("metadata.txt").apply { writeText("owned") }
+        val manifest = manifest("managed", target, "not-the-current-hash", priority = 10).let { ownership ->
+            ownership.copy(
+                files = ownership.files.map {
+                    it.copy(installedSize = target.length(), installedMtime = target.lastModified())
+                },
+            )
+        }
+
+        assertFalse(ModDeploymentVerifier.verify(manifest).successful)
+        assertTrue(ModDeploymentVerifier.verify(manifest, ModVerificationDepth.CHANGED_CONTENT).successful)
+
+        target.appendText("-changed")
+
+        assertFalse(ModDeploymentVerifier.verify(manifest, ModVerificationDepth.CHANGED_CONTENT).successful)
+    }
+
+    @Test
+    fun presenceVerification_reportsMissingManagedTargetsWithoutMaterializingTheArchive() {
+        val missing = File(temporaryFolder.root, "missing.txt")
+        val manifest = manifest("managed", missing, "hash", priority = 10)
+
+        assertEquals(
+            listOf(ModVerificationIssueType.MISSING),
+            ModDeploymentVerifier.verifyPresence(manifest).issues.map { it.type },
+        )
+    }
+
+    @Test
     fun staleCleanup_removesOnlyUnchangedOwnedFiles() = runBlocking {
         val targetRoot = temporaryFolder.newFolder("game")
         val unchanged = File(targetRoot, "unchanged.txt").apply { writeText("owned") }

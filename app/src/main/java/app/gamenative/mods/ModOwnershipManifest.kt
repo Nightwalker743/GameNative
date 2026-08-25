@@ -302,7 +302,13 @@ object ModProfileOverlayPlanner {
             current = current,
             desired = desired,
             changedWinnerKeys = changedWinnerKeys,
-            currentVerification = ModDeploymentVerifier.verify(current),
+            currentVerification = if (changedWinnerKeys.isEmpty()) {
+                ModDeploymentVerification(emptyList())
+            } else {
+                ModDeploymentVerifier.verify(
+                    current.copy(targets = current.targets.filterKeys(changedWinnerKeys::contains)),
+                )
+            },
         )
     }
 }

@@ -1,6 +1,7 @@
 package app.gamenative.mods
 
 import app.gamenative.data.ModInstall
+import app.gamenative.data.ModInstallStatus
 import app.gamenative.data.ModPlacementMode
 import app.gamenative.data.ModPlacementRecipe
 import app.gamenative.data.ModTargetRoot
@@ -85,6 +86,27 @@ class ModConflictAnalyzerTest {
         assertEquals(setOf("first", "second"), reports.single().participants.map { it.installId }.toSet())
     }
 
+    @Test
+    fun analyze_reusesAppliedOwnershipWithoutRebuildingArchivePlans() = runBlocking {
+        val low = install("low", "Low", "low").copy(status = ModInstallStatus.APPLIED.name)
+        val high = install("high", "High", "high").copy(status = ModInstallStatus.APPLIED.name)
+        val target = File(gameDir, "Data/shared.txt")
+
+        val reports = ModConflictAnalyzer.analyze(
+            installs = listOf(low, high),
+            recipesByInstallId = emptyMap(),
+            prioritiesByInstallId = mapOf("low" to 1, "high" to 2),
+            gameRootDir = gameDir,
+            winePrefix = "",
+            ownershipByInstallId = mapOf(
+                "low" to ownership(low, target),
+                "high" to ownership(high, target),
+            ),
+        )
+
+        assertEquals("high", reports.single().winnerInstallId)
+    }
+
     private fun install(id: String, name: String, folder: String): ModInstall {
         val extracted = File(tempDir, folder).apply { mkdirs() }
         return ModInstall(
@@ -107,5 +129,26 @@ class ModConflictAnalyzerTest {
             targetRoot = ModTargetRoot.GAME_DIR.name,
             targetRelativePath = "Data",
             mode = ModPlacementMode.OVERWRITE_COPY.name,
+        )
+
+    private fun ownership(install: ModInstall, target: File): ModOwnershipManifest =
+        ModOwnershipManifest(
+            installId = install.installId,
+            appId = install.appId,
+            planDigest = install.installId,
+            files = listOf(
+                ModOwnedFile(
+                    sourceRelativePath = "Data/shared.txt",
+                    targetRoot = ModTargetRoot.GAME_DIR.name,
+                    targetRelativePath = "Data/shared.txt",
+                    targetPath = target.absolutePath,
+                    normalizedTargetKey = WindowsPathIdentity.absoluteKey(target),
+                    mode = ModPlacementMode.OVERWRITE_COPY.name,
+                    installedHash = install.installId,
+                    installedSize = 1L,
+                    installedMtime = 1L,
+                    disposition = ModOwnedFileDisposition.CREATED,
+                ),
+            ),
         )
 }

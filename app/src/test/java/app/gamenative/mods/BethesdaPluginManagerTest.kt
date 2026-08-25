@@ -105,6 +105,49 @@ class BethesdaPluginManagerTest {
     }
 
     @Test
+    fun detectPlugins_reusesAppliedOwnershipWithoutRebuildingArchivePlan() = runBlocking {
+        val install = install()
+        val source = File(install.extractedPath, "Choices/Cloaks.esp").apply {
+            parentFile?.mkdirs()
+            writeText("esp")
+        }
+        val target = File(gameDir, "Data/Cloaks.esp")
+        val ownership = ModOwnershipManifest(
+            installId = install.installId,
+            appId = install.appId,
+            planDigest = "owned",
+            files = listOf(
+                ModOwnedFile(
+                    sourceRelativePath = source.relativeTo(File(install.extractedPath)).path,
+                    targetRoot = ModTargetRoot.GAME_DIR.name,
+                    targetRelativePath = "Data/Cloaks.esp",
+                    targetPath = target.absolutePath,
+                    normalizedTargetKey = WindowsPathIdentity.absoluteKey(target),
+                    mode = ModPlacementMode.OVERWRITE_COPY.name,
+                    installedHash = "hash",
+                    installedSize = source.length(),
+                    installedMtime = source.lastModified(),
+                    disposition = ModOwnedFileDisposition.CREATED,
+                ),
+            ),
+        )
+
+        val plugins = BethesdaPluginManager.detectPlugins(
+            installs = listOf(install),
+            recipesByInstallId = emptyMap(),
+            prioritiesByInstallId = mapOf(install.installId to 7),
+            gameRootDir = gameDir,
+            winePrefix = "",
+            pluginsFile = File(tempDir, "missing/plugins.txt"),
+            ownershipByInstallId = mapOf(install.installId to ownership),
+            defaultEnabled = true,
+        )
+
+        assertEquals("Cloaks.esp", plugins.single().fileName)
+        assertEquals(source.absolutePath, plugins.single().sourcePath)
+    }
+
+    @Test
     fun detectPlugins_ignoresReadyModsThatHaveNotBeenApplied() = runBlocking {
         val install = install().copy(status = ModInstallStatus.READY.name)
         File(install.extractedPath, "Data/Unplaced.esp").apply {

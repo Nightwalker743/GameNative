@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">GameNative</string>
     <string name="login_user">User Login</string>
     <string name="login_2fa">Two Factor</string>
@@ -2089,6 +2089,7 @@
     <string name="nexus_mod_order_already_applying">Mod order is already applying.</string>
     <string name="nexus_applying_order_may_take_time">Applying mod order. Large mod lists may take a while.</string>
     <string name="nexus_checking_mod_order">Checking mod order</string>
+    <string name="nexus_mod_order_blocked_managed_files" tools:ignore="MissingTranslation">Mod order was not changed because %1$d managed file(s) are missing or modified. Run Install health and resolve those files first.</string>
     <string name="nexus_fix_plugin_warnings_before_apply">Fix plugin master warnings before applying order.</string>
     <string name="nexus_checking_file_conflicts">Checking file conflicts</string>
     <string name="nexus_profile_order_target_files_exist">Profile order has existing target files. Use Overwrite files and create backups for mods that should win conflicts.</string>
@@ -2110,9 +2111,10 @@
     <string name="nexus_confirm_risky_game_root_files_description">DLL, EXE, and loader files can change how the game starts. Confirm only when this archive is trusted and the preview matches its installation instructions.</string>
     <string name="nexus_building_install_plan">Building the file placement plan…</string>
     <string name="nexus_reapply_missing_files">Reapply missing files</string>
-    <string name="nexus_adopt_ownership">Adopt verified files</string>
+    <string name="nexus_adopt_ownership">Verify and track files</string>
     <string name="nexus_ownership_adopted">Verified files were adopted without changing them</string>
     <string name="nexus_ownership_adoption_failed">Could not safely adopt ownership (%1$d issue(s))</string>
+    <string name="nexus_file_tracking_setup_failed" tools:ignore="MissingTranslation">Could not verify and track installed files (%1$d issue(s))</string>
     <string name="nexus_restore_previous_deployment">Restore previous deployment</string>
     <string name="nexus_restore_previous_deployment_description">Returns this mod to its previous reviewed file plan. Externally modified files are preserved.</string>
     <string name="nexus_restoring_previous_deployment">Restoring previous deployment</string>
@@ -2166,6 +2168,7 @@
     <string name="nexus_resolve_url_failed">Failed to resolve Nexus URL</string>
     <string name="nexus_applying_mod_files">Applying mod files</string>
     <string name="nexus_applied_items_backups">Applied %1$d item(s), backed up %2$d%3$s</string>
+    <string name="nexus_placement_complete_summary" tools:ignore="MissingTranslation">Placement complete for %1$d item(s): %2$d updated, %3$d already current, %4$d backed up%5$s</string>
     <string name="nexus_old_files_left_in_place_suffix">; %1$d old file(s) left in place</string>
     <string name="nexus_applied_with_errors">Applied with %1$d error(s)</string>
     <string name="nexus_mod_apply_already_running">Mod files are already being applied.</string>
