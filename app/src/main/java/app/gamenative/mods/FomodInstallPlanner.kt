@@ -137,7 +137,7 @@ object FomodPlanExpander {
                 val index = planned.indexOf(loser.file)
                 planned[index] = loser.file.copy(
                     status = PlannedFileStatus.INTENTIONALLY_IGNORED,
-                    reason = "Superseded by a higher-priority FOMOD mapping",
+                    reason = "Replaced by selected FOMOD file ${winner.file.sourceRelativePath}",
                 )
             }
         }

@@ -69,6 +69,7 @@ enum class ModHealthSeverity {
 enum class ModHealthAction {
     REAPPLY_MISSING,
     RECONFIGURE,
+    REVIEW_PLACEMENT,
     REBUILD_PROFILE,
     ADOPT_OWNERSHIP,
     RESTORE_PREVIOUS,
@@ -1256,11 +1257,24 @@ object NexusModManager {
                     }
                 }
             } else if (ownership != null) {
-                ModDeploymentVerifier.verifyStale(ownership).issues
-                    .take(3)
-                    .forEach { finding ->
-                        add(ModHealthSeverity.WARNING, "Stale managed file was preserved", finding.targetPath, install)
-                    }
+                val preserved = ownership.copy(
+                    files = ownership.files.filter { file ->
+                        file.normalizedTargetKey !in overlay.targets
+                    },
+                )
+                val findings = ModDeploymentVerifier.verifyStale(preserved).issues
+                if (findings.isNotEmpty()) {
+                    add(
+                        ModHealthSeverity.WARNING,
+                        "Disabled mod still has changed files in the game folder",
+                        buildString {
+                            append("${findings.size} changed file(s) were kept to avoid deleting user changes. They can still affect the game while this mod is disabled. Review the placement to decide what to keep or remove; Apply order will not remove them.")
+                            findings.take(3).forEach { finding -> append("\n${finding.targetPath}") }
+                        },
+                        install,
+                        ModHealthAction.REVIEW_PLACEMENT,
+                    )
+                }
             }
             if (install.status == ModInstallStatus.READY.name && manifests.isNotEmpty()) {
                 add(ModHealthSeverity.WARNING, "Ready mod has overwrite records", "This mod is not applied but still has ${manifests.size} overwrite record(s).", install)

@@ -395,6 +395,81 @@ class FomodInstallerTest {
     }
 
     @Test
+    fun equalPrioritySelectedBodyFiles_overrideRequiredDefaultsDuringMaterialization() = runBlocking {
+        val moduleConfig = writeModuleConfig(
+            """
+            <config>
+              <moduleName>Body installer fixture</moduleName>
+              <requiredInstallFiles>
+                <folder source="00 Required (Slim)" destination="" priority="0" />
+              </requiredInstallFiles>
+              <installSteps><installStep name="Body"><optionalFileGroups>
+                <group name="Shape" type="SelectExactlyOne"><plugins>
+                  <plugin name="Vanilla"><files>
+                    <folder source="02 Vanilla" destination="" priority="0" />
+                  </files></plugin>
+                </plugins></group>
+              </optionalFileGroups></installStep></installSteps>
+            </config>
+            """.trimIndent(),
+        )
+        val relativeBody = "meshes/actors/character/character assets/femalebody_0.nif"
+        File(tempDir, "00 Required (Slim)/$relativeBody").apply {
+            parentFile?.mkdirs()
+            writeText("slim-default")
+        }
+        File(tempDir, "00 Required (Slim)/CalienteTools/base.osd").apply {
+            parentFile?.mkdirs()
+            writeText("required")
+        }
+        File(tempDir, "02 Vanilla/$relativeBody").apply {
+            parentFile?.mkdirs()
+            writeText("vanilla-selected")
+        }
+        val installer = FomodParser.parse(moduleConfig, tempDir)
+        val result = FomodRecipeGenerator.generateForPluginKeys(
+            installId = "body",
+            installer = installer,
+            selectedPluginKeys = setOf(FomodRecipeGenerator.pluginKey(0, 0, 0)),
+            extractedRoot = tempDir,
+        )
+        val plan = result.plan!!
+
+        assertTrue(plan.blockingIssues.toString(), plan.isComplete)
+        assertEquals(
+            "02 Vanilla/$relativeBody",
+            plan.files.single { it.targetRelativePath == "Data/$relativeBody" && it.status == PlannedFileStatus.PLACED }
+                .sourceRelativePath,
+        )
+        assertEquals(
+            PlannedFileStatus.INTENTIONALLY_IGNORED,
+            plan.files.single { it.sourceRelativePath == "00 Required (Slim)/$relativeBody" }.status,
+        )
+
+        val game = File(tempDir, "game").apply { mkdirs() }
+        val install = ModInstall(
+            installId = "body",
+            appId = "game",
+            modName = "Body installer fixture",
+            fileName = "fixture.zip",
+            archivePath = "",
+            extractedPath = tempDir.absolutePath,
+        )
+        val materialization = ModMaterializer.materializationPlan(
+            install = install,
+            recipes = result.recipes,
+            gameRootDir = game,
+            winePrefix = "",
+            reviewedPlan = plan,
+        )
+        val applied = ModMaterializer.apply(install, materialization, File(tempDir, "backups"), allowOverwrite = true)
+
+        assertTrue(applied.errors.toString(), applied.errors.isEmpty())
+        assertEquals("vanilla-selected", File(game, "Data/$relativeBody").readText())
+        assertEquals("required", File(game, "Data/CalienteTools/base.osd").readText())
+    }
+
+    @Test
     fun mcmHelperShape_plansAndAppliesEverySelectedFile() = runBlocking {
         val moduleConfig = writeModuleConfig(
             """

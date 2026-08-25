@@ -16,6 +16,7 @@ import java.util.Locale
 
 internal data class PlacementLayoutModel(
     val visible: Boolean,
+    val editable: Boolean,
     val multipleFolders: Boolean,
     val selectedNames: List<String>,
     val resultExample: String,
@@ -52,9 +53,10 @@ internal fun placementLayoutModel(
     entries: List<app.gamenative.mods.ModArchiveEntry>,
 ): PlacementLayoutModel {
     if (draft.targetFileName.isNotBlank()) {
-        return PlacementLayoutModel(false, false, emptyList(), "", false)
+        return PlacementLayoutModel(false, false, false, emptyList(), "", false)
     }
     val sources = ModPlacementSources.decode(draft.sourceSubpath).filter(String::isNotBlank)
+    val selectingEverything = sources.isEmpty()
     val folders = sources.filter { source ->
         entries.any { entry ->
             val path = normalizeArchivePath(entry.path)
@@ -62,16 +64,25 @@ internal fun placementLayoutModel(
                 path.startsWith("${normalizeArchivePath(source)}/", ignoreCase = true)
         }
     }
-    val selectedNames = folders.map { it.substringAfterLast('/') }.distinct()
+    val selectedNames = if (selectingEverything) {
+        entries.mapNotNull { entry ->
+            normalizeArchivePath(entry.path).substringBefore('/', "").takeIf(String::isNotBlank)
+        }.distinctBy { it.lowercase(Locale.ROOT) }
+    } else {
+        folders.map { it.substringAfterLast('/') }.distinct()
+    }
     val destination = draft.targetRelativePath.trim('/').ifBlank { "<game folder>" }
     val result = when {
+        selectingEverything && selectedNames.size == 1 -> "$destination/${selectedNames.single()}/<contents>"
+        selectingEverything -> "$destination/{${selectedNames.take(3).joinToString(", ")}${if (selectedNames.size > 3) ", ..." else ""}}/<contents>"
         selectedNames.isEmpty() || !draft.includeSourceDirectory -> "$destination/<selected contents>"
         selectedNames.size == 1 -> "$destination/${selectedNames.single()}/<contents>"
         else -> "$destination/{${selectedNames.take(3).joinToString(", ")}${if (selectedNames.size > 3) ", ..." else ""}}/<contents>"
     }
     return PlacementLayoutModel(
-        visible = folders.isNotEmpty(),
-        multipleFolders = folders.size > 1,
+        visible = selectedNames.isNotEmpty(),
+        editable = !selectingEverything,
+        multipleFolders = selectedNames.size > 1,
         selectedNames = selectedNames,
         resultExample = result,
         duplicateFolderWarning = draft.includeSourceDirectory && selectedNames.any { selected ->

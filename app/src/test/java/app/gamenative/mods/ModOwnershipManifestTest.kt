@@ -92,6 +92,26 @@ class ModOwnershipManifestTest {
     }
 
     @Test
+    fun staleVerification_checksOnlyFilesExplicitlyPreservedDuringDisable() {
+        val restoredTarget = temporaryFolder.newFile("restored.txt").apply { writeText("original") }
+        val preservedTarget = temporaryFolder.newFile("preserved.txt").apply { writeText("changed") }
+        val disabled = manifest("disabled", restoredTarget, "owned", priority = 1).copy(
+            state = ModOwnershipState.DISABLED,
+            files = listOf(
+                manifest("disabled", restoredTarget, "owned", priority = 1).files.single().copy(active = false),
+                manifest("disabled", preservedTarget, "owned", priority = 1).files.single().copy(
+                    active = false,
+                    disposition = ModOwnedFileDisposition.STALE_PRESERVED,
+                ),
+            ),
+        )
+
+        val findings = ModDeploymentVerifier.verifyStale(disabled).issues
+
+        assertEquals(listOf(preservedTarget.absolutePath), findings.map { it.targetPath })
+    }
+
+    @Test
     fun staleCleanup_removesOnlyUnchangedOwnedFiles() = runBlocking {
         val targetRoot = temporaryFolder.newFolder("game")
         val unchanged = File(targetRoot, "unchanged.txt").apply { writeText("owned") }

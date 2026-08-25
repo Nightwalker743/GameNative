@@ -1905,6 +1905,7 @@
     <string name="nexus_plugin_missing_sidecars">Related archive files are missing from the game folder: %1$s</string>
     <string name="nexus_fomod_installer">FOMOD installer</string>
     <string name="nexus_configure">Configure</string>
+    <string name="nexus_review_placement">Review placement</string>
     <string name="nexus_fomod_step_option_count">%1$d step(s), %2$d option(s)</string>
     <string name="nexus_fomod_required_mappings">%1$d required file mapping(s)</string>
     <string name="nexus_fomod_complete_required_groups">Complete required FOMOD groups: %1$s</string>
@@ -1981,6 +1982,7 @@
     <string name="nexus_hide_advanced_placement">Hide advanced placement</string>
     <string name="nexus_advanced_placement_description">Automatic placement is recommended. Open advanced placement only to choose presets, reuse an earlier layout, or map files yourself.</string>
     <string name="nexus_folder_layout">At the destination, install</string>
+    <string name="nexus_everything_folder_layout">Top-level folders keep their names; root files go directly in the destination</string>
     <string name="nexus_install_contents_of">Contents of %1$s</string>
     <string name="nexus_install_folder_and_contents">%1$s folder and its contents</string>
     <string name="nexus_merge_selected_folder_contents">Merge selected folder contents</string>
@@ -2098,6 +2100,7 @@
     <string name="nexus_refreshing_install_health">Refreshing install health</string>
     <string name="nexus_plan_review_title">Placement review</string>
     <string name="nexus_plan_coverage">%1$d of %2$d files planned • %3$d ignored • %4$d need review</string>
+    <string name="nexus_fomod_defaults_replaced">%1$d default file(s) replaced by your FOMOD choices</string>
     <string name="nexus_plan_ranked">Ranked suggestions</string>
     <string name="nexus_plan_score">%1$d. %2$s — %3$d%% coverage</string>
     <string name="nexus_plan_case_merge">Case merge: %1$s</string>

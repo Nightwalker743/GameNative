@@ -62,6 +62,18 @@ class PlacementWorkspaceModelsTest {
     }
 
     @Test
+    fun everythingSelection_explainsThatThePackageFolderIsPreserved() {
+        val layout = placementLayoutModel(
+            RecipeDraft(targetRelativePath = "Mods"),
+            listOf(ModArchiveEntry("CharacterEditor/About/About.xml", directory = false, sizeBytes = 1)),
+        )
+
+        assertTrue(layout.visible)
+        assertFalse(layout.editable)
+        assertEquals("Mods/CharacterEditor/<contents>", layout.resultExample)
+    }
+
+    @Test
     fun virtualFolderName_rejectsTraversalReservedAndSeparators() {
         assertTrue(validVirtualDestinationFolderName("New Mods"))
         assertFalse(validVirtualDestinationFolderName("../escape"))

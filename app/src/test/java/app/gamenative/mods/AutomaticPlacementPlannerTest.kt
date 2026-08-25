@@ -160,6 +160,92 @@ class AutomaticPlacementPlannerTest {
         }
     }
 
+    @Test
+    fun existingGameFolders_outweighAnUnprovenSingleFolderGuess() {
+        val result = AutomaticPlacementPlanner.plan(
+            gameName = "Classic arena game",
+            entries = archive(
+                "Help/Map Readme.txt",
+                "Maps/CTF-Arena.ut2",
+                "Music/Arena.ogg",
+                "Screenshots/Arena.jpg",
+            ),
+            context = AutomaticPlacementContext(
+                defaultTargetRelativePath = "Sounds",
+                defaultTargetIsProven = false,
+                existingGameDirectories = setOf("Maps", "Music", "Sounds"),
+            ),
+        )
+        val plan = result.recommended!!.plan
+
+        assertTrue(plan.blockingIssues.toString(), plan.isComplete)
+        assertEquals(
+            setOf("Maps/CTF-Arena.ut2", "Music/Arena.ogg"),
+            plan.files.filter { it.status == PlannedFileStatus.PLACED }.map { it.targetRelativePath }.toSet(),
+        )
+        assertTrue(
+            plan.files.filter { it.sourceRelativePath.startsWith("Help/") || it.sourceRelativePath.startsWith("Screenshots/") }
+                .all { it.status == PlannedFileStatus.INTENTIONALLY_IGNORED },
+        )
+    }
+
+    @Test
+    fun provenModDirectory_preservesPackageWrapperAndStripsOnlySelectedVariant() {
+        val entries = archive(
+            "CharacterEditor/v1/About/About.xml",
+            "CharacterEditor/v1/Assemblies/Editor.dll",
+            "CharacterEditor/v1.6/About/About.xml",
+            "CharacterEditor/v1.6/Assemblies/Editor.dll",
+            "CharacterEditor/Textures/Icon.png",
+        )
+        val context = AutomaticPlacementContext(
+            defaultTargetRelativePath = "Mods",
+            defaultTargetIsProven = true,
+        )
+        val initial = AutomaticPlacementPlanner.plan("Colony game", entries, context = context)
+        val optionGroup = initial.optionGroups.single()
+        val result = AutomaticPlacementPlanner.plan(
+            gameName = "Colony game",
+            entries = entries,
+            selectedOptions = mapOf(optionGroup.stableId to "CharacterEditor/v1.6"),
+            context = context,
+        )
+        val plan = result.recommended!!.plan
+
+        assertTrue(plan.blockingIssues.toString(), plan.isComplete)
+        assertEquals(
+            setOf(
+                "Mods/CharacterEditor/About/About.xml",
+                "Mods/CharacterEditor/Assemblies/Editor.dll",
+                "Mods/CharacterEditor/Textures/Icon.png",
+            ),
+            plan.files.filter { it.status == PlannedFileStatus.PLACED }.map { it.targetRelativePath }.toSet(),
+        )
+        assertTrue(
+            plan.files.filter { it.sourceRelativePath.startsWith("CharacterEditor/v1/") }
+                .all { it.status == PlannedFileStatus.INTENTIONALLY_IGNORED },
+        )
+    }
+
+    @Test
+    fun provenTargetContainer_isMergedWithoutDuplicatingItsFolderName() {
+        val result = AutomaticPlacementPlanner.plan(
+            gameName = "Plugin game",
+            entries = archive("Mods/Example/About.xml", "Mods/Example/Runtime.dll"),
+            context = AutomaticPlacementContext(
+                defaultTargetRelativePath = "Mods",
+                defaultTargetIsProven = true,
+            ),
+        )
+        val plan = result.recommended!!.plan
+
+        assertTrue(plan.blockingIssues.toString(), plan.isComplete)
+        assertEquals(
+            setOf("Mods/Example/About.xml", "Mods/Example/Runtime.dll"),
+            plan.files.filter { it.status == PlannedFileStatus.PLACED }.map { it.targetRelativePath }.toSet(),
+        )
+    }
+
     private fun archive(vararg paths: String): List<ModArchiveEntry> =
         paths.map { ModArchiveEntry(it, directory = false, sizeBytes = 1L) }
 }

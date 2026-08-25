@@ -111,7 +111,7 @@ object ModDeploymentVerifier {
         return ModDeploymentVerification(
             manifest.files
                 .asSequence()
-                .filterNot { it.active }
+                .filter { !it.active && it.disposition == ModOwnedFileDisposition.STALE_PRESERVED }
                 .flatMap { file -> session.verifyStale(File(file.targetPath), manifest.installId).asSequence() }
                 .toList(),
         )

@@ -617,6 +617,17 @@ private fun PlacementPlanReview(
                 ),
                 style = MaterialTheme.typography.bodySmall,
             )
+            val replacedDefaultCount = plan.files.count { file ->
+                file.status == PlannedFileStatus.INTENTIONALLY_IGNORED &&
+                    file.reason.startsWith("Replaced by selected FOMOD file")
+            }
+            if (replacedDefaultCount > 0) {
+                Text(
+                    stringResource(R.string.nexus_fomod_defaults_replaced, replacedDefaultCount),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
             TextButton(onClick = { showWhy = !showWhy }) {
                 Text(if (showWhy) stringResource(R.string.nexus_hide_placement_reason) else stringResource(R.string.nexus_why_this_placement))
             }
@@ -1104,30 +1115,35 @@ private fun PlacementDraftEditor(
 
             if (layout.visible) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(stringResource(R.string.nexus_folder_layout), style = MaterialTheme.typography.labelLarge)
-                    val names = layout.selectedNames.take(2).joinToString(", ") + if (layout.selectedNames.size > 2) ", ..." else ""
-                    val contentsLabel = if (layout.multipleFolders) {
-                        stringResource(R.string.nexus_merge_selected_folder_contents)
-                    } else {
-                        stringResource(R.string.nexus_install_contents_of, names)
-                    }
-                    val folderLabel = if (layout.multipleFolders) {
-                        stringResource(R.string.nexus_keep_selected_folder_names)
-                    } else {
-                        stringResource(R.string.nexus_install_folder_and_contents, names)
-                    }
-                    PlacementChoiceButton(
-                        text = contentsLabel + if (!recommendedKeepFolder) stringResource(R.string.nexus_recommended_suffix) else "",
-                        selected = !draft.includeSourceDirectory,
-                        onClick = { onUpdate(draft.copy(includeSourceDirectory = false)) },
-                        modifier = Modifier.fillMaxWidth(),
+                    Text(
+                        stringResource(if (layout.editable) R.string.nexus_folder_layout else R.string.nexus_everything_folder_layout),
+                        style = MaterialTheme.typography.labelLarge,
                     )
-                    PlacementChoiceButton(
-                        text = folderLabel + if (recommendedKeepFolder) stringResource(R.string.nexus_recommended_suffix) else "",
-                        selected = draft.includeSourceDirectory,
-                        onClick = { onUpdate(draft.copy(includeSourceDirectory = true)) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    if (layout.editable) {
+                        val names = layout.selectedNames.take(2).joinToString(", ") + if (layout.selectedNames.size > 2) ", ..." else ""
+                        val contentsLabel = if (layout.multipleFolders) {
+                            stringResource(R.string.nexus_merge_selected_folder_contents)
+                        } else {
+                            stringResource(R.string.nexus_install_contents_of, names)
+                        }
+                        val folderLabel = if (layout.multipleFolders) {
+                            stringResource(R.string.nexus_keep_selected_folder_names)
+                        } else {
+                            stringResource(R.string.nexus_install_folder_and_contents, names)
+                        }
+                        PlacementChoiceButton(
+                            text = contentsLabel + if (!recommendedKeepFolder) stringResource(R.string.nexus_recommended_suffix) else "",
+                            selected = !draft.includeSourceDirectory,
+                            onClick = { onUpdate(draft.copy(includeSourceDirectory = false)) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        PlacementChoiceButton(
+                            text = folderLabel + if (recommendedKeepFolder) stringResource(R.string.nexus_recommended_suffix) else "",
+                            selected = draft.includeSourceDirectory,
+                            onClick = { onUpdate(draft.copy(includeSourceDirectory = true)) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                     Text(
                         stringResource(R.string.nexus_folder_layout_result, layout.resultExample),
                         style = MaterialTheme.typography.bodySmall,

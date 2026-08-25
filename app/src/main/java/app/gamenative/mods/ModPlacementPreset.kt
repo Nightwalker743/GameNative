@@ -1,6 +1,7 @@
 package app.gamenative.mods
 
 import app.gamenative.data.ModPlacementMode
+import app.gamenative.data.ModTargetRoot
 import java.util.Locale
 
 data class ModPlacementPreset(
@@ -13,6 +14,7 @@ data class ModPlacementPreset(
 data class ModPlacementPresetDraft(
     val sourceSubpath: String,
     val targetRelativePath: String,
+    val targetRoot: String = ModTargetRoot.GAME_DIR.name,
     val mode: String = ModPlacementMode.OVERWRITE_COPY.name,
     val includeSourceDirectory: Boolean = false,
 )

@@ -272,6 +272,7 @@ internal fun automaticDraftsFor(
         return recommendation.drafts.map { draft ->
             fallback.copy(
                 sourceSubpath = draft.sourceSubpath,
+                targetRoot = draft.targetRoot,
                 targetRelativePath = draft.targetRelativePath,
                 mode = draft.mode,
                 includeSourceDirectory = draft.includeSourceDirectory,

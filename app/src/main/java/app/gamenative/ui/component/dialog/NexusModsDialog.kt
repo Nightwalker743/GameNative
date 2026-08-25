@@ -86,6 +86,7 @@ import app.gamenative.mods.BethesdaPluginManager
 import app.gamenative.mods.AuthorizedNexusWebsiteDownload
 import app.gamenative.mods.AutomaticPlacementPlanner
 import app.gamenative.mods.AutomaticPlacementCandidate
+import app.gamenative.mods.AutomaticPlacementContext
 import app.gamenative.mods.AutomaticPlacementResult
 import app.gamenative.mods.BrowserFirstNexusWebsiteDownload
 import app.gamenative.mods.FomodInstaller
@@ -703,8 +704,15 @@ private fun InstallHealthSection(
             } else {
                 val summaryColor = if (current.errorCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                 Text(stringResource(R.string.nexus_install_health_summary, current.errorCount, current.warningCount), style = MaterialTheme.typography.bodySmall, color = summaryColor)
-                OutlinedButton(onClick = onRebuild, enabled = !loading, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.nexus_apply_order))
+                if (
+                    current.issues.any {
+                        it.recommendedAction == ModHealthAction.REAPPLY_MISSING ||
+                            it.recommendedAction == ModHealthAction.REBUILD_PROFILE
+                    }
+                ) {
+                    OutlinedButton(onClick = onRebuild, enabled = !loading, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.nexus_apply_order))
+                    }
                 }
                 OutlinedButton(onClick = { onExport(current) }, enabled = !loading, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.nexus_plan_export))
@@ -724,7 +732,9 @@ private fun InstallHealthSection(
                                         -> onRebuild()
                                         ModHealthAction.ADOPT_OWNERSHIP -> onAdoptOwnership(issue.installId)
                                         ModHealthAction.RESTORE_PREVIOUS -> onRestorePrevious(issue.installId)
-                                        ModHealthAction.RECONFIGURE -> onReconfigure(issue.installId)
+                                        ModHealthAction.RECONFIGURE,
+                                        ModHealthAction.REVIEW_PLACEMENT,
+                                        -> onReconfigure(issue.installId)
                                     }
                                 },
                             ) {
@@ -736,6 +746,7 @@ private fun InstallHealthSection(
                                             ModHealthAction.ADOPT_OWNERSHIP -> R.string.nexus_adopt_ownership
                                             ModHealthAction.RESTORE_PREVIOUS -> R.string.nexus_restore_previous_deployment
                                             ModHealthAction.RECONFIGURE -> R.string.nexus_configure
+                                            ModHealthAction.REVIEW_PLACEMENT -> R.string.nexus_review_placement
                                         },
                                     ),
                                 )
@@ -867,6 +878,7 @@ fun NexusModsDialog(
     var placementOwnershipManifests by remember(libraryItem.appId) { mutableStateOf<List<ModOwnershipManifest>>(emptyList()) }
     var lastPlacementDrafts by remember(libraryItem.appId) { mutableStateOf<List<RecipeDraft>>(emptyList()) }
     var detectedDefaultDraft by remember(libraryItem.appId) { mutableStateOf<RecipeDraft?>(null) }
+    var automaticPlacementContext by remember(libraryItem.appId) { mutableStateOf(AutomaticPlacementContext()) }
     val defaultDraft = detectedDefaultDraft ?: fallbackDefaultDraft
     var selectedTab by remember(libraryItem.appId) { mutableStateOf(ManageModsTab.MODS) }
     val recipeDrafts = remember { mutableStateListOf<RecipeDraft>() }
@@ -883,6 +895,7 @@ fun NexusModsDialog(
         archiveEntries,
         automaticOptionSelections,
         riskyAutomaticPlanApproved,
+        automaticPlacementContext,
     ) {
         val install = selectedInstall
         if (install == null || archiveEntries.isEmpty()) {
@@ -897,6 +910,7 @@ fun NexusModsDialog(
                 libraryItem.name,
                 archiveEntries,
                 automaticOptionSelections,
+                automaticPlacementContext,
             )
             planned.copy(
                 candidates = planned.candidates.map { candidate ->
@@ -1239,15 +1253,27 @@ fun NexusModsDialog(
 
     LaunchedEffect(roots, gameRootDir, winePrefix, libraryItem.name) {
         detectedDefaultDraft = null
-        detectedDefaultDraft = withContext(Dispatchers.IO) {
+        automaticPlacementContext = AutomaticPlacementContext()
+        val detected = withContext(Dispatchers.IO) {
+            val existingGameDirectories = gameRootDir?.listFiles().orEmpty()
+                .filter { it.isDirectory }
+                .mapTo(linkedSetOf()) { it.name }
             BethesdaPluginManager.detectGame(libraryItem.name)?.let { game ->
-                return@withContext RecipeDraft(
+                val draft = RecipeDraft(
                     targetRoot = ModTargetRoot.GAME_DIR.name,
                     targetRelativePath = game.dataDirName,
                     mode = ModPlacementMode.OVERWRITE_COPY.name,
                 )
+                return@withContext draft to AutomaticPlacementContext(
+                    defaultTargetRoot = draft.targetRoot,
+                    defaultTargetRelativePath = draft.targetRelativePath,
+                    defaultTargetIsProven = true,
+                    existingGameDirectories = existingGameDirectories,
+                )
             }
-            val detectedDir = ModPathDetector.detect(gameRootDir, winePrefix, libraryItem.name)
+            val pathDetection = ModPathDetector.detect(gameRootDir, winePrefix, libraryItem.name)
+            val detectedDir = pathDetection
+                ?.takeIf { it.confidence == "HIGH" }
                 ?.targetDirs
                 ?.firstOrNull()
                 ?.canonicalFile
@@ -1262,11 +1288,19 @@ fun NexusModsDialog(
             } else {
                 ""
             }
-            RecipeDraft(
+            val draft = RecipeDraft(
                 targetRoot = root?.type?.name ?: ModTargetRoot.GAME_DIR.name,
                 targetRelativePath = relative,
             )
+            draft to AutomaticPlacementContext(
+                defaultTargetRoot = draft.targetRoot,
+                defaultTargetRelativePath = draft.targetRelativePath,
+                defaultTargetIsProven = detectedDir != null && relative.isNotBlank(),
+                existingGameDirectories = existingGameDirectories,
+            )
         }
+        detectedDefaultDraft = detected.first
+        automaticPlacementContext = detected.second
     }
 
     LaunchedEffect(pendingCollectionSelection) {
@@ -3247,6 +3281,7 @@ fun NexusModsDialog(
                 gameRootDir = gameRootDir,
                 winePrefix = winePrefix,
                 allowOverwrite = allowOverwrite,
+                preserveStatusOnError = true,
                 reviewedPlan = reviewedPlan,
             )
             if (applied.errors.isEmpty()) {
@@ -3286,7 +3321,9 @@ fun NexusModsDialog(
         }
         placementApplyStatusMessage = message
         SnackbarManager.show(message)
-        selectedInstall = install.copy(status = if (result.errors.isEmpty()) ModInstallStatus.APPLIED.name else ModInstallStatus.ERROR.name)
+        selectedInstall = install.copy(
+            status = if (result.errors.isEmpty()) ModInstallStatus.APPLIED.name else install.status,
+        )
     }
 
     fun applyRecipes(
@@ -3753,7 +3790,12 @@ fun NexusModsDialog(
                                     canUseLastPlacement = lastPlacementDrafts.isNotEmpty(),
                                     onPlacementChoiceChange = { choice ->
                                         placementApplyStatusMessage = null
-                                        reviewedPlacementPlan = null
+                                        val carriedAutomaticPlan = automaticPlacementResult?.recommended?.plan
+                                            ?.takeIf {
+                                                choice == PlacementChoice.CUSTOM &&
+                                                    placementChoice == PlacementChoice.AUTOMATIC
+                                            }
+                                        reviewedPlacementPlan = carriedAutomaticPlan
                                         val currentDrafts = recipeDrafts.toList()
                                         placementChoice = choice
                                         recipeDrafts.clear()

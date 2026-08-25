@@ -39,17 +39,30 @@ data class ModArchiveIndex(
         val key = normalizedArchiveKey(sourcePath) ?: return emptyList()
         if (key.isBlank()) return files
         val prefix = "$key/"
+        val exactStart = lowerBound(key)
+        val prefixStart = lowerBound(prefix)
+        val result = mutableListOf<IndexedArchiveFile>()
+        var exactEnd = exactStart
+        while (exactEnd < files.size && files[exactEnd].normalizedKey == key) {
+            result += files[exactEnd]
+            exactEnd++
+        }
+        var end = prefixStart
+        while (end < files.size && files[end].normalizedKey.startsWith(prefix)) {
+            result += files[end]
+            end++
+        }
+        return result
+    }
+
+    private fun lowerBound(key: String): Int {
         var low = 0
         var high = files.size
         while (low < high) {
             val middle = (low + high) ushr 1
             if (files[middle].normalizedKey < key) low = middle + 1 else high = middle
         }
-        var end = low
-        while (end < files.size && (files[end].normalizedKey == key || files[end].normalizedKey.startsWith(prefix))) {
-            end++
-        }
-        return files.subList(low, end).toList()
+        return low
     }
 
     fun isDirectory(sourcePath: String): Boolean {
@@ -60,7 +73,17 @@ data class ModArchiveIndex(
     companion object {
         private val semanticAnchors = ModPlacementRulePacks.archiveSemanticAnchors
         private val managerMetadataDirectories = setOf("bashtags", "omod conversion data")
-        private val documentationDirectories = setOf("doc", "docs", "documentation", "manual", "manuals", "readmes")
+        private val documentationDirectories = setOf(
+            "doc",
+            "docs",
+            "documentation",
+            "help",
+            "manual",
+            "manuals",
+            "readmes",
+            "screenshot",
+            "screenshots",
+        )
         private val documentationNamePrefixes = setOf(
             "readme",
             "changelog",

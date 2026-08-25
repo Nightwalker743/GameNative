@@ -20,6 +20,13 @@ data class AutomaticPlacementResult(
     val optionGroups: List<GenericOptionGroup> = emptyList(),
 )
 
+data class AutomaticPlacementContext(
+    val defaultTargetRoot: String = ModTargetRoot.GAME_DIR.name,
+    val defaultTargetRelativePath: String = "",
+    val defaultTargetIsProven: Boolean = false,
+    val existingGameDirectories: Set<String> = emptySet(),
+)
+
 object AutomaticPlacementPlanner {
     private val bethesdaRule = ModPlacementRulePacks.bethesda
 
@@ -27,6 +34,7 @@ object AutomaticPlacementPlanner {
         gameName: String,
         entries: List<ModArchiveEntry>,
         selectedOptions: Map<String, String> = emptyMap(),
+        context: AutomaticPlacementContext = AutomaticPlacementContext(),
     ): AutomaticPlacementResult {
         val fullIndex = ModArchiveIndex.build(entries)
         val optionGroups = GenericOptionSetDetector.detect(fullIndex)
@@ -59,6 +67,8 @@ object AutomaticPlacementPlanner {
         val generated = buildList {
             bethesdaCandidate(gameName, index)?.let(::add)
             frameworkCandidates(gameName, index).let(::addAll)
+            existingGameLayoutCandidate(index, context)?.let(::add)
+            provenPackageDirectoryCandidate(index, optionGroups, validSelections, context)?.let(::add)
         }
         val combined = generated.takeIf { candidates -> candidates.size > 1 }
             ?.flatMap { it.drafts }
@@ -126,7 +136,12 @@ object AutomaticPlacementPlanner {
                 )
             }
         }
-        val recommended = recommendedBase?.let { base -> reviewed.firstOrNull { it.id == base.id } }
+        val recommendedIndex = recommendedBase?.let { base ->
+            ranked.indexOfFirst { candidate ->
+                candidate.id == base.id || candidate.plan.digest == base.plan.digest
+            }
+        } ?: -1
+        val recommended = reviewed.getOrNull(recommendedIndex)
         return AutomaticPlacementResult(reviewed, recommended, optionGroups)
     }
 
@@ -273,6 +288,140 @@ object AutomaticPlacementPlanner {
         }
     }
 
+    private fun existingGameLayoutCandidate(
+        index: ModArchiveIndex,
+        context: AutomaticPlacementContext,
+    ): AutomaticPlacementCandidate? {
+        if (index.hasFomod || context.existingGameDirectories.isEmpty()) return null
+        val existingByKey = context.existingGameDirectories
+            .associateBy { it.lowercase(Locale.ROOT) }
+        val matchingRoots = index.nodes
+            .asSequence()
+            .filter { node -> '/' !in node.displayPath && node.descendantFileCount > 0 }
+            .filter { node -> node.normalizedKey in existingByKey }
+            .filter { node -> index.filesUnder(node.displayPath).any { it.role == ArchiveContentRole.INSTALLABLE } }
+            .sortedBy { it.normalizedKey }
+            .toList()
+        if (matchingRoots.isEmpty()) return null
+        val drafts = matchingRoots.map { node ->
+            ModPlacementPresetDraft(
+                sourceSubpath = node.displayPath,
+                targetRelativePath = "",
+                targetRoot = ModTargetRoot.GAME_DIR.name,
+                mode = ModPlacementMode.OVERWRITE_COPY.name,
+                includeSourceDirectory = true,
+            )
+        }
+        return candidateFromDrafts(
+            id = "rules:existing-game-layout-v1",
+            label = "Match existing game folders",
+            description = "Keeps archive folders whose names match folders already used by the game.",
+            drafts = drafts,
+            index = index,
+            origin = PlacementOrigin.GAME_RULE,
+            evidence = listOf("Matched existing game folders: ${matchingRoots.joinToString { it.displayPath }}"),
+        )
+    }
+
+    private fun provenPackageDirectoryCandidate(
+        index: ModArchiveIndex,
+        optionGroups: List<GenericOptionGroup>,
+        selectedOptions: Map<String, String>,
+        context: AutomaticPlacementContext,
+    ): AutomaticPlacementCandidate? {
+        if (
+            index.hasFomod ||
+            !context.defaultTargetIsProven ||
+            context.defaultTargetRelativePath.isBlank()
+        ) {
+            return null
+        }
+        val installableFiles = index.files.filter { it.role == ArchiveContentRole.INSTALLABLE }
+        val topLevelRoots = installableFiles.mapNotNull { file ->
+            file.displayPath.substringBefore('/', "").takeIf(String::isNotBlank)
+        }.distinctBy { it.lowercase(Locale.ROOT) }
+        if (topLevelRoots.size != 1 || installableFiles.any { '/' !in it.displayPath }) return null
+        val packageRoot = topLevelRoots.single()
+        val packageName = packageRoot.substringAfterLast('/')
+        val sourceIsTargetContainer = context.defaultTargetRelativePath.substringAfterLast('/')
+            .equals(packageName, ignoreCase = true)
+        val packageTarget = if (sourceIsTargetContainer) {
+            context.defaultTargetRelativePath
+        } else {
+            listOf(context.defaultTargetRelativePath, packageName).filter(String::isNotBlank).joinToString("/")
+        }
+        val packageGroups = optionGroups.filter { group ->
+            group.choices.all { choice ->
+                choice.sourceDirectory.substringBeforeLast('/', "").equals(packageRoot, ignoreCase = true)
+            }
+        }
+        val selectedPackageGroups = packageGroups.mapNotNull { group ->
+            selectedOptions[group.stableId]?.let { selected -> group to selected }
+        }
+        val drafts = if (selectedPackageGroups.isEmpty()) {
+            listOf(
+                ModPlacementPresetDraft(
+                    sourceSubpath = packageRoot,
+                    targetRelativePath = context.defaultTargetRelativePath,
+                    targetRoot = context.defaultTargetRoot,
+                    mode = ModPlacementMode.OVERWRITE_COPY.name,
+                    includeSourceDirectory = !sourceIsTargetContainer,
+                ),
+            )
+        } else {
+            buildList {
+                selectedPackageGroups.forEach { (_, selected) ->
+                    add(
+                        ModPlacementPresetDraft(
+                            sourceSubpath = selected,
+                            targetRelativePath = packageTarget,
+                            targetRoot = context.defaultTargetRoot,
+                            mode = ModPlacementMode.OVERWRITE_COPY.name,
+                        ),
+                    )
+                }
+                packageGroups.flatMap { it.commonSourceDirectories }
+                    .distinctBy { it.lowercase(Locale.ROOT) }
+                    .forEach { common ->
+                        add(
+                            ModPlacementPresetDraft(
+                                sourceSubpath = common,
+                                targetRelativePath = packageTarget,
+                                targetRoot = context.defaultTargetRoot,
+                                mode = ModPlacementMode.OVERWRITE_COPY.name,
+                                includeSourceDirectory = true,
+                            ),
+                        )
+                    }
+                val directFiles = index.filesUnder(packageRoot).filter { file ->
+                    file.displayPath.removePrefixCaseInsensitive("$packageRoot/").let { '/' !in it }
+                }.map { it.displayPath }
+                if (directFiles.isNotEmpty()) {
+                    add(
+                        ModPlacementPresetDraft(
+                            sourceSubpath = ModPlacementSources.encode(directFiles),
+                            targetRelativePath = packageTarget,
+                            targetRoot = context.defaultTargetRoot,
+                            mode = ModPlacementMode.OVERWRITE_COPY.name,
+                        ),
+                    )
+                }
+            }
+        }
+        return candidateFromDrafts(
+            id = "rules:proven-package-directory-v1",
+            label = "Install package into ${context.defaultTargetRelativePath}",
+            description = "Preserves the package folder while applying only the selected package variant.",
+            drafts = drafts,
+            index = index,
+            origin = PlacementOrigin.GAME_RULE,
+            evidence = listOf(
+                "High-confidence mod directory: ${context.defaultTargetRelativePath}",
+                "Single package folder: $packageRoot",
+            ),
+        )
+    }
+
     private fun bethesdaSourceForFile(file: IndexedArchiveFile): String? {
         if (file.role != ArchiveContentRole.INSTALLABLE) return null
         val segments = file.displayPath.split('/')
@@ -308,10 +457,10 @@ object AutomaticPlacementPlanner {
                         source.substringAfterLast('/').takeIf { sourceIsDirectory && source.isNotBlank() && draft.includeSourceDirectory },
                         relative.takeIf(String::isNotBlank),
                     ).joinToString("/")
-                    val targetKey = WindowsPathIdentity.targetKey(ModTargetRoot.GAME_DIR.name, targetPath)
+                    val targetKey = WindowsPathIdentity.targetKey(draft.targetRoot, targetPath)
                     placedBySource[file.normalizedKey] = PlannedModFile(
                         sourceRelativePath = file.displayPath,
-                        targetRoot = ModTargetRoot.GAME_DIR.name,
+                        targetRoot = draft.targetRoot,
                         targetRelativePath = targetPath,
                         normalizedTargetKey = targetKey,
                         status = if (targetKey == null) PlannedFileStatus.UNSUPPORTED else PlannedFileStatus.PLACED,

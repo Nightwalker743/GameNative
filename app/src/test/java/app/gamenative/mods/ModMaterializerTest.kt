@@ -818,6 +818,50 @@ class ModMaterializerTest {
         assertFalse(created.exists())
     }
 
+    @Test
+    fun reviewedPackageVariant_materializesInsideItsPreservedWrapper() = runBlocking {
+        val paths = listOf(
+            "CharacterEditor/v1/About/About.xml" to "old-version",
+            "CharacterEditor/v1/Assemblies/Editor.dll" to "old-version",
+            "CharacterEditor/v1.6/About/About.xml" to "selected-version",
+            "CharacterEditor/v1.6/Assemblies/Editor.dll" to "selected-version",
+            "CharacterEditor/Textures/Icon.png" to "common",
+        )
+        paths.forEach { (path, contents) ->
+            File(extracted, path).apply {
+                parentFile?.mkdirs()
+                writeText(contents)
+            }
+        }
+        val entries = paths.map { (path, _) -> ModArchiveEntry(path, directory = false, sizeBytes = 1L) }
+        val context = AutomaticPlacementContext(defaultTargetRelativePath = "Mods", defaultTargetIsProven = true)
+        val initial = AutomaticPlacementPlanner.plan("Colony game", entries, context = context)
+        val group = initial.optionGroups.single()
+        val candidate = AutomaticPlacementPlanner.plan(
+            "Colony game",
+            entries,
+            selectedOptions = mapOf(group.stableId to "CharacterEditor/v1.6"),
+            context = context,
+        ).recommended!!
+        val recipes = candidate.drafts.map { draft ->
+            ModPlacementRecipe(
+                installId = "install",
+                sourceSubpath = draft.sourceSubpath,
+                targetRoot = draft.targetRoot,
+                targetRelativePath = draft.targetRelativePath,
+                mode = draft.mode,
+                includeSourceDirectory = draft.includeSourceDirectory,
+            )
+        }
+        val plan = ModMaterializer.materializationPlan(install(), recipes, gameDir, "", reviewedPlan = candidate.plan)
+        val result = ModMaterializer.apply(install(), plan, backupDir, allowOverwrite = true)
+
+        assertTrue(result.errors.toString(), result.errors.isEmpty())
+        assertEquals("selected-version", File(gameDir, "Mods/CharacterEditor/Assemblies/Editor.dll").readText())
+        assertEquals("common", File(gameDir, "Mods/CharacterEditor/Textures/Icon.png").readText())
+        assertFalse(File(gameDir, "Mods/CharacterEditor/v1.6").exists())
+    }
+
     private fun install() = ModInstall(
         installId = "install",
         appId = "STEAM_1",
