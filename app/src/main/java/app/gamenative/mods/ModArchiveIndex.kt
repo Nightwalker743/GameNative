@@ -175,12 +175,14 @@ data class ModArchiveIndex(
             if (normalized.contains("/fomod/") || normalized.startsWith("fomod/")) {
                 return ArchiveContentRole.INSTALLER_SUPPORT
             }
+            val rootDocumentation =
+                segments.size == 1 && listOf(".htm", ".html", ".rtf").any(name::endsWith)
             if (
                 segments.dropLast(1).any { it in documentationDirectories } ||
                 documentationNamePrefixes.any(name::startsWith) ||
                 name.endsWith(".md") ||
                 name.endsWith(".pdf") ||
-                segments.size == 1 && listOf(".htm", ".html", ".rtf").any(name::endsWith)
+                rootDocumentation
             ) {
                 return ArchiveContentRole.DOCUMENTATION
             }

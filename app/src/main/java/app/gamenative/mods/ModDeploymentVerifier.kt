@@ -132,7 +132,11 @@ object ModDeploymentVerifier {
             resolution.issue?.let { return listOf(it) }
             val actual = resolution.actual
             if (actual == null) {
-                return if (stale) emptyList() else listOf(issue(ModVerificationIssueType.MISSING, target, "Required planned file is missing", installId))
+                return if (stale) {
+                    emptyList()
+                } else {
+                    listOf(issue(ModVerificationIssueType.MISSING, target, "Required planned file is missing", installId))
+                }
             }
             if (stale) {
                 return listOf(issue(ModVerificationIssueType.STALE, actual, "A preserved stale managed file is still present", installId))

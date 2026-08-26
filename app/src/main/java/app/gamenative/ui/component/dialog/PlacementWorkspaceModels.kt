@@ -74,10 +74,14 @@ internal fun placementLayoutModel(
     val destination = draft.targetRelativePath.trim('/').ifBlank { "<game folder>" }
     val result = when {
         selectingEverything && selectedNames.size == 1 -> "$destination/${selectedNames.single()}/<contents>"
-        selectingEverything -> "$destination/{${selectedNames.take(3).joinToString(", ")}${if (selectedNames.size > 3) ", ..." else ""}}/<contents>"
+        selectingEverything ->
+            "$destination/{${selectedNames.take(3).joinToString(", ")}" +
+                "${if (selectedNames.size > 3) ", ..." else ""}}/<contents>"
         selectedNames.isEmpty() || !draft.includeSourceDirectory -> "$destination/<selected contents>"
         selectedNames.size == 1 -> "$destination/${selectedNames.single()}/<contents>"
-        else -> "$destination/{${selectedNames.take(3).joinToString(", ")}${if (selectedNames.size > 3) ", ..." else ""}}/<contents>"
+        else ->
+            "$destination/{${selectedNames.take(3).joinToString(", ")}" +
+                "${if (selectedNames.size > 3) ", ..." else ""}}/<contents>"
     }
     return PlacementLayoutModel(
         visible = selectedNames.isNotEmpty(),

@@ -204,9 +204,12 @@ internal fun PlacementSection(
         targetInspectionLoading = false
     }
     val applyBlocked = when {
-        placementChoice == PlacementChoice.AUTOMATIC -> automaticPlanLoading || targetInspectionLoading ||
-            automaticPlan?.isComplete != true ||
-            targetInspection?.ambiguousPaths?.isNotEmpty() == true
+        placementChoice == PlacementChoice.AUTOMATIC -> {
+            automaticPlanLoading ||
+                targetInspectionLoading ||
+                automaticPlan?.isComplete != true ||
+                targetInspection?.ambiguousPaths?.isNotEmpty() == true
+        }
         visiblePlan != null -> !visiblePlan.isComplete
         else -> false
     }
@@ -1080,11 +1083,12 @@ private fun PlacementDraftEditor(
         placementLayoutModel(draft, entries)
     }
     val recommendedKeepFolder = remember(draft.sourceSubpath, draft.targetRelativePath, entries, layout.visible) {
-        layout.visible && AutomaticPlacementPlanner.inferIncludeSourceDirectory(
-            selectedPaths = ModPlacementSources.decode(draft.sourceSubpath),
-            entries = entries,
-            targetRelativePath = draft.targetRelativePath,
-        )
+        layout.visible &&
+            AutomaticPlacementPlanner.inferIncludeSourceDirectory(
+                selectedPaths = ModPlacementSources.decode(draft.sourceSubpath),
+                entries = entries,
+                targetRelativePath = draft.targetRelativePath,
+            )
     }
 
     Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surface) {
@@ -1600,166 +1604,122 @@ private fun ContainerDestinationPickerDialog(
                         Modifier.padding(if (compactHeight) 12.dp else 20.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                    Text(
-                        stringResource(if (readOnly) R.string.nexus_destination_contents else R.string.nexus_destination_folder),
-                        style = if (compactHeight) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
-                    )
-                    if (currentDir == null || currentRoot == null) {
                         Text(
-                            text = stringResource(R.string.nexus_choose_game_container_location),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            stringResource(if (readOnly) R.string.nexus_destination_contents else R.string.nexus_destination_folder),
+                            style = if (compactHeight) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
                         )
-                    } else {
-                        DestinationBreadcrumb(currentRoot, currentDir!!) { destination ->
-                            currentDir = destination
-                            selectedDestination = destination
-                            query = ""
+                        if (currentDir == null || currentRoot == null) {
+                            Text(
+                                text = stringResource(R.string.nexus_choose_game_container_location),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            DestinationBreadcrumb(currentRoot, currentDir!!) { destination ->
+                                currentDir = destination
+                                selectedDestination = destination
+                                query = ""
+                            }
                         }
-                    }
-                    if (roots.isNotEmpty()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            roots.forEach { root ->
-                                OutlinedButton(
-                                    onClick = {
-                                        currentRootName = root.type.name
-                                        currentDir = root.dir
-                                        selectedDestination = root.dir
-                                        query = ""
-                                    },
-                                ) {
-                                    Text(root.label, maxLines = 1)
+                        if (roots.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                roots.forEach { root ->
+                                    OutlinedButton(
+                                        onClick = {
+                                            currentRootName = root.type.name
+                                            currentDir = root.dir
+                                            selectedDestination = root.dir
+                                            query = ""
+                                        },
+                                    ) {
+                                        Text(root.label, maxLines = 1)
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                if (currentDir != null) {
-                    if (!compactHeight) Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant) {
-                        Row(
-                            modifier = Modifier
-                                .clickable {
-                                    val root = currentRoot
-                                    val parent = currentDir?.parentFile
-                                    currentDir = if (root != null && parent != null && parent.isInsideOrEqual(root.dir)) {
-                                        parent
-                                    } else {
-                                        null
-                                    }
-                                    selectedDestination = currentDir
-                                    query = ""
-                                }
-                                .padding(horizontal = 20.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), modifier = Modifier.size(18.dp))
-                            Text(currentDir?.name.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                    HorizontalDivider()
-                    DestinationBrowserTools(
-                        compact = compactHeight,
-                        query = query,
-                        onQueryChange = { query = it },
-                        showHidden = showHidden,
-                        onShowHiddenChange = { showHidden = it },
-                        readOnly = readOnly,
-                        onNewFolder = {
-                            newFolderName = ""
-                            showNewFolderDialog = true
-                        },
-                    )
-                    HorizontalDivider()
-                }
-
-                if (currentDir == null) {
-                    LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        items(roots, key = { it.type.name }) { root ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        currentRootName = root.type.name
-                                        currentDir = root.dir
-                                        selectedDestination = root.dir
-                                        query = ""
-                                    }
-                                    .padding(horizontal = 20.dp, vertical = if (compactHeight) 8.dp else 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                Box(
+                    if (currentDir != null) {
+                        if (!compactHeight) {
+                            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant) {
+                                Row(
                                     modifier = Modifier
-                                        .size(36.dp)
-                                        .background(
-                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-                                            shape = RoundedCornerShape(8.dp),
-                                        ),
-                                    contentAlignment = Alignment.Center,
+                                        .clickable {
+                                            val root = currentRoot
+                                            val parent = currentDir?.parentFile
+                                            currentDir = if (root != null && parent != null && parent.isInsideOrEqual(root.dir)) {
+                                                parent
+                                            } else {
+                                                null
+                                            }
+                                            selectedDestination = currentDir
+                                            query = ""
+                                        }
+                                        .padding(horizontal = 20.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                                 ) {
                                     Icon(
-                                        targetRootIcon(root.type),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp),
-                                        tint = MaterialTheme.colorScheme.primary,
+                                        Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = stringResource(R.string.back),
+                                        modifier = Modifier.size(18.dp),
                                     )
+                                    Text(currentDir?.name.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
-                                Text(root.label, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
                             }
                         }
+                        HorizontalDivider()
+                        DestinationBrowserTools(
+                            compact = compactHeight,
+                            query = query,
+                            onQueryChange = { query = it },
+                            showHidden = showHidden,
+                            onShowHiddenChange = { showHidden = it },
+                            readOnly = readOnly,
+                            onNewFolder = {
+                                newFolderName = ""
+                                showNewFolderDialog = true
+                            },
+                        )
+                        HorizontalDivider()
                     }
-                } else if (loading) {
-                    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
-                    }
-                } else if (browserEntries.isEmpty()) {
-                    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(
-                                Icons.Default.FolderOff,
-                                contentDescription = null,
-                                modifier = Modifier.size(32.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(stringResource(R.string.nexus_destination_folder_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                } else {
-                    LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        items(browserEntries, key = { "${it.file.absolutePath}:${it.virtual}" }) { entry ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(enabled = entry.directory && !entry.virtual) {
-                                        currentDir = entry.file
-                                        selectedDestination = entry.file
-                                        query = ""
+
+                    if (currentDir == null) {
+                        LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                            items(roots, key = { it.type.name }) { root ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            currentRootName = root.type.name
+                                            currentDir = root.dir
+                                            selectedDestination = root.dir
+                                            query = ""
+                                        }
+                                        .padding(horizontal = 20.dp, vertical = if (compactHeight) 8.dp else 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                                                shape = RoundedCornerShape(8.dp),
+                                            ),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            targetRootIcon(root.type),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                        )
                                     }
-                                    .padding(horizontal = 20.dp, vertical = if (compactHeight) 8.dp else 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                Icon(
-                                    if (entry.directory) Icons.Default.Folder else Icons.Default.Description,
-                                    contentDescription = null,
-                                    tint = if (entry.directory) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Text(entry.file.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    DestinationEntryMetadata(entry, installNamesById, selectedInstallId)
-                                }
-                                if (entry.directory && !entry.virtual) {
+                                    Text(root.label, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Icon(
                                         Icons.AutoMirrored.Filled.ArrowForward,
                                         contentDescription = null,
@@ -1768,59 +1728,116 @@ private fun ContainerDestinationPickerDialog(
                                     )
                                 }
                             }
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 20.dp),
-                                thickness = 0.5.dp,
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
-                            )
                         }
-                    }
-                }
-
-                HorizontalDivider()
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = if (compactHeight) 6.dp else 12.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (!readOnly) {
-                        TextButton(onClick = onDismiss) {
-                            Text(stringResource(R.string.cancel))
+                    } else if (loading) {
+                        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
                         }
-                    }
-                    val selectedRoot = currentRoot
-                    val selectedDir = selectedDestination ?: currentDir
-                    if (readOnly) {
-                        Button(onClick = onDismiss, modifier = Modifier.padding(start = 8.dp)) {
-                            Text(stringResource(R.string.close))
-                        }
-                    } else if (selectedRoot != null && selectedDir != null) {
-                        Button(
-                            onClick = {
-                                val relative = runCatching {
-                                    selectedDir.canonicalFile.relativeToOrNull(selectedRoot.dir.canonicalFile)
-                                        ?.path
-                                        ?.replace(File.separatorChar, '/')
-                                        .orEmpty()
-                                }.getOrDefault("")
-                                onSelect(
-                                    currentDraft.copy(
-                                        targetRoot = selectedRoot.type.name,
-                                        targetRelativePath = relative,
-                                    ),
+                    } else if (browserEntries.isEmpty()) {
+                        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(
+                                    Icons.Default.FolderOff,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(32.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                            },
-                            modifier = Modifier.padding(start = 8.dp),
-                        ) {
-                            Text(stringResource(R.string.nexus_select))
+                                Text(
+                                    stringResource(R.string.nexus_destination_folder_empty),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    } else {
+                        LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                            items(browserEntries, key = { "${it.file.absolutePath}:${it.virtual}" }) { entry ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(enabled = entry.directory && !entry.virtual) {
+                                            currentDir = entry.file
+                                            selectedDestination = entry.file
+                                            query = ""
+                                        }
+                                        .padding(horizontal = 20.dp, vertical = if (compactHeight) 8.dp else 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    Icon(
+                                        if (entry.directory) Icons.Default.Folder else Icons.Default.Description,
+                                        contentDescription = null,
+                                        tint = if (entry.directory) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                    )
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Text(entry.file.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        DestinationEntryMetadata(entry, installNamesById, selectedInstallId)
+                                    }
+                                    if (entry.directory && !entry.virtual) {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.ArrowForward,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    thickness = 0.5.dp,
+                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = if (compactHeight) 6.dp else 12.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (!readOnly) {
+                            TextButton(onClick = onDismiss) {
+                                Text(stringResource(R.string.cancel))
+                            }
+                        }
+                        val selectedRoot = currentRoot
+                        val selectedDir = selectedDestination ?: currentDir
+                        if (readOnly) {
+                            Button(onClick = onDismiss, modifier = Modifier.padding(start = 8.dp)) {
+                                Text(stringResource(R.string.close))
+                            }
+                        } else if (selectedRoot != null && selectedDir != null) {
+                            Button(
+                                onClick = {
+                                    val relative = runCatching {
+                                        selectedDir.canonicalFile.relativeToOrNull(selectedRoot.dir.canonicalFile)
+                                            ?.path
+                                            ?.replace(File.separatorChar, '/')
+                                            .orEmpty()
+                                    }.getOrDefault("")
+                                    onSelect(
+                                        currentDraft.copy(
+                                            targetRoot = selectedRoot.type.name,
+                                            targetRelativePath = relative,
+                                        ),
+                                    )
+                                },
+                                modifier = Modifier.padding(start = 8.dp),
+                            ) {
+                                Text(stringResource(R.string.nexus_select))
+                            }
                         }
                     }
                 }
             }
         }
-    }
     }
 
     if (showNewFolderDialog && !readOnly) {

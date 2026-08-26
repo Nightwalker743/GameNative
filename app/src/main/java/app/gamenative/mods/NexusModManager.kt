@@ -762,7 +762,10 @@ object NexusModManager {
                     created = 0,
                     skipped = 0,
                     backedUp = 0,
-                    errors = mapOf(install.modName to "File tracking setup is only available for an older applied mod that is not tracked yet"),
+                    errors = mapOf(
+                        install.modName to
+                            "File tracking setup is only available for an older applied mod that is not tracked yet",
+                    ),
                     manifests = emptyList(),
                 )
             }
@@ -1268,7 +1271,9 @@ object NexusModManager {
                         ModHealthSeverity.WARNING,
                         "Disabled mod still has changed files in the game folder",
                         buildString {
-                            append("${findings.size} changed file(s) were kept to avoid deleting user changes. They can still affect the game while this mod is disabled. Review the placement to decide what to keep or remove; Apply order will not remove them.")
+                            append("${findings.size} changed file(s) were kept to avoid deleting user changes. ")
+                            append("They can still affect the game while this mod is disabled. ")
+                            append("Review the placement to decide what to keep or remove; Apply order will not remove them.")
                             findings.take(3).forEach { finding -> append("\n${finding.targetPath}") }
                         },
                         install,
