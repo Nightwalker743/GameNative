@@ -1983,7 +1983,6 @@ https://gamenative.app
     <string name="nexus_applying_mod_files">Применение файлов модов</string>
     <string name="nexus_applied_items_backups">Применены элементы %1$d, резервная копия %2$d%3$s</string>
     <string name="nexus_old_files_left_in_place_suffix">; %1$d старые файлы остались на месте</string>
-    <string name="nexus_applied_with_errors">Применяется при ошибках %1$d.</string>
     <string name="nexus_mod_apply_already_running">Файлы модов уже применяются.</string>
     <string name="nexus_failed_to_apply_mod">Не удалось применить мод.</string>
     <string name="nexus_fomod_or_custom_required">Перед подачей заявки настройте установщик FOMOD или выберите «Пользовательское размещение».</string>

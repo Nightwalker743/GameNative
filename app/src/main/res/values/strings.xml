@@ -2101,6 +2101,7 @@
     <string name="nexus_plan_review_title">Placement review</string>
     <string name="nexus_plan_coverage">%1$d of %2$d files planned • %3$d ignored • %4$d need review</string>
     <string name="nexus_fomod_defaults_replaced">%1$d default file(s) replaced by your FOMOD choices</string>
+    <string name="nexus_fomod_selected_winner" tools:ignore="MissingTranslation">%1$s ← %2$s</string>
     <string name="nexus_plan_ranked">Ranked suggestions</string>
     <string name="nexus_plan_score">%1$d. %2$s — %3$d%% coverage</string>
     <string name="nexus_plan_case_merge">Case merge: %1$s</string>
@@ -2173,7 +2174,10 @@
     <string name="nexus_applied_items_backups">Applied %1$d item(s), backed up %2$d%3$s</string>
     <string name="nexus_placement_complete_summary" tools:ignore="MissingTranslation">Placement complete for %1$d item(s): %2$d updated, %3$d already current, %4$d backed up%5$s</string>
     <string name="nexus_old_files_left_in_place_suffix">; %1$d old file(s) left in place</string>
-    <string name="nexus_applied_with_errors">Applied with %1$d error(s)</string>
+    <string name="nexus_apply_failed_rolled_back" tools:ignore="MissingTranslation,PluralsCandidate">Install failed; safe rollback attempted (%1$d error(s))</string>
+    <string name="nexus_apply_failure_title" tools:ignore="MissingTranslation">Last mod install failed</string>
+    <string name="nexus_apply_failure_description" tools:ignore="MissingTranslation">The mod was not marked as applied. Changes were rolled back where they could be verified safely. Review the file errors below, then return to Placement to correct or retry this mod.</string>
+    <string name="nexus_apply_failure_details" tools:ignore="MissingTranslation,PluralsCandidate">%1$d file error(s)</string>
     <string name="nexus_mod_apply_already_running">Mod files are already being applied.</string>
     <string name="nexus_failed_to_apply_mod">Failed to apply mod</string>
     <string name="nexus_fomod_or_custom_required">Configure the FOMOD installer or choose Custom placement before applying.</string>

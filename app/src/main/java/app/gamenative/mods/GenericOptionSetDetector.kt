@@ -47,12 +47,23 @@ object GenericOptionSetDetector {
                 file.normalizedKey.removePrefix("${node.normalizedKey}/")
             }
         }
+        val versionChoices = siblings.filter { it.displayPath.substringAfterLast('/').isVersionChoiceName() }
+            .mapTo(mutableSetOf()) { it.normalizedKey }
+        val versionFamilyHasEvidence = versionChoices.size >= 3 || siblings.any { root ->
+            root.normalizedKey in versionChoices && siblings.any { other ->
+                other != root && other.normalizedKey in versionChoices &&
+                    signatures.getValue(root).intersect(signatures.getValue(other)).isNotEmpty()
+            }
+        }
         val related = siblings.associateWith { root ->
             siblings.filter { other ->
                 if (root == other) return@filter false
                 val overlap = signatures.getValue(root).intersect(signatures.getValue(other)).size
                 val smaller = minOf(signatures.getValue(root).size, signatures.getValue(other).size).coerceAtLeast(1)
-                overlap > 0 && (overlap.toDouble() / smaller >= 0.6 || root.optionStyleWrapper || other.optionStyleWrapper)
+                val versionAlternatives = versionFamilyHasEvidence &&
+                    root.normalizedKey in versionChoices && other.normalizedKey in versionChoices
+                versionAlternatives ||
+                    (overlap > 0 && (overlap.toDouble() / smaller >= 0.6 || root.optionStyleWrapper || other.optionStyleWrapper))
             }
         }
         val visited = mutableSetOf<String>()
@@ -87,4 +98,7 @@ object GenericOptionSetDetector {
             )
         }.sortedBy { it.choices.first().sourceDirectory.lowercase(Locale.ROOT) }
     }
+
+    private fun String.isVersionChoiceName(): Boolean =
+        matches(Regex("^v?\\d+(?:[._-]\\d+)+(?:[-_ ].*)?$", RegexOption.IGNORE_CASE))
 }

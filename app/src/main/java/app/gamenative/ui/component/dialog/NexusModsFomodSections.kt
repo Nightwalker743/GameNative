@@ -55,6 +55,7 @@ import app.gamenative.mods.FomodGroupType
 import app.gamenative.mods.FomodEnvironmentSnapshot
 import app.gamenative.mods.FomodInstaller
 import app.gamenative.mods.ModInstallPlan
+import app.gamenative.mods.PlannedFileStatus
 import app.gamenative.mods.FomodPluginType
 import app.gamenative.mods.FomodRecipeGenerator
 import app.gamenative.mods.effectiveType
@@ -349,9 +350,17 @@ internal fun FomodWizardDialog(
                                         pendingResult = PendingFomodResult(
                                             drafts = result.recipes.map { it.toDraft() },
                                             plan = result.plan,
-                                            unsupportedCount = result.plan?.let { plan ->
-                                                plan.unresolvedCount + plan.blockingIssues.size
-                                            } ?: (result.unsupportedMappings.size + result.blockingIssues.size),
+                                            unsupportedCount = result.plan?.unresolvedCount
+                                                ?: result.unsupportedMappings.size,
+                                            unresolvedDetails = result.plan?.files.orEmpty()
+                                                .filter { file ->
+                                                    file.status == PlannedFileStatus.UNSUPPORTED ||
+                                                        file.status == PlannedFileStatus.MISSING ||
+                                                        file.status == PlannedFileStatus.CONFLICTED
+                                                }
+                                                .map { file -> "${file.sourceRelativePath}: ${file.reason}" },
+                                            blockingIssues = result.plan?.blockingIssues
+                                                ?: result.blockingIssues,
                                             selectedOptions = selectedOptions,
                                             conditionalRuleCount = installer.conditionalFileInstalls.size,
                                         )
@@ -424,6 +433,22 @@ internal fun FomodWizardDialog(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                         )
+                        result.unresolvedDetails.take(4).forEach { detail ->
+                            Text(
+                                detail,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                    if (result.blockingIssues.isNotEmpty()) {
+                        result.blockingIssues.take(4).forEach { issue ->
+                            Text(
+                                issue,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
                     }
                     result.selectedOptions.take(12).forEach { option ->
                         Text(option, style = MaterialTheme.typography.bodySmall)
@@ -443,9 +468,17 @@ internal fun FomodWizardDialog(
                         pendingResult = null
                         onApply(result.drafts, result.plan, result.unsupportedCount)
                     },
-                    enabled = result.unsupportedCount == 0,
+                    enabled = result.blockingIssues.isEmpty(),
                 ) {
-                    Text(stringResource(R.string.nexus_fomod_apply_choices))
+                    Text(
+                        stringResource(
+                            if (result.unsupportedCount > 0) {
+                                R.string.nexus_review_placement
+                            } else {
+                                R.string.nexus_fomod_apply_choices
+                            },
+                        ),
+                    )
                 }
             },
             dismissButton = {

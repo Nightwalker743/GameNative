@@ -2052,7 +2052,6 @@
     <string name="nexus_applying_mod_files">모드 파일 적용</string>
     <string name="nexus_applied_items_backups">적용됨 %1$d 항목, 백업됨 %2$d%3$s</string>
     <string name="nexus_old_files_left_in_place_suffix">; %1$d 이전 파일이 그대로 남아 있습니다.</string>
-    <string name="nexus_applied_with_errors">%1$d 오류와 함께 적용됨</string>
     <string name="nexus_mod_apply_already_running">Mod 파일이 이미 적용되고 있습니다.</string>
     <string name="nexus_failed_to_apply_mod">모드 적용 실패</string>
     <string name="nexus_fomod_or_custom_required">적용하기 전에 FOMOD 설치 프로그램을 구성하거나 사용자 정의 배치를 선택하십시오.</string>

@@ -1995,7 +1995,6 @@
     <string name="nexus_applying_mod_files">Anwenden von Mod-Dateien</string>
     <string name="nexus_applied_items_backups">Angewandte %1$d Artikel, gesichert %2$d%3$s</string>
     <string name="nexus_old_files_left_in_place_suffix">; alte Dateien an Ort und Stelle belassen: %1$d</string>
-    <string name="nexus_applied_with_errors">Angewendet mit Fehlern: %1$d</string>
     <string name="nexus_mod_apply_already_running">Mod-Dateien werden bereits angewendet.</string>
     <string name="nexus_failed_to_apply_mod">Mod konnte nicht angewendet werden</string>
     <string name="nexus_fomod_or_custom_required">Konfigurieren Sie vor der Anwendung das FOMOD-Installationsprogramm oder wählen Sie „Benutzerdefinierte Platzierung“.</string>

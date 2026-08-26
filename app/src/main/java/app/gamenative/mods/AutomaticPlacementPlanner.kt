@@ -39,9 +39,11 @@ object AutomaticPlacementPlanner {
         val fullIndex = ModArchiveIndex.build(entries)
         val optionGroups = GenericOptionSetDetector.detect(fullIndex)
         val validSelections = optionGroups.mapNotNull { group ->
-            selectedOptions[group.stableId]
-                ?.takeIf { selected -> group.choices.any { it.sourceDirectory == selected } }
-                ?.let { group.stableId to it }
+            val saved = selectedOptions[group.stableId] ?: selectedOptions.values.singleOrNull { saved ->
+                group.choices.any { it.sourceDirectory.equals(saved, ignoreCase = true) }
+            }
+            group.choices.firstOrNull { it.sourceDirectory.equals(saved, ignoreCase = true) }
+                ?.let { group.stableId to it.sourceDirectory }
         }.toMap()
         val excludedOptionRoots = optionGroups.flatMap { group ->
             val selected = validSelections[group.stableId]

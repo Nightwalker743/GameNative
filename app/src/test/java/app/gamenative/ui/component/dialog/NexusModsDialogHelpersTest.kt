@@ -102,6 +102,14 @@ class NexusModsDialogHelpersTest {
     }
 
     @Test
+    fun placementErrors_showTheUsefulPathTail() {
+        assertEquals(
+            "Mods/CharacterEditor/v1.6/CharacterEditor.dll",
+            compactPlacementErrorPath("/data/user/0/app/game/Mods/CharacterEditor/v1.6/CharacterEditor.dll"),
+        )
+    }
+
+    @Test
     fun collectionEmbeddedMetadata_avoidsSeparateModInfoLookup() {
         val collectionFile = NexusCollectionFile(
             gameDomain = "skyrimspecialedition",

@@ -195,6 +195,7 @@ data class ModArchiveIndex(
         private fun looksLikeOptionWrapper(name: String): Boolean {
             val normalized = name.lowercase(Locale.ROOT)
             return Regex("^\\d{1,2}[ _.-]").containsMatchIn(normalized) ||
+                Regex("^v?\\d+(?:[._-]\\d+)+(?:[-_ ].*)?$").matches(normalized) ||
                 listOf("optional", "option", "variant", "choose", "pick one").any(normalized::contains)
         }
 

@@ -14,6 +14,7 @@ data class FomodExpectedMapping(
 data class FomodSelectionEvaluation(
     val mappings: List<FomodExpectedMapping>,
     val flags: Map<String, String>,
+    val warnings: List<String>,
     val blockingIssues: List<String>,
 )
 
@@ -44,13 +45,17 @@ object FomodSelectionEvaluator {
                 }
             }
         }
+        val moduleDependencyState = installer.moduleDependencies.evaluate(flags, environment)
+        val warnings = buildList {
+            if (moduleDependencyState == FomodFactState.UNKNOWN && installer.moduleDependencies.hasFacts()) {
+                add("FOMOD game requirements could not be verified; the selected package version will be used")
+            }
+        }
         val blockers = buildList {
             addAll(installer.unsupportedWarnings)
-            when (installer.moduleDependencies.evaluate(flags, environment)) {
+            when (moduleDependencyState) {
                 FomodFactState.FALSE -> add("The installed game does not satisfy this FOMOD's requirements")
-                FomodFactState.UNKNOWN -> if (installer.moduleDependencies.hasFacts()) {
-                    add("FOMOD game requirements could not be determined safely")
-                }
+                FomodFactState.UNKNOWN -> Unit
                 FomodFactState.TRUE -> Unit
             }
             if (installer.conditionalFileInstalls.any { it.dependencies.evaluate(flags, environment) == FomodFactState.UNKNOWN }) {
@@ -72,7 +77,7 @@ object FomodSelectionEvaluator {
                 add("FOMOD option availability depends on unknown game facts")
             }
         }
-        return FomodSelectionEvaluation(expected, flags, blockers.distinct())
+        return FomodSelectionEvaluation(expected, flags, warnings.distinct(), blockers.distinct())
     }
 
     private fun FomodDependencyExpression.hasFacts(): Boolean =
@@ -142,18 +147,14 @@ object FomodPlanExpander {
             }
         }
         planned += missing
-        val blockers = buildList {
-            addAll(evaluation.blockingIssues)
-            if (missing.isNotEmpty()) add("${missing.size} selected FOMOD mapping(s) have missing or mismatched sources")
-            if (planned.any { it.status == PlannedFileStatus.UNSUPPORTED }) add("Some selected FOMOD destinations are invalid")
-        }
         return PlacementRiskPolicy.enforce(ModInstallPlan(
             files = planned.sortedWith(
                 compareBy<PlannedModFile> { it.normalizedTargetKey.orEmpty() }
                     .thenBy { it.sourceRelativePath.lowercase(Locale.ROOT) }
                     .thenByDescending { it.priority },
             ),
-            blockingIssues = blockers.distinct(),
+            warnings = evaluation.warnings,
+            blockingIssues = evaluation.blockingIssues,
             producerId = "fomod",
             producerVersion = 1,
         ))

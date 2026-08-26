@@ -2011,7 +2011,6 @@
     <string name="nexus_applying_mod_files">MOD ファイルの適用</string>
     <string name="nexus_applied_items_backups">適用された %1$d 項目、バックアップされた %2$d%3$s</string>
     <string name="nexus_old_files_left_in_place_suffix">; %1$d 古いファイルがそのまま残されている</string>
-    <string name="nexus_applied_with_errors">%1$d エラーが適用されました</string>
     <string name="nexus_mod_apply_already_running">Mod ファイルはすでに適用されています。</string>
     <string name="nexus_failed_to_apply_mod">MODの適用に失敗しました</string>
     <string name="nexus_fomod_or_custom_required">適用する前に、FOMOD インストーラーを設定するか、カスタム配置を選択してください。</string>

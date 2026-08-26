@@ -2055,7 +2055,6 @@
     <string name="nexus_applying_mod_files">Stosowanie plików modów</string>
     <string name="nexus_applied_items_backups">Zastosowane elementy: %1$d, kopie zapasowe: %2$d%3$s</string>
     <string name="nexus_old_files_left_in_place_suffix">; %1$d stare pliki pozostawione na miejscu</string>
-    <string name="nexus_applied_with_errors">Zastosowano z błędami %1$d</string>
     <string name="nexus_mod_apply_already_running">Pliki modów są już stosowane.</string>
     <string name="nexus_failed_to_apply_mod">Nie udało się zastosować mod</string>
     <string name="nexus_fomod_or_custom_required">Skonfiguruj instalator FOMOD lub przed zastosowaniem wybierz opcję Umieszczenie niestandardowe.</string>

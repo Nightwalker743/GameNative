@@ -163,6 +163,7 @@ internal fun PlacementSection(
     onRemoveDraft: (Int) -> Unit,
     onFomodRecipes: (List<RecipeDraft>, ModInstallPlan?, Int) -> Unit,
     applyStatusMessage: String?,
+    applyErrors: Map<String, String> = emptyMap(),
     onExportPlan: (ModInstallPlan) -> Unit,
     onSaveAndApply: () -> Unit,
 ) {
@@ -329,6 +330,11 @@ internal fun PlacementSection(
                         }
                     }
                 } else if (configuredPlan != null) {
+                    val unresolvedSources = configuredPlan.files.filter {
+                        it.status == PlannedFileStatus.UNSUPPORTED ||
+                            it.status == PlannedFileStatus.MISSING ||
+                            it.status == PlannedFileStatus.CONFLICTED
+                    }.map { it.sourceRelativePath }.distinct()
                     PlacementPlanReview(
                         automaticPlacement = null,
                         plan = configuredPlan,
@@ -339,7 +345,9 @@ internal fun PlacementSection(
                         ownershipManifests = ownershipManifests,
                         selectedInstallId = install.installId,
                         installNamesById = installNamesById,
-                        onResolve = null,
+                        onResolve = unresolvedSources.takeIf { it.isNotEmpty() }?.let { sources ->
+                            { onResolveAutomaticPlan(sources) }
+                        },
                         onUseCandidate = onUseAutomaticCandidate,
                         onExport = { onExportPlan(configuredPlan) },
                     )
@@ -455,8 +463,11 @@ internal fun PlacementSection(
                     Text(
                         text = message,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = if (applyErrors.isEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                     )
+                }
+                if (applyErrors.isNotEmpty()) {
+                    PlacementApplyFailureDetails(applyErrors)
                 }
 
                 if (canRestorePrevious) {
@@ -550,6 +561,46 @@ internal fun PlacementSection(
 }
 
 @Composable
+internal fun PlacementApplyFailureDetails(errors: Map<String, String>) {
+    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.errorContainer) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                stringResource(R.string.nexus_apply_failure_details, errors.size),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            errors.entries.take(8).forEach { (path, reason) ->
+                Text(
+                    compactPlacementErrorPath(path),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    reason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+            if (errors.size > 8) {
+                Text(
+                    stringResource(R.string.nexus_more_prefixed, errors.size - 8),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+        }
+    }
+}
+
+internal fun compactPlacementErrorPath(path: String): String {
+    val normalized = path.replace('\\', '/').trimEnd('/')
+    return normalized.split('/').filter(String::isNotBlank).takeLast(4).joinToString("/").ifBlank { path }
+}
+
+@Composable
 private fun PlacementDraftPager(
     page: PlacementDraftPage,
     totalRules: Int,
@@ -620,16 +671,30 @@ private fun PlacementPlanReview(
                 ),
                 style = MaterialTheme.typography.bodySmall,
             )
-            val replacedDefaultCount = plan.files.count { file ->
+            val replacedDefaults = plan.files.filter { file ->
                 file.status == PlannedFileStatus.INTENTIONALLY_IGNORED &&
                     file.reason.startsWith("Replaced by selected FOMOD file")
             }
-            if (replacedDefaultCount > 0) {
+            if (replacedDefaults.isNotEmpty()) {
                 Text(
-                    stringResource(R.string.nexus_fomod_defaults_replaced, replacedDefaultCount),
+                    stringResource(R.string.nexus_fomod_defaults_replaced, replacedDefaults.size),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
+                replacedDefaults.take(4).forEach { replaced ->
+                    Text(
+                        stringResource(
+                            R.string.nexus_fomod_selected_winner,
+                            replaced.targetRelativePath.orEmpty(),
+                            replaced.reason.removePrefix("Replaced by selected FOMOD file "),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             TextButton(onClick = { showWhy = !showWhy }) {
                 Text(if (showWhy) stringResource(R.string.nexus_hide_placement_reason) else stringResource(R.string.nexus_why_this_placement))

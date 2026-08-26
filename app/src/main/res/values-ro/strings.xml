@@ -2057,7 +2057,6 @@
     <string name="nexus_applying_mod_files">Aplicarea fișierelor mod</string>
     <string name="nexus_applied_items_backups">Elemente aplicate: %1$d, copii de rezervă: %2$d%3$s</string>
     <string name="nexus_old_files_left_in_place_suffix">; fișiere vechi lăsate pe loc: %1$d</string>
-    <string name="nexus_applied_with_errors">Aplicat cu erori: %1$d</string>
     <string name="nexus_mod_apply_already_running">Fișierele mod sunt deja aplicate.</string>
     <string name="nexus_failed_to_apply_mod">Nu s-a aplicat mod</string>
     <string name="nexus_fomod_or_custom_required">Configurați programul de instalare FOMOD sau alegeți Plasare personalizată înainte de a aplica.</string>

@@ -54,6 +54,23 @@ class FomodEnvironmentTest {
     }
 
     @Test
+    fun unknownModuleGameVersion_warnsWithoutBlockingExplicitChoices() {
+        val installer = FomodInstaller(
+            moduleName = "Versioned installer",
+            requiredFiles = emptyList(),
+            steps = emptyList(),
+            moduleDependencies = FomodDependencyExpression(
+                gameDependencies = listOf(FomodGameDependency("1.6.629")),
+            ),
+        )
+
+        val result = FomodSelectionEvaluator.evaluate(installer, emptySet())
+
+        assertTrue(result.blockingIssues.isEmpty())
+        assertTrue(result.warnings.any { "could not be verified" in it })
+    }
+
+    @Test
     fun environment_discoversScriptExtenderVersionAndDllArchitecture() {
         val root = createTempDirectory("fomod-environment").toFile()
         try {

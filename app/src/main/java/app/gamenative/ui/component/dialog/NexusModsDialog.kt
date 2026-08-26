@@ -328,8 +328,16 @@ internal data class PendingFomodResult(
     val drafts: List<RecipeDraft>,
     val plan: ModInstallPlan?,
     val unsupportedCount: Int,
+    val unresolvedDetails: List<String>,
+    val blockingIssues: List<String>,
     val selectedOptions: List<String>,
     val conditionalRuleCount: Int,
+)
+
+internal data class PlacementApplyFailure(
+    val installId: String,
+    val installName: String,
+    val errors: Map<String, String>,
 )
 
 internal data class PendingApply(
@@ -762,6 +770,31 @@ private fun InstallHealthSection(
     }
 }
 
+@Composable
+private fun PlacementApplyFailureSection(
+    failure: PlacementApplyFailure,
+    onReconfigure: () -> Unit,
+) {
+    NexusSectionCard {
+        Text(
+            stringResource(R.string.nexus_apply_failure_title),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.error,
+        )
+        Text(failure.installName, style = MaterialTheme.typography.labelLarge)
+        Text(
+            stringResource(R.string.nexus_apply_failure_description),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        PlacementApplyFailureDetails(failure.errors)
+        OutlinedButton(onClick = onReconfigure, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.nexus_review_placement))
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun NexusModsDialog(
@@ -862,6 +895,7 @@ fun NexusModsDialog(
     var modApplyInProgress by remember { mutableStateOf(false) }
     var profileApplyInProgress by remember { mutableStateOf(false) }
     var placementApplyStatusMessage by remember { mutableStateOf<String?>(null) }
+    var placementApplyFailure by remember { mutableStateOf<PlacementApplyFailure?>(null) }
     var pendingProfileNameEdit by remember { mutableStateOf<PendingProfileNameEdit?>(null) }
     var pendingProfileDelete by remember { mutableStateOf<ModProfile?>(null) }
     var placementChoice by remember { mutableStateOf(PlacementChoice.AUTOMATIC) }
@@ -3301,6 +3335,7 @@ fun NexusModsDialog(
             selectedPreviousOwnership = ownership.second
         }
         val message = if (result.errors.isEmpty()) {
+            placementApplyFailure = null
             lastPlacementDrafts = recipes.map { it.toDraft() }
             placementNeededInstallIds = placementNeededInstallIds - install.installId
             val cleanupSuffix = if (result.warnings.isNotEmpty()) {
@@ -3317,7 +3352,8 @@ fun NexusModsDialog(
                 cleanupSuffix,
             )
         } else {
-            context.getString(R.string.nexus_applied_with_errors, result.errors.size)
+            placementApplyFailure = PlacementApplyFailure(install.installId, install.modName, result.errors)
+            context.getString(R.string.nexus_apply_failed_rolled_back, result.errors.size)
         }
         placementApplyStatusMessage = message
         SnackbarManager.show(message)
@@ -3344,6 +3380,11 @@ fun NexusModsDialog(
                 applyRecipesInternal(install, recipes, allowOverwrite, reviewedPlan)
             } catch (e: Exception) {
                 val message = e.message ?: context.getString(R.string.nexus_failed_to_apply_mod)
+                placementApplyFailure = PlacementApplyFailure(
+                    install.installId,
+                    install.modName,
+                    mapOf(install.modName to message),
+                )
                 placementApplyStatusMessage = message
                 SnackbarManager.show(message)
             } finally {
@@ -3454,6 +3495,11 @@ fun NexusModsDialog(
                 }
             } catch (e: Exception) {
                 val message = e.message ?: context.getString(R.string.nexus_scan_placement_conflicts_failed)
+                placementApplyFailure = PlacementApplyFailure(
+                    install.installId,
+                    install.modName,
+                    mapOf(install.modName to message),
+                )
                 placementApplyStatusMessage = message
                 SnackbarManager.show(message)
             } finally {
@@ -3511,7 +3557,8 @@ fun NexusModsDialog(
     fun exportHealthReport(report: ModHealthReport) =
         shareDiagnostic("mod-health-${libraryItem.appId}.txt", report.sanitizedManifest())
 
-    val issueCount = conflictReports.size + bethesdaPluginIssues.size + bethesdaPluginAssetIssues.size + (healthReport?.issues?.size ?: 0)
+    val issueCount = conflictReports.size + bethesdaPluginIssues.size + bethesdaPluginAssetIssues.size +
+        (healthReport?.issues?.size ?: 0) + if (placementApplyFailure == null) 0 else 1
 
     fun selectInstallForPlacement(install: ModInstall) {
         selectedInstall = install
@@ -3874,6 +3921,10 @@ fun NexusModsDialog(
                                         recipeDrafts += resolvedDrafts
                                     },
                                     applyStatusMessage = placementApplyStatusMessage,
+                                    applyErrors = placementApplyFailure
+                                        ?.takeIf { it.installId == install.installId }
+                                        ?.errors
+                                        .orEmpty(),
                                     onExportPlan = { plan -> exportPlacementPlan(install, plan) },
                                     onSaveAndApply = ::saveAndApply,
                                 )
@@ -3881,6 +3932,15 @@ fun NexusModsDialog(
                         }
 
                         ManageModsTab.ISSUES -> {
+                            placementApplyFailure?.let { failure ->
+                                PlacementApplyFailureSection(
+                                    failure = failure,
+                                    onReconfigure = {
+                                        installs.firstOrNull { it.installId == failure.installId }
+                                            ?.let(::selectInstallForPlacement)
+                                    },
+                                )
+                            }
                             InstallHealthSection(
                                 report = healthReport,
                                 loading = healthLoading,

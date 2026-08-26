@@ -2063,7 +2063,6 @@
     <string name="nexus_applying_mod_files">正在套用模組檔案</string>
     <string name="nexus_applied_items_backups">已套用 %1$d 個項目，備份 %2$d%3$s</string>
     <string name="nexus_old_files_left_in_place_suffix">; %1$d 個舊檔案保留在原處</string>
-    <string name="nexus_applied_with_errors">套用時出現 %1$d 個錯誤</string>
     <string name="nexus_mod_apply_already_running">模組檔案已在套用中。</string>
     <string name="nexus_failed_to_apply_mod">套用模組失敗</string>
     <string name="nexus_fomod_or_custom_required">設定 FOMOD 安裝程式或在套用之前選擇自訂放置。</string>

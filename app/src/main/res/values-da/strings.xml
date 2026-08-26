@@ -1925,7 +1925,6 @@
     <string name="nexus_applying_mod_files">Anvendelse af mod-filer</string>
     <string name="nexus_applied_items_backups">Anvendte elementer: %1$d, sikkerhedskopier: %2$d%3$s</string>
     <string name="nexus_old_files_left_in_place_suffix">; gamle filer efterladt på plads: %1$d</string>
-    <string name="nexus_applied_with_errors">Anvendt med fejl: %1$d</string>
     <string name="nexus_mod_apply_already_running">Mod-filer anvendes allerede.</string>
     <string name="nexus_failed_to_apply_mod">Kunne ikke anvende mod</string>
     <string name="nexus_fomod_or_custom_required">Konfigurer FOMOD-installationsprogrammet, eller vælg Brugerdefineret placering, før du ansøger.</string>

@@ -395,6 +395,26 @@ class FomodInstallerTest {
     }
 
     @Test
+    fun missingSelectedMapping_isAResolvableFileIssueWithoutADuplicateBlocker() {
+        val installer = FomodInstaller(
+            moduleName = "Missing source",
+            requiredFiles = listOf(FomodFileMapping("Missing.dll", "Missing.dll", priority = 0, directory = false)),
+            steps = emptyList(),
+        )
+
+        val plan = FomodRecipeGenerator.generateForPluginKeys(
+            installId = "missing",
+            installer = installer,
+            selectedPluginKeys = emptySet(),
+            extractedRoot = tempDir,
+        ).plan!!
+
+        assertEquals(1, plan.unresolvedCount)
+        assertTrue(plan.blockingIssues.isEmpty())
+        assertTrue(!plan.isComplete)
+    }
+
+    @Test
     fun equalPrioritySelectedBodyFiles_overrideRequiredDefaultsDuringMaterialization() = runBlocking {
         val moduleConfig = writeModuleConfig(
             """
@@ -405,11 +425,15 @@ class FomodInstallerTest {
               </requiredInstallFiles>
               <installSteps><installStep name="Body"><optionalFileGroups>
                 <group name="Shape" type="SelectExactlyOne"><plugins>
-                  <plugin name="Vanilla"><files>
-                    <folder source="02 Vanilla" destination="" priority="0" />
-                  </files></plugin>
+                  <plugin name="Vanilla"><conditionFlags>
+                    <flag name="BodyShape">Vanilla</flag>
+                  </conditionFlags></plugin>
                 </plugins></group>
               </optionalFileGroups></installStep></installSteps>
+              <conditionalFileInstalls><patterns><pattern>
+                <dependencies><flagDependency flag="BodyShape" value="Vanilla" /></dependencies>
+                <files><folder source="02 Vanilla" destination="" priority="0" /></files>
+              </pattern></patterns></conditionalFileInstalls>
             </config>
             """.trimIndent(),
         )

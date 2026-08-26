@@ -228,6 +228,80 @@ class AutomaticPlacementPlannerTest {
     }
 
     @Test
+    fun provenModDirectory_treatsDifferentlyShapedVersionFoldersAsOneChoice() {
+        val entries = archive(
+            "CharacterEditor/About/About.xml",
+            "CharacterEditor/Defs/CharEditor.xml",
+            "CharacterEditor/Textures/Icon.png",
+            "CharacterEditor/v1.0/0Harmony.dll",
+            "CharacterEditor/v1.0/CharacterEditor.dll",
+            "CharacterEditor/v1.1/Assemblies/CharacterEditor.dll",
+            "CharacterEditor/v1.3/Assemblies/CharacterEditor.dll",
+            "CharacterEditor/v1.3/Defs/GradientHairMasks.xml",
+            "CharacterEditor/v1.6/Assemblies/CharacterEditor.dll",
+            "CharacterEditor/v1.6/Defs/LifeStageGiant.xml",
+            "CharacterEditor/v1.6/Gradients/GradientHairMasks.xml",
+        )
+        val context = AutomaticPlacementContext(
+            defaultTargetRelativePath = "Mods",
+            defaultTargetIsProven = true,
+        )
+        val initial = AutomaticPlacementPlanner.plan("RimWorld", entries, context = context)
+        val optionGroup = initial.optionGroups.single()
+
+        assertEquals(
+            setOf(
+                "CharacterEditor/v1.0",
+                "CharacterEditor/v1.1",
+                "CharacterEditor/v1.3",
+                "CharacterEditor/v1.6",
+            ),
+            optionGroup.choices.mapTo(mutableSetOf()) { it.sourceDirectory },
+        )
+        assertEquals(
+            setOf("CharacterEditor/About", "CharacterEditor/Defs", "CharacterEditor/Textures"),
+            optionGroup.commonSourceDirectories.toSet(),
+        )
+
+        val plan = AutomaticPlacementPlanner.plan(
+            gameName = "RimWorld",
+            entries = entries,
+            selectedOptions = mapOf("previous-detector-id" to "CharacterEditor/v1.6"),
+            context = context,
+        ).recommended!!.plan
+
+        assertTrue(plan.blockingIssues.toString(), plan.isComplete)
+        assertEquals(
+            setOf(
+                "Mods/CharacterEditor/About/About.xml",
+                "Mods/CharacterEditor/Defs/CharEditor.xml",
+                "Mods/CharacterEditor/Textures/Icon.png",
+                "Mods/CharacterEditor/Assemblies/CharacterEditor.dll",
+                "Mods/CharacterEditor/Defs/LifeStageGiant.xml",
+                "Mods/CharacterEditor/Gradients/GradientHairMasks.xml",
+            ),
+            plan.files.filter { it.status == PlannedFileStatus.PLACED }.map { it.targetRelativePath }.toSet(),
+        )
+        assertTrue(
+            plan.files.filter { "/v1." in it.sourceRelativePath && !it.sourceRelativePath.startsWith("CharacterEditor/v1.6/") }
+                .all { it.status == PlannedFileStatus.INTENTIONALLY_IGNORED },
+        )
+    }
+
+    @Test
+    fun unrelatedPairOfNumberedFolders_isNotAssumedToBeAChoice() {
+        val result = AutomaticPlacementPlanner.plan(
+            gameName = "Numbered content",
+            entries = archive(
+                "Package/v1.0/Textures/First.dds",
+                "Package/v2.0/Sounds/Second.wav",
+            ),
+        )
+
+        assertTrue(result.optionGroups.isEmpty())
+    }
+
+    @Test
     fun provenTargetContainer_isMergedWithoutDuplicatingItsFolderName() {
         val result = AutomaticPlacementPlanner.plan(
             gameName = "Plugin game",

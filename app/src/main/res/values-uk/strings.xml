@@ -2051,7 +2051,6 @@
     <string name="nexus_applying_mod_files">Застосування файлів мод</string>
     <string name="nexus_applied_items_backups">Застосовані елементи: %1$d, резервні копії: %2$d%3$s</string>
     <string name="nexus_old_files_left_in_place_suffix">; %1$d старі файли, залишені на місці</string>
-    <string name="nexus_applied_with_errors">Застосовано з помилками %1$d</string>
     <string name="nexus_mod_apply_already_running">Модифікаційні файли вже застосовуються.</string>
     <string name="nexus_failed_to_apply_mod">Не вдалося застосувати мод</string>
     <string name="nexus_fomod_or_custom_required">Налаштуйте інсталятор FOMOD або виберіть Нестандартне розміщення перед застосуванням.</string>

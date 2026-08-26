@@ -2053,7 +2053,6 @@
     <string name="nexus_applying_mod_files">Aplicar archivos mod</string>
     <string name="nexus_applied_items_backups">Elementos aplicados: %1$d, copias de seguridad: %2$d%3$s</string>
     <string name="nexus_old_files_left_in_place_suffix">; archivos antiguos dejados en su lugar: %1$d</string>
-    <string name="nexus_applied_with_errors">Aplicado con errores: %1$d</string>
     <string name="nexus_mod_apply_already_running">Los archivos Mod ya se están aplicando.</string>
     <string name="nexus_failed_to_apply_mod">No se pudo aplicar el mod</string>
     <string name="nexus_fomod_or_custom_required">Configure el instalador FOMOD o elija Ubicación personalizada antes de realizar la solicitud.</string>

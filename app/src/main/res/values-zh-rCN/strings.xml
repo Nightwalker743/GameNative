@@ -2072,7 +2072,6 @@
     <string name="nexus_applying_mod_files">应用 mod 文件</string>
     <string name="nexus_applied_items_backups">已应用%1$d项目，备份%2$d%3$s</string>
     <string name="nexus_old_files_left_in_place_suffix">; %1$d 旧文件保留在原处</string>
-    <string name="nexus_applied_with_errors">应用时出现 %1$d 错误</string>
     <string name="nexus_mod_apply_already_running">Mod 文件已被应用。</string>
     <string name="nexus_failed_to_apply_mod">应用模组失败</string>
     <string name="nexus_fomod_or_custom_required">配置FOMOD 安装程序或在应用之前选择自定义放置。</string>
