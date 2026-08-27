@@ -302,6 +302,42 @@ class AutomaticPlacementPlannerTest {
     }
 
     @Test
+    fun ordinaryContentNamespacesWithMatchingLayouts_areNotPackageVariants() {
+        val cases = listOf(
+            archive(
+                "Package/dungeons/cove/shared/room.darkest",
+                "Package/dungeons/crypts/shared/room.darkest",
+                "Package/dungeons/town/shared/room.darkest",
+            ),
+            archive(
+                "CreativeMode/interface/cheatingtable/window.config",
+                "CreativeMode/interface/furnituretable/window.config",
+                "CreativeMode/interface/spawningtable/window.config",
+            ),
+        )
+
+        cases.forEach { entries ->
+            assertTrue(GenericOptionSetDetector.detect(ModArchiveIndex.build(entries)).isEmpty())
+        }
+    }
+
+    @Test
+    fun structuralWrappersAroundAnInstallRoot_areStillPackageVariants() {
+        val result = AutomaticPlacementPlanner.plan(
+            gameName = "Modded game",
+            entries = archive(
+                "Blue/Data/textures/shared.dds",
+                "Red/Data/textures/shared.dds",
+            ),
+        )
+
+        assertEquals(
+            setOf("Blue", "Red"),
+            result.optionGroups.single().choices.mapTo(mutableSetOf()) { it.sourceDirectory },
+        )
+    }
+
+    @Test
     fun provenTargetContainer_isMergedWithoutDuplicatingItsFolderName() {
         val result = AutomaticPlacementPlanner.plan(
             gameName = "Plugin game",

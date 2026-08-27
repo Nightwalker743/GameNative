@@ -3837,12 +3837,7 @@ fun NexusModsDialog(
                                     canUseLastPlacement = lastPlacementDrafts.isNotEmpty(),
                                     onPlacementChoiceChange = { choice ->
                                         placementApplyStatusMessage = null
-                                            val carriedAutomaticPlan = automaticPlacementResult?.recommended?.plan
-                                                ?.takeIf {
-                                                    choice == PlacementChoice.CUSTOM &&
-                                                        placementChoice == PlacementChoice.AUTOMATIC
-                                                }
-                                            reviewedPlacementPlan = carriedAutomaticPlan
+                                        reviewedPlacementPlan = null
                                         val currentDrafts = recipeDrafts.toList()
                                         placementChoice = choice
                                         recipeDrafts.clear()

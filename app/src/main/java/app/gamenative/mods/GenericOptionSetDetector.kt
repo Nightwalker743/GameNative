@@ -15,6 +15,13 @@ data class GenericOptionGroup(
 )
 
 object GenericOptionSetDetector {
+    private val installBoundaryPrefixes = buildSet {
+        add("data")
+        ModPlacementRulePacks.builtIns
+            .flatMap { it.directoryTargets.values }
+            .mapTo(this) { normalizeArchiveDisplayPath(it).lowercase(Locale.ROOT) }
+    }
+
     fun detect(index: ModArchiveIndex): List<GenericOptionGroup> {
         if (index.hasFomod) return emptyList()
         val directories = index.nodes.filter { it.descendantFileCount > 0 }
@@ -55,6 +62,19 @@ object GenericOptionSetDetector {
                     signatures.getValue(root).intersect(signatures.getValue(other)).isNotEmpty()
             }
         }
+        val parentLooksLikeOptionContainer = siblings.first().normalizedKey
+            .substringBeforeLast('/', "")
+            .substringAfterLast('/')
+            .let { parent ->
+                listOf("option", "variant", "choose", "choice", "pick one").any(parent::contains)
+            }
+        val installBoundaries = siblings.associateWith { root ->
+            signatures.getValue(root).mapNotNullTo(mutableSetOf()) { relative ->
+                installBoundaryPrefixes.firstOrNull { boundary ->
+                    relative == boundary || relative.startsWith("$boundary/")
+                }
+            }
+        }
         val related = siblings.associateWith { root ->
             siblings.filter { other ->
                 if (root == other) return@filter false
@@ -62,8 +82,12 @@ object GenericOptionSetDetector {
                 val smaller = minOf(signatures.getValue(root).size, signatures.getValue(other).size).coerceAtLeast(1)
                 val versionAlternatives = versionFamilyHasEvidence &&
                     root.normalizedKey in versionChoices && other.normalizedKey in versionChoices
+                val wrapperEvidence = root.optionStyleWrapper ||
+                    other.optionStyleWrapper ||
+                    parentLooksLikeOptionContainer ||
+                    installBoundaries.getValue(root).intersect(installBoundaries.getValue(other)).isNotEmpty()
                 versionAlternatives ||
-                    (overlap > 0 && (overlap.toDouble() / smaller >= 0.6 || root.optionStyleWrapper || other.optionStyleWrapper))
+                    (wrapperEvidence && overlap > 0 && overlap.toDouble() / smaller >= 0.6)
             }
         }
         val visited = mutableSetOf<String>()
