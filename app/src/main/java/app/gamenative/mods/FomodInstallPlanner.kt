@@ -50,6 +50,12 @@ object FomodSelectionEvaluator {
             if (moduleDependencyState == FomodFactState.UNKNOWN && installer.moduleDependencies.hasFacts()) {
                 add("FOMOD game requirements could not be verified; the selected package version will be used")
             }
+            if (
+                installer.steps.flatMap { it.groups }.flatMap { it.plugins }.flatMap { it.typePatterns }
+                    .any { it.dependencies.evaluate(flags, environment) == FomodFactState.UNKNOWN }
+            ) {
+                add("FOMOD option availability could not be verified; your explicit choices will be used")
+            }
         }
         val blockers = buildList {
             addAll(installer.unsupportedWarnings)
@@ -69,12 +75,6 @@ object FomodSelectionEvaluator {
                     .any { it.dependencies.unsupportedCount() > 0 }
             ) {
                 add("FOMOD option availability depends on unsupported game facts")
-            }
-            if (
-                installer.steps.flatMap { it.groups }.flatMap { it.plugins }.flatMap { it.typePatterns }
-                    .any { it.dependencies.evaluate(flags, environment) == FomodFactState.UNKNOWN }
-            ) {
-                add("FOMOD option availability depends on unknown game facts")
             }
         }
         return FomodSelectionEvaluation(expected, flags, warnings.distinct(), blockers.distinct())

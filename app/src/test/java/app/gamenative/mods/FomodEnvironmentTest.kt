@@ -71,6 +71,36 @@ class FomodEnvironmentTest {
     }
 
     @Test
+    fun unknownOptionAvailability_warnsWithoutBlockingSelectedVersion() {
+        val installer = FomodInstaller(
+            moduleName = "Version-gated installer",
+            requiredFiles = emptyList(),
+            steps = listOf(
+                FomodStep(
+                    name = "Main",
+                    groups = listOf(
+                        FomodGroup(
+                            name = "DLL",
+                            type = FomodGroupType.SELECT_EXACTLY_ONE,
+                            plugins = listOf(
+                                versionedPlugin("New game version", "New/Example.dll", "1.6.629"),
+                                versionedPlugin("Old game version", "Old/Example.dll", "1.6.353"),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val selected = setOf(FomodRecipeGenerator.pluginKey(0, 0, 0))
+        val result = FomodSelectionEvaluator.evaluate(installer, selected)
+
+        assertEquals(listOf("New/Example.dll"), result.mappings.map { it.mapping.source })
+        assertTrue(result.blockingIssues.isEmpty())
+        assertTrue(result.warnings.any { "explicit choices" in it })
+    }
+
+    @Test
     fun environment_discoversScriptExtenderVersionAndDllArchitecture() {
         val root = createTempDirectory("fomod-environment").toFile()
         try {
@@ -108,6 +138,22 @@ class FomodEnvironmentTest {
             putShort(0x84, machine.toShort())
         }
     }
+
+    private fun versionedPlugin(name: String, source: String, version: String) = FomodPlugin(
+        name = name,
+        description = "",
+        imagePath = "",
+        type = FomodPluginType.OPTIONAL,
+        files = listOf(FomodFileMapping(source, "SKSE/Plugins/Example.dll", 0, false)),
+        typePatterns = listOf(
+            FomodTypePattern(
+                dependencies = FomodDependencyExpression(
+                    gameDependencies = listOf(FomodGameDependency(version)),
+                ),
+                type = FomodPluginType.RECOMMENDED,
+            ),
+        ),
+    )
 
     private fun assertTrue(value: Boolean) = org.junit.Assert.assertTrue(value)
 }
