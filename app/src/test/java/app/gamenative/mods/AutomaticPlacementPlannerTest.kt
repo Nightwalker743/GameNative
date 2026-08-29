@@ -338,6 +338,36 @@ class AutomaticPlacementPlannerTest {
     }
 
     @Test
+    fun readmeTrees_areIgnoredAndNeverBecomePackageVariants() {
+        val entries = archive(
+            "Campaign Module/Module.ini",
+            "Campaign Module/troops.txt",
+            "Campaign Module/_README_PACKAGE/OPTIONAL_FONT_ENG/font.dds",
+            "Campaign Module/_README_PACKAGE/OPTIONAL_FONT_RUS_UKR_ENG/font.dds",
+        )
+        val result = AutomaticPlacementPlanner.plan(
+            gameName = "Module game",
+            entries = entries,
+            context = AutomaticPlacementContext(
+                defaultTargetRelativePath = "Modules",
+                defaultTargetIsProven = true,
+            ),
+        )
+
+        assertTrue(result.optionGroups.isEmpty())
+        val plan = result.recommended!!.plan
+        assertTrue(plan.blockingIssues.toString(), plan.isComplete)
+        assertEquals(
+            setOf("Campaign Module/Module.ini", "Campaign Module/troops.txt"),
+            plan.files.filter { it.status == PlannedFileStatus.PLACED }.mapTo(mutableSetOf()) { it.sourceRelativePath },
+        )
+        assertTrue(
+            plan.files.filter { "/_README_PACKAGE/" in it.sourceRelativePath }
+                .all { it.status == PlannedFileStatus.INTENTIONALLY_IGNORED },
+        )
+    }
+
+    @Test
     fun provenTargetContainer_isMergedWithoutDuplicatingItsFolderName() {
         val result = AutomaticPlacementPlanner.plan(
             gameName = "Plugin game",

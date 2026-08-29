@@ -448,7 +448,10 @@ object AutomaticPlacementPlanner {
         drafts.forEach { draft ->
             ModPlacementSources.decode(draft.sourceSubpath).ifEmpty { listOf("") }.forEach { source ->
                 val sourceIsDirectory = source.isBlank() || index.isDirectory(source)
-                index.filesUnder(source).forEach { file ->
+                index.filesUnder(source).forEach fileLoop@ { file ->
+                    if (!file.role.participatesInAutomaticPlacement() && file.role != ArchiveContentRole.INVALID) {
+                        return@fileLoop
+                    }
                     val relative = when {
                         source.isBlank() -> file.displayPath
                         !sourceIsDirectory -> file.displayPath.substringAfterLast('/')

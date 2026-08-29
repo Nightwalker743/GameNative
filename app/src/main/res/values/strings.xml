@@ -1980,7 +1980,7 @@
     <string name="nexus_install_method">Install method</string>
     <string name="nexus_advanced_placement">Advanced placement</string>
     <string name="nexus_hide_advanced_placement">Hide advanced placement</string>
-    <string name="nexus_advanced_placement_description">Automatic placement is recommended. Open advanced placement only to choose presets, reuse an earlier layout, or map files yourself.</string>
+    <string name="nexus_advanced_placement_description">Automatic placement is a best estimate. Check that the planned files and destinations match the mod’s installation instructions. If they do not, open Advanced placement and choose Custom to map them yourself.</string>
     <string name="nexus_folder_layout">At the destination, install</string>
     <string name="nexus_everything_folder_layout">Top-level folders keep their names; root files go directly in the destination</string>
     <string name="nexus_install_contents_of">Contents of %1$s</string>

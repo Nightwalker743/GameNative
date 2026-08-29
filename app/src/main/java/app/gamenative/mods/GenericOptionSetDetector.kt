@@ -50,11 +50,15 @@ object GenericOptionSetDetector {
     ): List<GenericOptionGroup> {
         if (siblings.size < 2) return emptyList()
         val signatures = siblings.associateWith { node ->
-            index.filesUnder(node.displayPath).mapTo(mutableSetOf()) { file ->
-                file.normalizedKey.removePrefix("${node.normalizedKey}/")
-            }
+            index.filesUnder(node.displayPath)
+                .filter { it.role.participatesInAutomaticPlacement() }
+                .mapTo(mutableSetOf()) { file ->
+                    file.normalizedKey.removePrefix("${node.normalizedKey}/")
+                }
         }
-        val versionChoices = siblings.filter { it.displayPath.substringAfterLast('/').isVersionChoiceName() }
+        val versionChoices = siblings.filter {
+            signatures.getValue(it).isNotEmpty() && it.displayPath.substringAfterLast('/').isVersionChoiceName()
+        }
             .mapTo(mutableSetOf()) { it.normalizedKey }
         val versionFamilyHasEvidence = versionChoices.size >= 3 || siblings.any { root ->
             root.normalizedKey in versionChoices && siblings.any { other ->

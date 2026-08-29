@@ -753,14 +753,23 @@ private fun PlacementPlanReview(
                     color = MaterialTheme.colorScheme.error,
                 )
                 if (onResolve != null) {
+                    val resolveCount = plan.unresolvedCount + ambiguousPaths.size
                     Button(onClick = onResolve, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.nexus_resolve_files, plan.unresolvedCount + ambiguousPaths.size))
+                        Text(
+                            if (resolveCount > 0) {
+                                stringResource(R.string.nexus_resolve_files, resolveCount)
+                            } else {
+                                stringResource(R.string.nexus_custom_placement)
+                            },
+                        )
                     }
-                    Text(
-                        stringResource(R.string.nexus_resolve_files_description),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    if (resolveCount > 0) {
+                        Text(
+                            stringResource(R.string.nexus_resolve_files_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
             if (diff?.hasChanges == true) {

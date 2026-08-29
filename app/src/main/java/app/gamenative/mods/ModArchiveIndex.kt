@@ -178,7 +178,7 @@ data class ModArchiveIndex(
             val rootDocumentation =
                 segments.size == 1 && listOf(".htm", ".html", ".rtf").any(name::endsWith)
             if (
-                segments.dropLast(1).any { it in documentationDirectories } ||
+                segments.dropLast(1).any(::isDocumentationDirectory) ||
                 documentationNamePrefixes.any(name::startsWith) ||
                 name.endsWith(".md") ||
                 name.endsWith(".pdf") ||
@@ -190,6 +190,15 @@ data class ModArchiveIndex(
                 return ArchiveContentRole.RISKY_ROOT
             }
             return ArchiveContentRole.INSTALLABLE
+        }
+
+        private fun isDocumentationDirectory(segment: String): Boolean {
+            val name = segment.trim(' ', '_', '-', '.')
+            return name in documentationDirectories ||
+                name.startsWith("readme") ||
+                name.startsWith("documentation") ||
+                name.startsWith("manual") ||
+                name.startsWith("screenshot")
         }
 
         private fun looksLikeOptionWrapper(name: String): Boolean {
@@ -211,6 +220,9 @@ data class ModArchiveIndex(
         }
     }
 }
+
+internal fun ArchiveContentRole.participatesInAutomaticPlacement(): Boolean =
+    this == ArchiveContentRole.INSTALLABLE || this == ArchiveContentRole.RISKY_ROOT
 
 internal fun normalizeArchiveDisplayPath(path: String): String =
     path.trim().replace('\\', '/').split('/').filter { it.isNotBlank() && it != "." }.joinToString("/")
