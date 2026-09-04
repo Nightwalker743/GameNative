@@ -130,6 +130,13 @@
     <string name="steam_collections_offline">Showing last synced collections. Connect to update.</string>
     <string name="steam_collections_clear">Clear</string>
     <string name="steam_collections_smart_unsupported">Only standard collections are shown. Smart collections aren\'t supported yet.</string>
+
+    <string name="curated_lists_title">Steam curated lists</string>
+    <string name="curated_lists_loading">Loading curated lists…</string>
+    <string name="curated_lists_offline">Using the saved list. Connect to update.</string>
+    <string name="curated_lists_clear">Clear</string>
+    <string name="curated_lists_empty">No curated lists available right now.</string>
+    <string name="curated_list_4_3_name">Does it 4:3?</string>
     <string name="default_user_name">User</string>
 
     <!-- Custom Games -->
@@ -224,6 +231,10 @@
     <string name="open_file">Open File</string>
     <string name="download_file">Download File</string>
     <string name="processor_affinity">Processor Affinity</string>
+    <string name="faster_external_loading_title">Faster loading from external storage</string>
+    <string name="faster_external_loading_subtitle">Can significantly speed up game boot from external storage, but may cause issues in some games</string>
+    <string name="disable_libredirect_title">Disable libredirect</string>
+    <string name="disable_libredirect_subtitle">May improve performance but may also cause unexpected issues</string>
     <string name="bring_to_front">Bring to Front</string>
     <string name="end_process">End Process</string>
     <string name="new_file">New File</string>
@@ -1743,6 +1754,44 @@
     <string name="option_test_graphics">Test graphics</string>
     <string name="option_play_with_diagnostics">Diagnostic Run</string>
     <string name="option_share_diagnostics">Share diagnostics</string>
+    <string name="option_ai_debug_run">Get AI help</string>
+    <string name="debug_report_title">AI Debug Report</string>
+    <string name="debug_report_summary">%1$s · %2$s · log captured (%3$s MB)</string>
+    <string name="debug_report_what_went_wrong">What went wrong?</string>
+    <string name="debug_report_send">Send</string>
+    <string name="debug_report_share_instead">Share instead</string>
+    <string name="debug_report_connect_hint">Connect your Discord account so our AI can reply to you in a support thread.</string>
+    <string name="debug_report_connect_discord">Connect Discord</string>
+    <string name="debug_report_sending">Sending your report…</string>
+    <string name="debug_report_success_title">Report sent</string>
+    <string name="debug_report_success_message">A support thread was opened in our Discord. Our AI is reading your log and will reply there.</string>
+    <string name="debug_report_open_discord">Open Discord</string>
+    <string name="debug_report_failed_title">Could not send report</string>
+    <string name="debug_report_failed_message">Your report is saved on this device. Retry when you are back online, or share the log instead.</string>
+    <string name="debug_report_retry">Retry</string>
+    <string name="debug_report_share_log_title">Share debug log</string>
+    <string name="debug_report_discord_linked">Discord connected</string>
+    <string name="debug_report_no_log">No debug log was captured for this run.</string>
+    <string name="debug_paywall_title">Get AI debug support</string>
+    <string name="debug_paywall_pitch">Our AI reads your exact log and config and tells you what to change, usually in under 5 minutes.</string>
+    <string name="debug_paywall_tier5_title">$5/month · Supporter</string>
+    <string name="debug_paywall_tier5_body">Our base AI reads your debug report and replies in Discord with a fix to try, plus up to two follow-up answers.</string>
+    <string name="debug_paywall_tier10_title">$10/month · Pro</string>
+    <string name="debug_paywall_tier10_body">Our smartest AI model, with unlimited back-and-forth in your support thread.</string>
+    <string name="debug_paywall_cancel_anytime">Cancel anytime.</string>
+    <string name="debug_paywall_costs_note">Subscriptions cover the AI service costs that make this feature possible.</string>
+    <string name="debug_paywall_subscribe">Subscribe on Discord</string>
+    <string name="debug_paywall_kofi_alt">Subscribe on Ko-fi</string>
+    <string name="debug_paywall_already">Already a supporter?</string>
+    <string name="debug_paywall_send_now">I’ve subscribed, send now</string>
+    <string name="debug_paywall_not_now">Not now</string>
+    <string name="debug_offer_title">Get AI help with this crash</string>
+    <string name="debug_offer_message">That session ended early. Run %1$s once more with debug logging and our AI will read the log and tell you what to change.</string>
+    <string name="debug_offer_confirm">Start debug run</string>
+    <string name="debug_prerun_title">Get AI help</string>
+    <string name="debug_prerun_message_1">Runs the game with debug logging and shares the log with our AI on Discord when you quit. Run the game until you experience the issue.</string>
+    <string name="debug_prerun_message_2">AI replies are for subscribers only.</string>
+    <string name="debug_prerun_message_3">Anyone can share the report for human help.</string>
     <string name="diagnostics_share_title">Share diagnostics log</string>
     <string name="diagnostics_share_none">No diagnostics log yet. Use \"Diagnostic Run\" first.</string>
     <string name="option_manage_dlc">Manage DLC</string>
@@ -2403,6 +2452,22 @@
     <string name="nexus_invalid_source_metadata">This managed mod has incomplete source information and cannot be retried.</string>
     <string name="nexus_archive_memory_error">Archive needs more memory than Android allows. Retry after updating GameNative or choose a smaller file.</string>
 
+    <!-- Steam achievements -->
+    <string name="achievements">Achievements</string>
+    <string name="achievements_all_title">All Achievements</string>
+    <string name="achievements_unlocked_at">Unlocked on %1$s at %2$s</string>
+    <string name="achievements_complete">All achievements unlocked</string>
+    <string name="achievements_progress_count">%1$d / %2$d (%3$d%%)</string>
+    <plurals name="achievements_hidden_remaining">
+        <item quantity="one">%1$d hidden achievement remaining</item>
+        <item quantity="other">%1$d hidden achievements remaining</item>
+    </plurals>
+    <string name="achievements_hidden_subtitle">The details of each achievement will be revealed once unlocked</string>
+    <string name="achievements_reveal_title">Reveal hidden achievements?</string>
+    <string name="achievements_reveal_message">This shows the remaining secret achievements and their details for now. It is not remembered.</string>
+    <string name="achievements_reveal_confirm">Reveal</string>
+    <string name="achievements_locked">Locked</string>
+
     <!-- Power Control -->
     <string name="power_control">Power Control</string>
     <string name="power_control_info">Control CPU frequency scaling and governor settings. Requires PServer service.</string>
@@ -2447,4 +2512,47 @@
     <string name="nexus_previous_rule_page">Previous placement-rule page</string>
     <string name="nexus_next_rule_page">Next placement-rule page</string>
     <string name="nexus_placement_rule_range">Placement rules %1$d–%2$d of %3$d</string>
+    <string name="binding_mode_simultaneous">Simultaneous</string>
+    <string name="binding_mode_sequence">Sequence</string>
+    <string name="binding_sequence_delay_ms">Sequence delay (ms)</string>
+    <string name="binding_sequence_current_format">%1$s (%2$d ms)</string>
+    <string name="gyro_aiming">Gyro aiming</string>
+    <string name="gyro_settings_title">Gyro settings</string>
+    <string name="gyro_section_output">Output and motion</string>
+    <string name="gyro_section_activation">Activation</string>
+    <string name="gyro_section_response">Response</string>
+    <string name="gyro_output">Output</string>
+    <string name="gyro_output_subtitle">Choose what device motion controls.</string>
+    <string name="gyro_tilt_steering">Tilt steering</string>
+    <string name="gyro_tilt_steering_subtitle">Hold the device at an angle to sustain horizontal stick input. The current position is centered whenever gyro activates.</string>
+    <string name="gyro_tilt_unavailable">This device does not provide the orientation sensor required for tilt steering.</string>
+    <string name="gyro_activation">Activation</string>
+    <string name="gyro_activation_help">Hold, Toggle, and Ratchet use a control assigned to Gyro.</string>
+    <string name="gyro_activation_always">Always</string>
+    <string name="gyro_activation_hold">Hold</string>
+    <string name="gyro_activation_toggle">Toggle</string>
+    <string name="gyro_activation_ratchet">Ratchet</string>
+    <string name="gyro_control_not_assigned">Gyro: Not assigned</string>
+    <string name="gyro_assign_in_controls_editor">Assign in controls editor</string>
+    <string name="gyro_sensitivity">Sensitivity</string>
+    <string name="gyro_sensitivity_subtitle">Controls how strongly device rotation affects the selected output.</string>
+    <string name="gyro_tilt_full_scale">Full steering angle</string>
+    <string name="gyro_tilt_full_scale_subtitle">Device tilt from center required to reach full left or right stick input.</string>
+    <string name="gyro_tilt_deadzone">Tilt deadzone</string>
+    <string name="gyro_tilt_deadzone_subtitle">Ignores small tilts around the centered position.</string>
+    <string name="gyro_vertical_scale">Vertical sensitivity</string>
+    <string name="gyro_vertical_scale_subtitle">Adjusts vertical movement relative to horizontal movement.</string>
+    <string name="gyro_steadying">Steadying threshold</string>
+    <string name="gyro_steadying_subtitle">Ignores very small unintentional motion before applying sensitivity.</string>
+    <string name="gyro_smoothing">Smoothing</string>
+    <string name="gyro_smoothing_subtitle">Reduces sensor jitter at the cost of some aiming latency.</string>
+    <string name="gyro_stick_anti_deadzone">Stick anti-deadzone</string>
+    <string name="gyro_stick_anti_deadzone_subtitle">Compensates for the game’s inner stick deadzone.</string>
+    <string name="gyro_invert_horizontal">Invert horizontal gyro</string>
+    <string name="gyro_invert_vertical">Invert vertical gyro</string>
+    <string name="gyro_percent_value">%1$d%%</string>
+    <string name="gyro_degrees_value">%1$d°</string>
+    <string name="gyro_degrees_per_second_value">%1$.1f°/s</string>
+    <string name="gyro_milliseconds_value">%1$d ms</string>
+    <string name="reset_gyro_settings">Reset gyro settings</string>
 </resources>

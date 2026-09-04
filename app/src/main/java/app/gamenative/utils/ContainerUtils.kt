@@ -335,6 +335,8 @@ object ContainerUtils {
             fexcorePreset = container.getFEXCorePreset(),
             language = container.language,
             sdlControllerAPI = container.isSdlControllerAPI,
+            fasterExternalLoading = container.isFasterExternalLoading,
+            disableLibredirect = container.isDisableLibredirect,
             useSteamInput = useSteamInput,
             forceDlc = container.isForceDlc,
             localSavesOnly = container.isLocalSavesOnly,
@@ -438,6 +440,7 @@ object ContainerUtils {
                 "audioDriver" -> value?.let { updatedData.copy(audioDriver = it as? String ?: updatedData.audioDriver) } ?: updatedData
                 "wincomponents" -> value?.let { updatedData.copy(wincomponents = it as? String ?: updatedData.wincomponents) } ?: updatedData
                 "videoMemorySize" -> value?.let { updatedData.copy(videoMemorySize = it as? String ?: updatedData.videoMemorySize) } ?: updatedData
+                "launchBionicSteam" -> value?.let { updatedData.copy(launchBionicSteam = it as? Boolean ?: updatedData.launchBionicSteam) } ?: updatedData
                 else -> updatedData
             }
         }
@@ -519,6 +522,8 @@ object ContainerUtils {
         container.box86Preset = containerData.box86Preset
         container.box64Preset = containerData.box64Preset
         container.isSdlControllerAPI = containerData.sdlControllerAPI
+        container.isFasterExternalLoading = containerData.fasterExternalLoading
+        container.isDisableLibredirect = containerData.disableLibredirect
         container.putExtra("useSteamInput", containerData.useSteamInput)
         container.desktopTheme = containerData.desktopTheme
         container.graphicsDriverVersion = containerData.graphicsDriverVersion
