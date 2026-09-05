@@ -1940,10 +1940,12 @@ private fun ContainerDestinationPickerDialog(
             confirmButton = {
                 Button(
                     onClick = {
-                        selectedDestination = File(currentDir, newFolderName.trim())
-                        showNewFolderDialog = false
+                        currentDir?.let { parent ->
+                            selectedDestination = File(parent, newFolderName.trim())
+                            showNewFolderDialog = false
+                        }
                     },
-                    enabled = validName,
+                    enabled = validName && currentDir != null,
                 ) { Text(stringResource(R.string.nexus_use_folder)) }
             },
             dismissButton = {
