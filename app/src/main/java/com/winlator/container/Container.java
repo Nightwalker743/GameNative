@@ -86,6 +86,7 @@ public class Container {
     private String rendererPresentMode = "fifo";
     private String displayRenderer = Container.DEFAULT_DISPLAY_RENDERER;
     private int xrRefreshRate = 72;
+    private int xrRenderScale = 100;
     private boolean sfCompatMode = true;
     private String wincomponents = DEFAULT_WINCOMPONENTS;
     private String audioDriver = DEFAULT_AUDIO_DRIVER;
@@ -128,6 +129,7 @@ public class Container {
     private boolean sdlControllerAPI;
     private boolean fasterExternalLoading;
     private boolean disableLibredirect;
+    private boolean disableEpicOverlay;
 
     // Preferred game language for Goldberg force_language.txt
     private String language = "english";
@@ -280,6 +282,10 @@ public class Container {
 
     public void setXrRefreshRate(int v) { this.xrRefreshRate = v; }
 
+    public int getXrRenderScale() { return xrRenderScale; }
+
+    public void setXrRenderScale(int v) { this.xrRenderScale = v; }
+
     public void setDisplayRenderer(String v) { this.displayRenderer = v; }
 
     public boolean getSfCompatMode() { return sfCompatMode; }
@@ -412,6 +418,14 @@ public class Container {
 
     public void setDisableLibredirect(boolean disableLibredirect) {
         this.disableLibredirect = disableLibredirect;
+    }
+
+    public boolean isDisableEpicOverlay() {
+        return disableEpicOverlay;
+    }
+
+    public void setDisableEpicOverlay(boolean disableEpicOverlay) {
+        this.disableEpicOverlay = disableEpicOverlay;
     }
 
     public String getLanguage() {
@@ -721,6 +735,7 @@ public class Container {
             data.put("rendererPresentMode", rendererPresentMode);
             data.put("displayRendererMode", displayRenderer);
             data.put("xrRefreshRate", xrRefreshRate);
+            data.put("xrRenderScale", xrRenderScale);
             data.put("sfCompatMode", sfCompatMode);
             data.put("dxwrapper", dxwrapper);
             if (!dxwrapperConfig.isEmpty()) data.put("dxwrapperConfig", dxwrapperConfig);
@@ -756,6 +771,7 @@ public class Container {
             data.put("sdlControllerAPI", sdlControllerAPI);
             data.put("fasterExternalLoading", fasterExternalLoading);
             data.put("disableLibredirect", disableLibredirect);
+            data.put("disableEpicOverlay", disableEpicOverlay);
             // Disable mouse input flag
             data.put("disableMouseInput", disableMouseInput);
             // Touchscreen mode flag
@@ -850,6 +866,9 @@ public class Container {
                     break;
                 case "xrRefreshRate" :
                     setXrRefreshRate(data.getInt(key));
+                    break;
+                case "xrRenderScale" :
+                    setXrRenderScale(data.getInt(key));
                     break;
                 case "sfCompatMode" :
                     setSfCompatMode(data.getBoolean(key));
@@ -978,6 +997,9 @@ public class Container {
                     break;
                 case "disableLibredirect" :
                     setDisableLibredirect(data.getBoolean(key));
+                    break;
+                case "disableEpicOverlay" :
+                    setDisableEpicOverlay(data.getBoolean(key));
                     break;
                 case "disableMouseInput" :
                     setDisableMouseInput(data.getBoolean(key));

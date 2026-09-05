@@ -1558,6 +1558,7 @@
     <!-- App option menu labels -->
     <string name="option_open_store_page">ストアページを開く</string>
     <string name="option_export_for_frontend">フロントエンド用にエクスポート</string>
+    <string name="option_copy_launch_link">起動リンクをコピー</string>
     <string name="frontend_sync_pick_directory_cd">%1$s のディレクトリを選択</string>
     <string name="frontend_sync_clear_directory_cd">%1$s のディレクトリをクリア</string>
     <string name="option_open_container">オープンコンテナ</string>
@@ -1614,6 +1615,9 @@
     <string name="lsfg_performance_mode_desc">スループットを上げるために品質を下げる</string>
     <string name="settings_interface_show_recommendations_title">ゲームのおすすめを表示</string>
     <string name="settings_interface_show_recommendations_subtitle">パーソナライズされたおすすめを表示します。オンのままにすると GameNative の支援につながります。</string>
+    <string name="settings_interface_library_tabs_title">ライブラリのタブ</string>
+    <string name="settings_interface_library_tabs_subtitle">ライブラリに表示するストアのタブを選択します。</string>
+    <string name="settings_interface_library_tabs_none">ストアのタブなし</string>
     <!-- Game Launch Tips -->
     <string name="game_launch_tip_1">初回起動時は起動に数分かかる場合があります</string>
     <string name="game_launch_tip_2">ヒント: ゲーム設定で \"%s\" を押すと、ゲーム ファイルを表示できます。</string>
@@ -2445,10 +2449,30 @@
     <string name="faster_external_loading_subtitle">外部ストレージからのゲーム起動を大幅に高速化できますが、一部のゲームで問題が発生する可能性があります</string>
     <string name="disable_libredirect_title">libredirect を無効にする</string>
     <string name="disable_libredirect_subtitle">パフォーマンスが向上する場合がありますが、予期しない問題が発生する可能性もあります</string>
+    <string name="disable_epic_overlay_title">Epic オーバーレイを無効にする</string>
+    <string name="disable_epic_overlay_subtitle">EOS オーバーレイと CEF レンダラーを無効にして、一部のゲームでのメモリ不足によるクラッシュを防ぎます</string>
     <string name="binding_mode_simultaneous">同時</string>
     <string name="binding_mode_sequence">シーケンス</string>
     <string name="binding_sequence_delay_ms">シーケンス遅延 (ミリ秒)</string>
     <string name="binding_sequence_current_format">%1$s（%2$d ミリ秒）</string>
+    <string name="immersive_windows_vr_title">Windows VR</string>
+    <string name="immersive_windows_vr_toggle">Windows VRを有効化</string>
+    <string name="immersive_openvr_compatibility_toggle">OpenVR互換（試験的）</string>
+    <string name="immersive_windows_vr_restart_required">ランタイムと互換性の変更は次回起動時に反映されます。</string>
+    <string name="immersive_windows_vr_export">Windows VR診断をエクスポート</string>
+    <string name="immersive_windows_vr_export_desc">ランタイムイベントの要約レポートを保存</string>
+    <string name="xr_windows_vr_toggle">VRアプリとして実行（試験的）</string>
+    <string name="xr_windows_vr_toggle_desc">Beat SaberなどのネイティブVRタイトル向け。arm64ec Wine、DXVK、D3D11が必要です。その他のゲームは平面の没入型画面のままです。</string>
+    <string name="xr_open_composite_toggle">SteamVR（OpenVR）互換</string>
+    <string name="xr_open_composite_toggle_desc">SteamVR向けに作られたゲームをOpenCompositeで動かします。ゲームがSteamVRが起動していないと表示する場合や、VRモードでも平面のままの場合に有効にしてください。</string>
+    <string name="xr_render_scale">VRレンダースケール</string>
+    <string name="settings_info_boot_ads_title">スポンサー付きローディング画面</string>
+    <string name="settings_info_boot_ads_subtitle">オンのままにしておくと GameNative の開発を支援できます。ゲームの起動が遅くなることはなく、あなたに影響することも一切ありません。</string>
+    <string name="settings_info_boot_recs_title">ローディング画面におすすめゲームを表示</string>
+    <string name="settings_info_boot_recs_subtitle">スポンサーカードがないとき、ゲームの起動中におすすめのゲームを表示します。</string>
+    <string name="boot_rec_badge">あなたへのおすすめ</string>
+    <string name="boot_quiz_win_default">正解！</string>
+    <string name="boot_quiz_lose_default">正解は %1$s でした</string>
     <string name="gyro_aiming">ジャイロエイム</string>
     <string name="gyro_settings_title">ジャイロ設定</string>
     <string name="gyro_section_output">出力とモーション</string>

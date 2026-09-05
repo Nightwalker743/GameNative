@@ -137,6 +137,9 @@
     <string name="curated_lists_clear">Clear</string>
     <string name="curated_lists_empty">No curated lists available right now.</string>
     <string name="curated_list_4_3_name">Does it 4:3?</string>
+    <string name="settings_interface_library_tabs_title">Library tabs</string>
+    <string name="settings_interface_library_tabs_subtitle">Choose which store tabs appear in the library.</string>
+    <string name="settings_interface_library_tabs_none">No store tabs</string>
     <string name="default_user_name">User</string>
 
     <!-- Custom Games -->
@@ -235,6 +238,8 @@
     <string name="faster_external_loading_subtitle">Can significantly speed up game boot from external storage, but may cause issues in some games</string>
     <string name="disable_libredirect_title">Disable libredirect</string>
     <string name="disable_libredirect_subtitle">May improve performance but may also cause unexpected issues</string>
+    <string name="disable_epic_overlay_title">Disable Epic Overlay</string>
+    <string name="disable_epic_overlay_subtitle">Disables the EOS overlay and CEF renderer to prevent memory exhaustion crashes in certain games</string>
     <string name="bring_to_front">Bring to Front</string>
     <string name="end_process">End Process</string>
     <string name="new_file">New File</string>
@@ -342,6 +347,12 @@
     <string name="immersive_onboarding_pointer_toggle">Double-click a thumbstick to switch Xbox controller / XR pointer</string>
     <string name="immersive_mode_xr_pointer">XR pointer mode</string>
     <string name="immersive_mode_xbox">Xbox controller mode</string>
+    <string name="immersive_windows_vr_title">Windows VR</string>
+    <string name="immersive_windows_vr_toggle">Enable Windows VR</string>
+    <string name="immersive_openvr_compatibility_toggle">OpenVR compatibility (experimental)</string>
+    <string name="immersive_windows_vr_restart_required">Runtime and compatibility changes apply on the next launch.</string>
+    <string name="immersive_windows_vr_export">Export Windows VR diagnostics</string>
+    <string name="immersive_windows_vr_export_desc">Save the bounded runtime event report</string>
     <string name="tools_wine_processes_running_hint">%1$d running, tap/click a process to close</string>
     <string name="tools_wine_processes_empty">No running EXEs detected.</string>
     <string name="performance_hud">Performance HUD</string>
@@ -1116,6 +1127,10 @@
     <string name="settings_info_libraries_subtitle">See what technologies make GameNative possible</string>
     <string name="settings_info_privacy_title">Privacy Policy</string>
     <string name="settings_info_privacy_subtitle">Opens a link to GameNative\'s privacy policy</string>
+    <string name="settings_info_boot_ads_title">Sponsored loading screens</string>
+    <string name="settings_info_boot_ads_subtitle">Keeping this on helps support GameNative\'s development. It never slows down game launches or affects you in any way.</string>
+    <string name="settings_info_boot_recs_title">Game recommendations on loading screens</string>
+    <string name="settings_info_boot_recs_subtitle">Show a game you might like while a game boots, when there is no sponsor card.</string>
     <string name="settings_info_usage_analytics_title">Usage analytics</string>
     <string name="settings_info_usage_analytics_subtitle">We never track personal information. Disabling this stops non-essential analytics, however core game performance data is still collected as a legitimate interest to improve compatibility.</string>
 
@@ -1724,6 +1739,7 @@
     <!-- App option menu labels -->
     <string name="option_open_store_page">Open store page</string>
     <string name="option_export_for_frontend">Export for frontend</string>
+    <string name="option_copy_launch_link">Copy launch link</string>
     <string name="option_open_container">Open container</string>
     <string name="option_edit_container">Edit container</string>
     <string name="option_reset_to_defaults">Reset container</string>
@@ -2254,6 +2270,9 @@
 
     <!-- FeaturedItem (server-driven promoted slot) -->
     <string name="featured_badge">Sponsored</string>
+    <string name="boot_rec_badge">Recommended for you</string>
+    <string name="boot_quiz_win_default">Correct!</string>
+    <string name="boot_quiz_lose_default">The answer was %1$s</string>
     <string name="featured_action_wishlist">Wishlist</string>
     <string name="featured_action_wishlist_on">Wishlist on %1$s</string>
     <string name="featured_action_wishlisted">Wishlisted</string>
@@ -2516,6 +2535,11 @@
     <string name="binding_mode_sequence">Sequence</string>
     <string name="binding_sequence_delay_ms">Sequence delay (ms)</string>
     <string name="binding_sequence_current_format">%1$s (%2$d ms)</string>
+    <string name="xr_windows_vr_toggle">Run as VR app (experimental)</string>
+    <string name="xr_windows_vr_toggle_desc">For native VR titles such as Beat Saber. Needs arm64ec Wine, DXVK and D3D11. Other games keep the flat immersive screen.</string>
+    <string name="xr_open_composite_toggle">SteamVR (OpenVR) compatibility</string>
+    <string name="xr_open_composite_toggle_desc">Routes games built for SteamVR through OpenComposite. Turn on if the game says SteamVR is not running or stays flat with VR mode on.</string>
+    <string name="xr_render_scale">VR Render Scale</string>
     <string name="gyro_aiming">Gyro aiming</string>
     <string name="gyro_settings_title">Gyro settings</string>
     <string name="gyro_section_output">Output and motion</string>
