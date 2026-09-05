@@ -2459,7 +2459,7 @@
     <string name="nexus_install_folder_and_contents">%1$s 폴더와 그 내용</string>
     <string name="nexus_merge_selected_folder_contents">선택한 폴더 내용 병합</string>
     <string name="nexus_keep_selected_folder_names">선택한 각 폴더 이름 유지</string>
-    <string name="nexus_recommended_suffix"> (권장)</string>
+    <string name="nexus_recommended_suffix">\u0020(권장)</string>
     <string name="nexus_folder_layout_result">결과: %1$s</string>
     <string name="nexus_duplicate_folder_warning">Data/Data처럼 폴더 이름이 반복됩니다. 모드에 추가 폴더가 필요한 경우가 아니면 내용을 선택하세요.</string>
     <string name="nexus_why_this_placement">이 배치를 선택한 이유</string>

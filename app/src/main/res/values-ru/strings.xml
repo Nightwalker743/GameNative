@@ -2399,7 +2399,7 @@ https://gamenative.app
     <string name="nexus_install_folder_and_contents">Папку %1$s и её содержимое</string>
     <string name="nexus_merge_selected_folder_contents">Объединить содержимое выбранных папок</string>
     <string name="nexus_keep_selected_folder_names">Сохранить имя каждой выбранной папки</string>
-    <string name="nexus_recommended_suffix"> (Рекомендуется)</string>
+    <string name="nexus_recommended_suffix">\u0020(Рекомендуется)</string>
     <string name="nexus_folder_layout_result">Результат: %1$s</string>
     <string name="nexus_duplicate_folder_warning">Это создаст повторяющееся имя папки, например Data/Data. Выберите содержимое, если моду не нужна дополнительная папка.</string>
     <string name="nexus_why_this_placement">Почему выбрано это размещение?</string>

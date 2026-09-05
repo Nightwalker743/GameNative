@@ -3349,9 +3349,11 @@ fun NexusModsDialog(
         }
         placementApplyStatusMessage = message
         SnackbarManager.show(message)
-        selectedInstall = install.copy(
-            status = if (result.errors.isEmpty()) ModInstallStatus.APPLIED.name else install.status,
-        )
+        if (selectedInstall?.installId == install.installId) {
+            selectedInstall = install.copy(
+                status = if (result.errors.isEmpty()) ModInstallStatus.APPLIED.name else install.status,
+            )
+        }
     }
 
     fun applyRecipes(

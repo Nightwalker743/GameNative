@@ -2405,7 +2405,7 @@
     <string name="nexus_install_folder_and_contents">Ordner %1$s und sein Inhalt</string>
     <string name="nexus_merge_selected_folder_contents">Inhalte ausgewählter Ordner zusammenführen</string>
     <string name="nexus_keep_selected_folder_names">Namen aller ausgewählten Ordner beibehalten</string>
-    <string name="nexus_recommended_suffix"> (Empfohlen)</string>
+    <string name="nexus_recommended_suffix">\u0020(Empfohlen)</string>
     <string name="nexus_folder_layout_result">Ergebnis: %1$s</string>
     <string name="nexus_duplicate_folder_warning">Dadurch entsteht ein doppelter Ordnername wie Data/Data. Wähle Inhalte, sofern der Mod den zusätzlichen Ordner nicht ausdrücklich benötigt.</string>
     <string name="nexus_why_this_placement">Warum diese Platzierung?</string>

@@ -2335,7 +2335,7 @@
     <string name="nexus_install_folder_and_contents">Mappen %1$s og dens indhold</string>
     <string name="nexus_merge_selected_folder_contents">Flet indholdet af valgte mapper</string>
     <string name="nexus_keep_selected_folder_names">Behold navnene på hver valgt mappe</string>
-    <string name="nexus_recommended_suffix"> (Anbefalet)</string>
+    <string name="nexus_recommended_suffix">\u0020(Anbefalet)</string>
     <string name="nexus_folder_layout_result">Resultat: %1$s</string>
     <string name="nexus_duplicate_folder_warning">Dette opretter et gentaget mappenavn som Data/Data. Vælg indhold, medmindre moddet kræver den ekstra mappe.</string>
     <string name="nexus_why_this_placement">Hvorfor denne placering?</string>

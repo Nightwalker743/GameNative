@@ -2470,7 +2470,7 @@
     <string name="nexus_install_folder_and_contents">Folderul %1$s și conținutul său</string>
     <string name="nexus_merge_selected_folder_contents">Îmbină conținutul folderelor selectate</string>
     <string name="nexus_keep_selected_folder_names">Păstrează numele fiecărui folder selectat</string>
-    <string name="nexus_recommended_suffix"> (Recomandat)</string>
+    <string name="nexus_recommended_suffix">\u0020(Recomandat)</string>
     <string name="nexus_folder_layout_result">Rezultat: %1$s</string>
     <string name="nexus_duplicate_folder_warning">Aceasta creează un nume de folder repetat, precum Data/Data. Alege conținutul dacă modul nu necesită folderul suplimentar.</string>
     <string name="nexus_why_this_placement">De ce această plasare?</string>

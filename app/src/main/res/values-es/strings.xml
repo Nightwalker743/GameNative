@@ -2463,7 +2463,7 @@
     <string name="nexus_install_folder_and_contents">Carpeta %1$s y su contenido</string>
     <string name="nexus_merge_selected_folder_contents">Combinar el contenido de las carpetas seleccionadas</string>
     <string name="nexus_keep_selected_folder_names">Conservar el nombre de cada carpeta seleccionada</string>
-    <string name="nexus_recommended_suffix"> (Recomendado)</string>
+    <string name="nexus_recommended_suffix">\u0020(Recomendado)</string>
     <string name="nexus_folder_layout_result">Resultado: %1$s</string>
     <string name="nexus_duplicate_folder_warning">Esto crea un nombre de carpeta repetido, como Data/Data. Elige el contenido salvo que el mod requiera la carpeta adicional.</string>
     <string name="nexus_why_this_placement">¿Por qué esta colocación?</string>

@@ -2471,7 +2471,7 @@
     <string name="nexus_install_folder_and_contents">Folder %1$s i jego zawartość</string>
     <string name="nexus_merge_selected_folder_contents">Scal zawartość wybranych folderów</string>
     <string name="nexus_keep_selected_folder_names">Zachowaj nazwę każdego wybranego folderu</string>
-    <string name="nexus_recommended_suffix"> (Zalecane)</string>
+    <string name="nexus_recommended_suffix">\u0020(Zalecane)</string>
     <string name="nexus_folder_layout_result">Wynik: %1$s</string>
     <string name="nexus_duplicate_folder_warning">Powstanie powtórzona nazwa folderu, np. Data/Data. Wybierz zawartość, chyba że mod wymaga dodatkowego folderu.</string>
     <string name="nexus_why_this_placement">Dlaczego to rozmieszczenie?</string>

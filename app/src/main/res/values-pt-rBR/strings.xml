@@ -2335,7 +2335,7 @@
     <string name="nexus_install_folder_and_contents">Pasta %1$s e seu conteúdo</string>
     <string name="nexus_merge_selected_folder_contents">Mesclar o conteúdo das pastas selecionadas</string>
     <string name="nexus_keep_selected_folder_names">Manter o nome de cada pasta selecionada</string>
-    <string name="nexus_recommended_suffix"> (Recomendado)</string>
+    <string name="nexus_recommended_suffix">\u0020(Recomendado)</string>
     <string name="nexus_folder_layout_result">Resultado: %1$s</string>
     <string name="nexus_duplicate_folder_warning">Isso cria um nome de pasta repetido, como Data/Data. Escolha o conteúdo, a menos que o mod exija a pasta adicional.</string>
     <string name="nexus_why_this_placement">Por que este posicionamento?</string>

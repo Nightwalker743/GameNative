@@ -2467,7 +2467,7 @@
     <string name="nexus_install_folder_and_contents">Папку %1$s та її вміст</string>
     <string name="nexus_merge_selected_folder_contents">Об’єднати вміст вибраних папок</string>
     <string name="nexus_keep_selected_folder_names">Зберегти назву кожної вибраної папки</string>
-    <string name="nexus_recommended_suffix"> (Рекомендовано)</string>
+    <string name="nexus_recommended_suffix">\u0020(Рекомендовано)</string>
     <string name="nexus_folder_layout_result">Результат: %1$s</string>
     <string name="nexus_duplicate_folder_warning">Це створить повторювану назву папки, наприклад Data/Data. Виберіть вміст, якщо мод не вимагає додаткової папки.</string>
     <string name="nexus_why_this_placement">Чому це розміщення?</string>
