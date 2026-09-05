@@ -2798,17 +2798,22 @@ fun NexusModsDialog(
                 val bethesdaGameForMod = BethesdaPluginManager.detectGame(libraryItem.name)
                 val fomodAutoSelection = fomodInstaller?.let { installer ->
                     bethesdaGameForMod?.let { game ->
-                        FomodAutoSelector.selectDeterministic(
-                            installId = install.installId,
-                            installer = installer,
-                            targetRelativePath = game.dataDirName,
-                            environment = FomodEnvironmentSnapshotBuilder.build(
+                        val environment = withContext(Dispatchers.IO) {
+                            FomodEnvironmentSnapshotBuilder.build(
                                 installer = installer,
                                 gameName = libraryItem.name,
                                 gameRootDir = gameRootDir,
                                 pluginsFile = BethesdaPluginManager.pluginsFile(winePrefix, game),
-                            ),
-                        )
+                            )
+                        }
+                        withContext(Dispatchers.Default) {
+                            FomodAutoSelector.selectDeterministic(
+                                installId = install.installId,
+                                installer = installer,
+                                targetRelativePath = game.dataDirName,
+                                environment = environment,
+                            )
+                        }
                     }
                 }
                 val assessment = ModArchiveInstallAssessor.assess(

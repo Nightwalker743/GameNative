@@ -168,7 +168,9 @@ private fun destinationBrowserEntry(
     }.getOrDefault("")
     val logicalKey = ModTargetResolver.normalizedTargetKey(root.type.name, relative)
     val absoluteKey = WindowsPathIdentity.absoluteKey(file)
-    val exactPlan = planFiles.filter { it.normalizedTargetKey == logicalKey }
+    val exactPlan = logicalKey?.let { key ->
+        planFiles.filter { it.normalizedTargetKey == key }
+    }.orEmpty()
     val directoryPrefix = logicalKey?.let { "$it/" }
     val receivesFiles = file.isDirectory && directoryPrefix != null && planFiles.any {
         it.status == PlannedFileStatus.PLACED && it.normalizedTargetKey?.startsWith(directoryPrefix) == true
@@ -240,6 +242,7 @@ internal fun placementReviewRows(
     plan: ModInstallPlan,
     diff: ModReconfigurationDiff?,
     roots: List<ResolvedModTargetRoot>,
+    staleReason: String,
 ): List<PlacementReviewRow> {
     val changesBySource = diff?.changes.orEmpty().groupBy { it.sourceRelativePath }
     val rows = plan.files.map { file ->
@@ -275,7 +278,7 @@ internal fun placementReviewRows(
             category = PlacementReviewCategory.REMOVED,
             source = change.sourceRelativePath,
             previousTarget = change.previousTarget,
-            reason = "No longer produced by this placement",
+            reason = staleReason,
         )
     }
     return rows.sortedWith(compareBy<PlacementReviewRow> { it.category.ordinal }.thenBy { it.source.lowercase(Locale.ROOT) })

@@ -2427,7 +2427,8 @@
     <string name="nexus_reapply_missing_files">누락된 파일 다시 적용</string>
     <string name="nexus_adopt_ownership">파일 소유권 등록</string>
     <string name="nexus_ownership_adopted">게임 파일을 변경하지 않고 파일 소유권을 등록했습니다.</string>
-    <string name="nexus_ownership_adoption_failed">파일 소유권을 등록하지 못했습니다(문제 %1$d개)</string>
+    <string name="nexus_file_tracking_setup_failed">설치된 파일을 확인하고 추적하지 못했습니다(문제 %1$d개)</string>
+    <string name="nexus_stale_placement_reason">이 배치에서 더 이상 생성되지 않음</string>
     <string name="nexus_restore_previous_deployment">이전 배포 복원</string>
     <string name="nexus_restore_previous_deployment_description">현재 파일 배치 계획을 이 모드에서 마지막으로 작동한 계획으로 바꿉니다.</string>
     <string name="nexus_restoring_previous_deployment">이전 배포 복원 중…</string>

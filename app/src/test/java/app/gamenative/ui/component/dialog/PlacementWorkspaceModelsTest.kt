@@ -148,6 +148,36 @@ class PlacementWorkspaceModelsTest {
     }
 
     @Test
+    fun destinationBrowser_doesNotMatchPlansWithoutTargetKeys() {
+        val rootDir = temporaryFolder.newFolder("unresolved-game")
+        val unmanaged = File(rootDir, "unmanaged.bin").apply { writeText("game") }
+        val root = ResolvedModTargetRoot(ModTargetRoot.GAME_DIR, "Game", rootDir)
+        val unresolvedPlan = ModInstallPlan(
+            files = listOf(
+                PlannedModFile(
+                    sourceRelativePath = "unknown.bin",
+                    status = PlannedFileStatus.CONFLICTED,
+                    origin = PlacementOrigin.GAME_RULE,
+                    reason = "No target",
+                ),
+            ),
+        )
+
+        val entry = destinationBrowserEntries(
+            rootDir,
+            root,
+            unresolvedPlan,
+            emptyList(),
+            "selected",
+            false,
+            "",
+        ).single { it.file == unmanaged }
+
+        assertFalse(DestinationEntryImpact.PLAN_CONFLICT in entry.impacts)
+        assertTrue(DestinationEntryImpact.GAME_OR_UNMANAGED in entry.impacts)
+    }
+
+    @Test
     fun reviewRows_groupPlanAndReconfigurationChanges() {
         val rootDir = temporaryFolder.newFolder("review-game")
         File(rootDir, "Data/existing.txt").apply { parentFile?.mkdirs(); writeText("old") }
@@ -180,7 +210,12 @@ class PlacementWorkspaceModelsTest {
             ),
         )
 
-        val categories = placementReviewRows(plan, diff, listOf(root)).groupingBy { it.category }.eachCount()
+        val categories = placementReviewRows(
+            plan,
+            diff,
+            listOf(root),
+            staleReason = "No longer produced by this placement",
+        ).groupingBy { it.category }.eachCount()
 
         assertEquals(1, categories[PlacementReviewCategory.ADDED])
         assertEquals(1, categories[PlacementReviewCategory.REPLACED])

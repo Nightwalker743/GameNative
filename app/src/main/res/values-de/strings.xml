@@ -2373,7 +2373,8 @@
     <string name="nexus_reapply_missing_files">Fehlende Dateien erneut anwenden</string>
     <string name="nexus_adopt_ownership">Dateibesitz übernehmen</string>
     <string name="nexus_ownership_adopted">Der Dateibesitz wurde erfasst, ohne Spieldateien zu ändern.</string>
-    <string name="nexus_ownership_adoption_failed">Dateibesitz konnte nicht übernommen werden (%1$d Problem(e))</string>
+    <string name="nexus_file_tracking_setup_failed">Installierte Dateien konnten nicht überprüft und erfasst werden (%1$d Problem(e))</string>
+    <string name="nexus_stale_placement_reason">Wird von dieser Platzierung nicht mehr erzeugt</string>
     <string name="nexus_restore_previous_deployment">Vorherige Bereitstellung wiederherstellen</string>
     <string name="nexus_restore_previous_deployment_description">Ersetzt den aktuellen Dateiplatzierungsplan durch den letzten funktionierenden Plan dieses Mods.</string>
     <string name="nexus_restoring_previous_deployment">Vorherige Bereitstellung wird wiederhergestellt…</string>

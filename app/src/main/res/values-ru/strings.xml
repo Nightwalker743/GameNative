@@ -2367,7 +2367,8 @@ https://gamenative.app
     <string name="nexus_reapply_missing_files">Повторно применить отсутствующие файлы</string>
     <string name="nexus_adopt_ownership">Принять владение файлами</string>
     <string name="nexus_ownership_adopted">Владение файлами зарегистрировано без изменения файлов игры.</string>
-    <string name="nexus_ownership_adoption_failed">Не удалось принять владение файлами (проблем: %1$d)</string>
+    <string name="nexus_file_tracking_setup_failed">Не удалось проверить и отслеживать установленные файлы (проблем: %1$d)</string>
+    <string name="nexus_stale_placement_reason">Больше не создаётся этим вариантом размещения</string>
     <string name="nexus_restore_previous_deployment">Восстановить предыдущее развёртывание</string>
     <string name="nexus_restore_previous_deployment_description">Заменяет текущий план размещения последним рабочим планом этого мода.</string>
     <string name="nexus_restoring_previous_deployment">Восстановление предыдущего развёртывания…</string>

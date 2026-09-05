@@ -2435,7 +2435,8 @@
     <string name="nexus_reapply_missing_files">Повторно застосувати відсутні файли</string>
     <string name="nexus_adopt_ownership">Прийняти володіння файлами</string>
     <string name="nexus_ownership_adopted">Володіння файлами зареєстровано без зміни файлів гри.</string>
-    <string name="nexus_ownership_adoption_failed">Не вдалося прийняти володіння файлами (проблем: %1$d)</string>
+    <string name="nexus_file_tracking_setup_failed">Не вдалося перевірити й відстежувати встановлені файли (проблем: %1$d)</string>
+    <string name="nexus_stale_placement_reason">Більше не створюється цим варіантом розміщення</string>
     <string name="nexus_restore_previous_deployment">Відновити попереднє розгортання</string>
     <string name="nexus_restore_previous_deployment_description">Замінює поточний план розміщення останнім робочим планом цього мода.</string>
     <string name="nexus_restoring_previous_deployment">Відновлення попереднього розгортання…</string>

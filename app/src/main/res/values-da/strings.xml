@@ -2303,7 +2303,8 @@
     <string name="nexus_reapply_missing_files">Genanvend manglende filer</string>
     <string name="nexus_adopt_ownership">Registrer filejerskab</string>
     <string name="nexus_ownership_adopted">Filejerskab blev registreret uden at ændre spilfilerne.</string>
-    <string name="nexus_ownership_adoption_failed">Filejerskab kunne ikke registreres (%1$d problem(er))</string>
+    <string name="nexus_file_tracking_setup_failed">Kunne ikke kontrollere og registrere installerede filer (%1$d problem(er))</string>
+    <string name="nexus_stale_placement_reason">Produceres ikke længere af denne placering</string>
     <string name="nexus_restore_previous_deployment">Gendan forrige udrulning</string>
     <string name="nexus_restore_previous_deployment_description">Erstatter den aktuelle filplaceringsplan med den senest fungerende plan for dette mod.</string>
     <string name="nexus_restoring_previous_deployment">Gendanner forrige udrulning…</string>

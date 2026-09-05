@@ -2386,7 +2386,8 @@
     <string name="nexus_reapply_missing_files">不足しているファイルを再適用</string>
     <string name="nexus_adopt_ownership">ファイル所有情報を登録</string>
     <string name="nexus_ownership_adopted">ゲームファイルを変更せずに所有情報を登録しました。</string>
-    <string name="nexus_ownership_adoption_failed">ファイル所有情報を登録できませんでした（問題 %1$d 件）</string>
+    <string name="nexus_file_tracking_setup_failed">インストール済みファイルを確認して追跡できませんでした（問題 %1$d 件）</string>
+    <string name="nexus_stale_placement_reason">この配置では生成されなくなりました</string>
     <string name="nexus_restore_previous_deployment">以前の配置を復元</string>
     <string name="nexus_restore_previous_deployment_description">現在のファイル配置プランを、この Mod で最後に動作したプランに置き換えます。</string>
     <string name="nexus_restoring_previous_deployment">以前の配置を復元中…</string>

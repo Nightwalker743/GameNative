@@ -648,14 +648,19 @@ private fun PlacementPlanReview(
     onUseCandidate: (AutomaticPlacementCandidate) -> Unit,
     onExport: () -> Unit,
 ) {
+    val stalePlacementReason = stringResource(R.string.nexus_stale_placement_reason)
     var showWhy by remember(plan.digest) { mutableStateOf(false) }
     var showAllFiles by remember(plan.digest) { mutableStateOf(false) }
     var browseTarget by remember(plan.digest) { mutableStateOf<RecipeDraft?>(null) }
-    var rows by remember(plan.digest, diff, roots) { mutableStateOf<List<PlacementReviewRow>>(emptyList()) }
-    var rowsLoading by remember(plan.digest, diff, roots) { mutableStateOf(true) }
-    LaunchedEffect(plan, diff, roots) {
+    var rows by remember(plan.digest, diff, roots, stalePlacementReason) {
+        mutableStateOf<List<PlacementReviewRow>>(emptyList())
+    }
+    var rowsLoading by remember(plan.digest, diff, roots, stalePlacementReason) { mutableStateOf(true) }
+    LaunchedEffect(plan, diff, roots, stalePlacementReason) {
         rowsLoading = true
-        rows = withContext(Dispatchers.IO) { placementReviewRows(plan, diff, roots) }
+        rows = withContext(Dispatchers.IO) {
+            placementReviewRows(plan, diff, roots, stalePlacementReason)
+        }
         rowsLoading = false
     }
     Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surface) {

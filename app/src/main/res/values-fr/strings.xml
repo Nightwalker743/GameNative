@@ -2433,7 +2433,8 @@
     <string name="nexus_reapply_missing_files">Réappliquer les fichiers manquants</string>
     <string name="nexus_adopt_ownership">Adopter la propriété des fichiers</string>
     <string name="nexus_ownership_adopted">La propriété des fichiers a été enregistrée sans modifier les fichiers du jeu.</string>
-    <string name="nexus_ownership_adoption_failed">Impossible d’adopter la propriété des fichiers (%1$d problème(s))</string>
+    <string name="nexus_file_tracking_setup_failed">Impossible de vérifier et de suivre les fichiers installés (%1$d problème(s))</string>
+    <string name="nexus_stale_placement_reason">Ce placement ne produit plus ce fichier</string>
     <string name="nexus_restore_previous_deployment">Restaurer le déploiement précédent</string>
     <string name="nexus_restore_previous_deployment_description">Remplace le plan de placement actuel par le dernier plan fonctionnel de ce mod.</string>
     <string name="nexus_restoring_previous_deployment">Restauration du déploiement précédent…</string>
