@@ -45,6 +45,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -862,7 +863,7 @@ fun NexusModsDialog(
     var localImportRetryInstallId by rememberSaveable(libraryItem.appId) {
         mutableStateOf<String?>(null)
     }
-    var localInspectionGeneration by remember { mutableStateOf(0L) }
+    var localInspectionGeneration by remember { mutableLongStateOf(0L) }
     var pendingCollectionSelection by remember { mutableStateOf<PendingCollectionSelection?>(null) }
     var selectedCollectionKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
     val collectionQueue = remember { mutableStateMapOf<String, CollectionQueueItem>() }
