@@ -110,8 +110,13 @@ object FomodEnvironmentSnapshotBuilder {
                     (gameRootDir != null && resolveRequestedFile(gameRootDir, requested).isFile)
             }
             .mapTo(mutableSetOf()) { it.substringAfterLast('/').lowercase(Locale.ROOT) }
-        val activePlugins = pluginsFile?.takeIf(File::isFile)?.readLines().orEmpty()
-            .map { it.trim().removePrefix("*").substringBefore('#').trim().lowercase(Locale.ROOT) }
+        val pluginLines = pluginsFile?.takeIf(File::isFile)?.readLines().orEmpty()
+            .map { it.substringBefore('#').trim() }
+            .filter(String::isNotBlank)
+        val usesEnabledMarkers = pluginLines.any { it.startsWith('*') }
+        val activePlugins = pluginLines.asSequence()
+            .filter { !usesEnabledMarkers || it.startsWith('*') }
+            .map { it.removePrefix("*").trim().lowercase(Locale.ROOT) }
             .filterTo(mutableSetOf(), String::isNotBlank)
         val pluginMasters = presentPlugins.associateWith { plugin ->
             val file = resolveRequestedFile(gameRootDir, plugin)

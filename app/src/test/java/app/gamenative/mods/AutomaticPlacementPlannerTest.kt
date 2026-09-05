@@ -368,6 +368,31 @@ class AutomaticPlacementPlannerTest {
     }
 
     @Test
+    fun documentationPrefixes_doNotHideInstallableFoldersOrBinariesWithSimilarNames() {
+        val index = ModArchiveIndex.build(
+            archive(
+                "ManualTransmission/ManualTransmission.dll",
+                "ScreenshotsEnhanced/ScreenshotsEnhanced.esp",
+                "_README_PACKAGE/guide.txt",
+                "ReadMeFirst.txt",
+            ),
+        )
+
+        assertEquals(
+            ArchiveContentRole.INSTALLABLE,
+            index.files.single { it.displayPath.endsWith("ManualTransmission.dll") }.role,
+        )
+        assertEquals(
+            ArchiveContentRole.INSTALLABLE,
+            index.files.single { it.displayPath.endsWith("ScreenshotsEnhanced.esp") }.role,
+        )
+        assertTrue(
+            index.files.filter { it.displayPath.contains("README", ignoreCase = true) }
+                .all { it.role == ArchiveContentRole.DOCUMENTATION },
+        )
+    }
+
+    @Test
     fun provenTargetContainer_isMergedWithoutDuplicatingItsFolderName() {
         val result = AutomaticPlacementPlanner.plan(
             gameName = "Plugin game",

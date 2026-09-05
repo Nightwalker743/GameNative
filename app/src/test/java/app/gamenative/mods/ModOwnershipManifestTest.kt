@@ -62,6 +62,25 @@ class ModOwnershipManifestTest {
     }
 
     @Test
+    fun overlayTransition_verifiesUnchangedTargetsBeforeRebuildingTheWholeOverlay() {
+        val shared = temporaryFolder.newFile("shared-rebuild.txt").apply { writeText("low") }
+        val unrelated = temporaryFolder.newFile("unrelated.txt").apply { writeText("owned") }
+        val low = manifest("low", shared, ModOwnershipStore.sha256(shared), priority = 20)
+        val high = manifest("high", shared, "different", priority = 10)
+        val other = manifest("other", unrelated, ModOwnershipStore.sha256(unrelated), priority = 5)
+        unrelated.appendText("-user edit")
+
+        val transition = ModProfileOverlayPlanner.transition(
+            listOf(low, high, other),
+            desiredPriorities = mapOf("low" to 10, "high" to 20, "other" to 5),
+        )
+
+        assertTrue(transition.requiresRebuild)
+        assertFalse(transition.safeToRebuild)
+        assertEquals(listOf(unrelated.absolutePath), transition.currentVerification.issues.map { it.targetPath })
+    }
+
+    @Test
     fun changedContentVerification_hashesOnlyWhenRecordedMetadataChanged() {
         val target = temporaryFolder.newFile("metadata.txt").apply { writeText("owned") }
         val manifest = manifest("managed", target, "not-the-current-hash", priority = 10).let { ownership ->
@@ -249,8 +268,8 @@ class ModOwnershipManifestTest {
                     normalizedTargetKey = WindowsPathIdentity.absoluteKey(target),
                     mode = ModPlacementMode.OVERWRITE_COPY.name,
                     installedHash = hash,
-                    installedSize = 1,
-                    installedMtime = 1,
+                    installedSize = target.takeIf(File::isFile)?.length() ?: 1,
+                    installedMtime = target.takeIf(File::isFile)?.lastModified() ?: 1,
                     disposition = ModOwnedFileDisposition.OVERWROTE,
                     priority = priority,
                 ),

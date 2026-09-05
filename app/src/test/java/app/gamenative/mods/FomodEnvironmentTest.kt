@@ -129,6 +129,40 @@ class FomodEnvironmentTest {
         }
     }
 
+    @Test
+    fun environment_honorsModernPluginMarkersAndLegacyUnmarkedLists() {
+        val root = createTempDirectory("fomod-plugin-state").toFile()
+        try {
+            File(root, "Data/Enabled.esp").apply { parentFile?.mkdirs(); writeText("enabled") }
+            File(root, "Data/Disabled.esp").writeText("disabled")
+            val installer = FomodInstaller(
+                moduleName = "Plugin state",
+                requiredFiles = emptyList(),
+                steps = emptyList(),
+                moduleDependencies = FomodDependencyExpression(
+                    pluginDependencies = listOf(
+                        FomodPluginDependency("Enabled.esp", FomodRequiredFileState.ACTIVE),
+                        FomodPluginDependency("Disabled.esp", FomodRequiredFileState.INACTIVE),
+                    ),
+                ),
+            )
+            val pluginsFile = File(root, "plugins.txt")
+            pluginsFile.writeText("*Enabled.esp\nDisabled.esp\n")
+
+            val modern = FomodEnvironmentSnapshotBuilder.build(installer, "Skyrim Special Edition", root, pluginsFile)
+
+            assertEquals(setOf("enabled.esp"), modern.activePlugins)
+            assertEquals(setOf("enabled.esp", "disabled.esp"), modern.presentPlugins)
+
+            pluginsFile.writeText("Enabled.esp\nDisabled.esp\n")
+            val legacy = FomodEnvironmentSnapshotBuilder.build(installer, "Skyrim Special Edition", root, pluginsFile)
+
+            assertEquals(setOf("enabled.esp", "disabled.esp"), legacy.activePlugins)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     private fun peHeader(machine: Int): ByteArray = ByteArray(512).also { bytes ->
         bytes[0] = 'M'.code.toByte()
         bytes[1] = 'Z'.code.toByte()

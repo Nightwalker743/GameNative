@@ -8,6 +8,7 @@ import org.w3c.dom.Node
 import timber.log.Timber
 import java.io.File
 import java.io.IOException
+import java.util.Locale
 import javax.xml.parsers.DocumentBuilderFactory
 
 data class FomodInstaller(
@@ -333,19 +334,19 @@ object FomodParser {
                 )
             }
 
-    private fun groupType(value: String): FomodGroupType = when (value.lowercase()) {
+    private fun groupType(value: String): FomodGroupType = when (value.lowercase(Locale.ROOT)) {
         "selectexactlyone" -> FomodGroupType.SELECT_EXACTLY_ONE
         "selectatmostone" -> FomodGroupType.SELECT_AT_MOST_ONE
         "selectatleastone" -> FomodGroupType.SELECT_AT_LEAST_ONE
         else -> FomodGroupType.SELECT_ANY
     }
 
-    private fun dependencyOperator(value: String): FomodDependencyOperator = when (value.lowercase()) {
+    private fun dependencyOperator(value: String): FomodDependencyOperator = when (value.lowercase(Locale.ROOT)) {
         "or" -> FomodDependencyOperator.OR
         else -> FomodDependencyOperator.AND
     }
 
-    private fun requiredFileState(value: String): FomodRequiredFileState = when (value.lowercase()) {
+    private fun requiredFileState(value: String): FomodRequiredFileState = when (value.lowercase(Locale.ROOT)) {
         "inactive" -> FomodRequiredFileState.INACTIVE
         "missing" -> FomodRequiredFileState.MISSING
         else -> FomodRequiredFileState.ACTIVE
@@ -375,7 +376,7 @@ object FomodParser {
             .orEmpty()
 
     private fun pluginTypeFromName(typeName: String?): FomodPluginType =
-        when (typeName.orEmpty().lowercase()) {
+        when (typeName.orEmpty().lowercase(Locale.ROOT)) {
             "required" -> FomodPluginType.REQUIRED
             "recommended" -> FomodPluginType.RECOMMENDED
             "notusable" -> FomodPluginType.NOT_USABLE
@@ -473,7 +474,7 @@ object FomodRecipeGenerator {
                 )
             }
             return FomodRecipeGenerationResult(
-                recipes = recipes.distinctBy { Triple(it.sourceSubpath, it.targetRoot, it.targetRelativePath + "/" + it.targetFileName) },
+                recipes = recipes.distinctBy(::recipeIdentity),
                 unsupportedMappings = emptyList(),
                 plan = plan,
                 blockingIssues = plan.blockingIssues,
@@ -551,7 +552,6 @@ object FomodRecipeGenerator {
         mode: String,
     ): FomodRecipeGenerationResult {
         val recipes = mutableListOf<ModPlacementRecipe>()
-        val unsupported = mutableListOf<FomodFileMapping>()
         selectedFiles
             .sortedWith(compareBy<FomodFileMapping> { it.priority }.thenBy { it.source })
             .forEach { mapping ->
@@ -581,10 +581,13 @@ object FomodRecipeGenerator {
             }
 
         return FomodRecipeGenerationResult(
-            recipes = recipes.distinctBy { Triple(it.sourceSubpath, it.targetRoot, it.targetRelativePath) },
-            unsupportedMappings = unsupported,
+            recipes = recipes.distinctBy(::recipeIdentity),
+            unsupportedMappings = emptyList(),
         )
     }
+
+    private fun recipeIdentity(recipe: ModPlacementRecipe): List<String> =
+        listOf(recipe.sourceSubpath, recipe.targetRoot, recipe.targetRelativePath, recipe.targetFileName)
 
     private fun joinPath(left: String, right: String): String =
         listOf(left, right)

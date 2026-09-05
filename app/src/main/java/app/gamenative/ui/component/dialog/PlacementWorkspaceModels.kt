@@ -7,6 +7,7 @@ import app.gamenative.mods.ModOwnershipState
 import app.gamenative.mods.ModPlacementSources
 import app.gamenative.mods.ModPlanChangeType
 import app.gamenative.mods.ModReconfigurationDiff
+import app.gamenative.mods.ModTargetResolver
 import app.gamenative.mods.PlannedFileStatus
 import app.gamenative.mods.PlannedModFile
 import app.gamenative.mods.ResolvedModTargetRoot
@@ -165,7 +166,7 @@ private fun destinationBrowserEntry(
     val relative = runCatching {
         file.canonicalFile.relativeTo(root.dir.canonicalFile).path.replace(File.separatorChar, '/')
     }.getOrDefault("")
-    val logicalKey = WindowsPathIdentity.targetKey(root.type.name, relative)
+    val logicalKey = ModTargetResolver.normalizedTargetKey(root.type.name, relative)
     val absoluteKey = WindowsPathIdentity.absoluteKey(file)
     val exactPlan = planFiles.filter { it.normalizedTargetKey == logicalKey }
     val directoryPrefix = logicalKey?.let { "$it/" }

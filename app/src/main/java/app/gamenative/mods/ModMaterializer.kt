@@ -196,6 +196,7 @@ object ModMaterializer {
         backupRoot: File,
         allowOverwrite: Boolean,
     ): ModPlacementResult = withContext(Dispatchers.IO) {
+        if (!plan.isComplete) return@withContext blockedResult(plan)
         var created = 0
         var skipped = 0
         var backedUp = 0
@@ -254,6 +255,7 @@ object ModMaterializer {
             captureTargetHashes = false,
             reviewedPlan = reviewedPlan,
         )
+        if (!plan.isComplete) return@withContext blockedResult(plan)
         val errors = linkedMapOf<String, String>().apply { putAll(plan.errors) }
 
         plan.operations.forEach { entry ->
@@ -445,7 +447,7 @@ object ModMaterializer {
             }
         }.sortedWith(compareBy<ModPlannedFile> { it.normalizedTargetKey }.thenBy { it.sourceRelativePath.lowercase(Locale.ROOT) })
         if (files.isEmpty()) {
-            errors[install.modName] = "The reviewed placement does not contain any materialized files"
+            errors[install.modName] = "The saved placement does not contain any files to install"
         }
         val manualPlan = PlacementRiskPolicy.enforce(ModInstallPlan(
             files = files.map { file ->
@@ -453,7 +455,7 @@ object ModMaterializer {
                     sourceRelativePath = file.sourceRelativePath,
                     targetRoot = file.targetRoot,
                     targetRelativePath = file.targetRelativePath,
-                    normalizedTargetKey = WindowsPathIdentity.targetKey(file.targetRoot, file.targetRelativePath),
+                    normalizedTargetKey = ModTargetResolver.normalizedTargetKey(file.targetRoot, file.targetRelativePath),
                     status = PlannedFileStatus.PLACED,
                     origin = PlacementOrigin.MANUAL_RECIPE,
                     mode = file.mode.name,
@@ -493,7 +495,7 @@ object ModMaterializer {
                     source == null || !source.isFile -> errors[planned.sourceRelativePath] = "Reviewed source file is missing or case-ambiguous"
                     targetRoot == null || targetRelativePath == null -> errors[planned.sourceRelativePath] = "Reviewed target is missing"
                     else -> {
-                        val logicalKey = WindowsPathIdentity.targetKey(targetRoot, targetRelativePath)
+                        val logicalKey = ModTargetResolver.normalizedTargetKey(targetRoot, targetRelativePath)
                         if (logicalKey == null || logicalKey != planned.normalizedTargetKey) {
                             errors[planned.sourceRelativePath] = "Reviewed target identity changed before apply"
                             return@forEach
@@ -553,6 +555,18 @@ object ModMaterializer {
         }
         val source = runCatching { current.canonicalFile }.getOrNull() ?: return null
         return source.takeIf { it.path.startsWith(extractedRoot.path + File.separator) }
+    }
+
+    private fun blockedResult(plan: ModMaterializationPlan): ModPlacementResult {
+        val errors = linkedMapOf<String, String>().apply {
+            putAll(plan.errors)
+            plan.reviewedPlan.blockingIssues.forEachIndexed { index, issue -> putIfAbsent("plan:$index", issue) }
+            plan.reviewedPlan.files
+                .filter { it.status != PlannedFileStatus.PLACED && it.status != PlannedFileStatus.INTENTIONALLY_IGNORED }
+                .forEach { file -> putIfAbsent(file.sourceRelativePath, file.reason) }
+            if (isEmpty()) put("plan", "The reviewed placement plan is incomplete")
+        }
+        return ModPlacementResult(0, 0, 0, errors, emptyList())
     }
 
     private fun plannedEntries(

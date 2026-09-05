@@ -175,7 +175,10 @@ internal fun FomodWizardDialog(
                 val allowed = group.plugins.indices.mapTo(mutableSetOf()) { pluginIndex ->
                     FomodRecipeGenerator.pluginKey(parts[0], parts[1], pluginIndex)
                 }
-                put(groupKey, selected.intersect(allowed))
+                val restored = selected.intersect(allowed)
+                if (selected.isEmpty() || restored.isNotEmpty()) {
+                    put(groupKey, restored)
+                }
             }
         }
     }

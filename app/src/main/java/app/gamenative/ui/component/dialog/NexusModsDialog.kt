@@ -1875,17 +1875,6 @@ fun NexusModsDialog(
                             }
                             effectiveAllowOverwrite = true
                         }
-                        if (plan.rebuildManagedOverlay && transactionDisabledSkipped > 0) {
-                            return@withGameLock ProfileOrderApplyResult(
-                                errors = 0,
-                                bethesdaGame = null,
-                                plugins = emptyList(),
-                                pluginIssues = emptyList(),
-                                pluginAssetIssues = emptyList(),
-                                disabledSkipped = transactionDisabledSkipped,
-                            )
-                        }
-
                         var errors = 0
                         for (install in plan.installsToApply) {
                             val recipes = plan.recipesByInstallId[install.installId].orEmpty()
@@ -1921,7 +1910,10 @@ fun NexusModsDialog(
                                 )
                             }
                             errors += applyResult.errors.size
-                            if (applyResult.errors.isNotEmpty()) break
+                            // A rebuild disables every configured install first. Keep
+                            // restoring later installs even if one plan fails so a
+                            // single bad mod cannot leave the rest disabled.
+                            if (applyResult.errors.isNotEmpty() && !plan.rebuildManagedOverlay) break
                         }
                         val game = BethesdaPluginManager.detectGame(libraryItem.name)
                         if (errors == 0 && game != null) {

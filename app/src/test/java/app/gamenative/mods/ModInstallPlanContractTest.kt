@@ -40,10 +40,12 @@ class ModInstallPlanContractTest {
     fun diagnosticSanitizer_removesCredentialsAndAbsolutePaths() {
         val sanitized = ModDiagnosticSanitizer.text(
             "C:\\Games\\Skyrim\\Data https://example.invalid/file?X-Amz-Credential=secret&X-Amz-Signature=123 " +
-                "/data/user/0/app/file",
+                "/data/user/0/app/file https://user:password@example.invalid/file " +
+                "Authorization: Bearer header-secret apikey=key-secret",
         )
 
         assertFalse("secret" in sanitized)
+        assertFalse("password" in sanitized)
         assertFalse("C:\\Games" in sanitized)
         assertFalse("/data/user" in sanitized)
     }

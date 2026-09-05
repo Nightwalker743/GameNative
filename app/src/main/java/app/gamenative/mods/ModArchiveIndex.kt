@@ -95,6 +95,8 @@ data class ModArchiveIndex(
             "install instructions",
             "installation instructions",
         )
+        private val documentationExtensions = setOf("htm", "html", "md", "pdf", "rtf", "txt")
+        private val documentationBoundaries = setOf(' ', '_', '-', '.')
 
         fun build(entries: List<ModArchiveEntry>): ModArchiveIndex {
             val indexedFiles = entries.asSequence()
@@ -156,7 +158,8 @@ data class ModArchiveIndex(
             return ModArchiveIndex(
                 files = indexedFiles,
                 nodes = nodes,
-                caseCollisions = indexedFiles.groupBy { it.normalizedKey }
+                caseCollisions = indexedFiles.filter { it.normalizedKey.isNotBlank() }
+                    .groupBy { it.normalizedKey }
                     .filterValues { variants -> variants.map { it.displayPath }.distinct().size > 1 }
                     .mapValues { (_, variants) -> variants.map { it.displayPath }.distinct().sorted() },
             )
@@ -179,7 +182,7 @@ data class ModArchiveIndex(
                 segments.size == 1 && listOf(".htm", ".html", ".rtf").any(name::endsWith)
             if (
                 segments.dropLast(1).any(::isDocumentationDirectory) ||
-                documentationNamePrefixes.any(name::startsWith) ||
+                looksLikeDocumentationFileName(name) ||
                 name.endsWith(".md") ||
                 name.endsWith(".pdf") ||
                 rootDocumentation
@@ -195,11 +198,19 @@ data class ModArchiveIndex(
         private fun isDocumentationDirectory(segment: String): Boolean {
             val name = segment.trim(' ', '_', '-', '.')
             return name in documentationDirectories ||
-                name.startsWith("readme") ||
-                name.startsWith("documentation") ||
-                name.startsWith("manual") ||
-                name.startsWith("screenshot")
+                listOf("readme", "documentation", "manual", "screenshot").any { prefix -> hasPrefixAtBoundary(name, prefix) }
         }
+
+        private fun looksLikeDocumentationFileName(name: String): Boolean {
+            val extension = name.substringAfterLast('.', "")
+            return documentationNamePrefixes.any { prefix ->
+                hasPrefixAtBoundary(name, prefix) ||
+                    (name.startsWith(prefix) && extension in documentationExtensions)
+            }
+        }
+
+        private fun hasPrefixAtBoundary(value: String, prefix: String): Boolean =
+            value.startsWith(prefix) && (value.length == prefix.length || value[prefix.length] in documentationBoundaries)
 
         private fun looksLikeOptionWrapper(name: String): Boolean {
             val normalized = name.lowercase(Locale.ROOT)

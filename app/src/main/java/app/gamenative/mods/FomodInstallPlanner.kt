@@ -172,7 +172,7 @@ object FomodPlanExpander {
         destination: String,
         mode: String,
     ): ExpandedFomodFile {
-        val targetKey = WindowsPathIdentity.targetKey(targetRoot, destination)
+        val targetKey = ModTargetResolver.normalizedTargetKey(targetRoot, destination)
         return ExpandedFomodFile(
             file = PlannedModFile(
                 sourceRelativePath = source.canonicalFile.relativeTo(extractedRoot).path.replace(File.separatorChar, '/'),

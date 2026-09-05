@@ -95,7 +95,11 @@ object AutomaticPlacementPlanner {
                     .thenBy { it.id },
             )
         val baseline = legacy.firstOrNull()
-        val bestGenerated = generatedCandidates.maxWithOrNull(compareBy<AutomaticPlacementCandidate> { it.score }.thenBy { it.id })
+        val bestGenerated = generatedCandidates.maxWithOrNull(
+            compareBy<AutomaticPlacementCandidate> { it.plan.isComplete }
+                .thenBy { it.score }
+                .thenByDescending { it.id },
+        )
         val recommendedBase = when {
             bestGenerated == null -> baseline
             baseline == null -> bestGenerated
@@ -462,7 +466,7 @@ object AutomaticPlacementPlanner {
                         source.substringAfterLast('/').takeIf { sourceIsDirectory && source.isNotBlank() && draft.includeSourceDirectory },
                         relative.takeIf(String::isNotBlank),
                     ).joinToString("/")
-                    val targetKey = WindowsPathIdentity.targetKey(draft.targetRoot, targetPath)
+                    val targetKey = ModTargetResolver.normalizedTargetKey(draft.targetRoot, targetPath)
                     placedBySource[file.normalizedKey] = PlannedModFile(
                         sourceRelativePath = file.displayPath,
                         targetRoot = draft.targetRoot,

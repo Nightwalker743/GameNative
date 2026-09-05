@@ -10,6 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.File
+import java.util.Locale
 import kotlin.io.path.createTempDirectory
 
 class FomodInstallerTest {
@@ -75,6 +76,40 @@ class FomodInstallerTest {
         assertEquals(2, plugin.files.size)
         assertEquals("Data/Required.dll", installer.moduleDependencies.fileDependencies.single().file)
         assertEquals("1.6.0", installer.moduleDependencies.gameDependencies.single().version)
+    }
+
+    @Test
+    fun parse_isIndependentOfTheDeviceLanguage() {
+        val previousLocale = Locale.getDefault()
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"))
+            val moduleConfig = writeModuleConfig(
+                """
+                <config>
+                    <installSteps>
+                        <installStep name="Main">
+                            <optionalFileGroups>
+                                <group name="Choice" type="SelectExactlyOne">
+                                    <plugins>
+                                        <plugin name="Required option">
+                                            <typeDescriptor><type name="Required" /></typeDescriptor>
+                                        </plugin>
+                                    </plugins>
+                                </group>
+                            </optionalFileGroups>
+                        </installStep>
+                    </installSteps>
+                </config>
+                """.trimIndent(),
+            )
+
+            val installer = FomodParser.parse(moduleConfig)
+
+            assertEquals(FomodGroupType.SELECT_EXACTLY_ONE, installer.steps.single().groups.single().type)
+            assertEquals(FomodPluginType.REQUIRED, installer.steps.single().groups.single().plugins.single().type)
+        } finally {
+            Locale.setDefault(previousLocale)
+        }
     }
 
     @Test
@@ -595,6 +630,22 @@ class FomodInstallerTest {
                 .map { it.relativeTo(game).path.replace(File.separatorChar, '/') }
                 .toSet(),
         )
+    }
+
+    @Test
+    fun generate_preservesDistinctDestinationNamesForTheSameSourceFile() {
+        val installer = FomodInstaller(
+            moduleName = "Renamed files",
+            requiredFiles = listOf(
+                FomodFileMapping("Shared/config.ini", "First.ini", 0, directory = false),
+                FomodFileMapping("Shared/config.ini", "Second.ini", 1, directory = false),
+            ),
+            steps = emptyList(),
+        )
+
+        val result = FomodRecipeGenerator.generate("install", installer, emptySet())
+
+        assertEquals(setOf("First.ini", "Second.ini"), result.recipes.mapTo(mutableSetOf()) { it.targetFileName })
     }
 
     private fun writeModuleConfig(xml: String): File {

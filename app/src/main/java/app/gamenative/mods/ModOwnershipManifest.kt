@@ -306,7 +306,11 @@ object ModProfileOverlayPlanner {
                 ModDeploymentVerification(emptyList())
             } else {
                 ModDeploymentVerifier.verify(
-                    current.copy(targets = current.targets.filterKeys(changedWinnerKeys::contains)),
+                    // Reordering rebuilds the entire managed overlay, not only the
+                    // targets whose winner changes. Verify every current winner so
+                    // unrelated user edits cannot be removed during that rebuild.
+                    current,
+                    ModVerificationDepth.CHANGED_CONTENT,
                 )
             },
         )
