@@ -2499,4 +2499,7 @@
     <string name="gyro_degrees_per_second_value">%1$.1f°/s</string>
     <string name="gyro_milliseconds_value">%1$d ms</string>
     <string name="reset_gyro_settings">Gyro-Einstellungen zurücksetzen</string>
+    <string name="nexus_review_placement">Platzierung prüfen</string>
+    <string name="nexus_everything_folder_layout">Ordner der obersten Ebene behalten ihre Namen; Dateien im Stammverzeichnis werden direkt am Ziel abgelegt</string>
+    <string name="nexus_fomod_defaults_replaced">%1$d Standarddatei(en) durch deine FOMOD-Auswahl ersetzt</string>
 </resources>

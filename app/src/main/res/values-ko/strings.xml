@@ -2553,4 +2553,7 @@
     <string name="gyro_degrees_per_second_value">%1$.1f°/초</string>
     <string name="gyro_milliseconds_value">%1$d ms</string>
     <string name="reset_gyro_settings">자이로 설정 초기화</string>
+    <string name="nexus_review_placement">배치 검토</string>
+    <string name="nexus_everything_folder_layout">최상위 폴더는 이름을 유지하고 루트 파일은 대상에 직접 배치됩니다</string>
+    <string name="nexus_fomod_defaults_replaced">FOMOD 선택으로 기본 파일 %1$d개 교체됨</string>
 </resources>

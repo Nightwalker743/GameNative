@@ -2512,4 +2512,7 @@
     <string name="gyro_degrees_per_second_value">%1$.1f°/秒</string>
     <string name="gyro_milliseconds_value">%1$d ミリ秒</string>
     <string name="reset_gyro_settings">ジャイロ設定をリセット</string>
+    <string name="nexus_review_placement">配置を確認</string>
+    <string name="nexus_everything_folder_layout">最上位フォルダーは名前を保持し、ルートファイルは移動先に直接配置されます</string>
+    <string name="nexus_fomod_defaults_replaced">FOMOD の選択により %1$d 個の既定ファイルを置き換えました</string>
 </resources>

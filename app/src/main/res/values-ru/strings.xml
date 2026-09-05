@@ -2493,4 +2493,7 @@ https://gamenative.app
     <string name="gyro_degrees_per_second_value">%1$.1f°/с</string>
     <string name="gyro_milliseconds_value">%1$d мс</string>
     <string name="reset_gyro_settings">Сбросить настройки гироскопа</string>
+    <string name="nexus_review_placement">Проверить размещение</string>
+    <string name="nexus_everything_folder_layout">Папки верхнего уровня сохраняют свои имена; файлы из корня помещаются непосредственно в папку назначения</string>
+    <string name="nexus_fomod_defaults_replaced">Файлов по умолчанию заменено выбранными параметрами FOMOD: %1$d</string>
 </resources>

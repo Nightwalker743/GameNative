@@ -2559,4 +2559,7 @@
     <string name="gyro_degrees_per_second_value">%1$.1f°/s</string>
     <string name="gyro_milliseconds_value">%1$d ms</string>
     <string name="reset_gyro_settings">Réinitialiser les réglages du gyroscope</string>
+    <string name="nexus_review_placement">Vérifier le placement</string>
+    <string name="nexus_everything_folder_layout">Les dossiers de premier niveau conservent leur nom ; les fichiers racine sont placés directement dans la destination</string>
+    <string name="nexus_fomod_defaults_replaced">%1$d fichier(s) par défaut remplacé(s) par vos choix FOMOD</string>
 </resources>

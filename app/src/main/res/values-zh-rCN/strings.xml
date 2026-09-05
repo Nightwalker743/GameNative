@@ -2573,4 +2573,7 @@
     <string name="gyro_degrees_per_second_value">%1$.1f°/秒</string>
     <string name="gyro_milliseconds_value">%1$d 毫秒</string>
     <string name="reset_gyro_settings">重置陀螺仪设置</string>
+    <string name="nexus_review_placement">检查放置方式</string>
+    <string name="nexus_everything_folder_layout">顶层文件夹保留其名称；根目录文件直接放入目标位置</string>
+    <string name="nexus_fomod_defaults_replaced">FOMOD 选择替换了 %1$d 个默认文件</string>
 </resources>

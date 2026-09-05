@@ -2564,4 +2564,7 @@
     <string name="gyro_degrees_per_second_value">%1$.1f°/s</string>
     <string name="gyro_milliseconds_value">%1$d ms</string>
     <string name="reset_gyro_settings">Resetează setările giroscopului</string>
+    <string name="nexus_review_placement">Verifică plasarea</string>
+    <string name="nexus_everything_folder_layout">Folderele de nivel superior își păstrează numele; fișierele rădăcină ajung direct la destinație</string>
+    <string name="nexus_fomod_defaults_replaced">%1$d fișier(e) implicit(e) înlocuit(e) de opțiunile FOMOD</string>
 </resources>
