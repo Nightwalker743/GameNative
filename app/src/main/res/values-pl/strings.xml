@@ -2437,8 +2437,8 @@
     <string name="nexus_confirm_risky_game_root_files_description">Pliki DLL, EXE i moduły ładujące mogą zmienić sposób uruchamiania gry. Potwierdź tylko wtedy, gdy archiwum jest zaufane, a podgląd odpowiada instrukcji instalacji.</string>
     <string name="nexus_building_install_plan">Tworzenie planu rozmieszczenia plików…</string>
     <string name="nexus_reapply_missing_files">Zastosuj ponownie brakujące pliki</string>
-    <string name="nexus_adopt_ownership">Przejmij własność plików</string>
-    <string name="nexus_ownership_adopted">Własność plików została zapisana bez zmiany plików gry.</string>
+    <string name="nexus_adopt_ownership">Zweryfikuj i śledź pliki</string>
+    <string name="nexus_ownership_adopted">Pliki zweryfikowano i objęto śledzeniem bez ich zmieniania.</string>
     <string name="nexus_file_tracking_setup_failed">Nie udało się zweryfikować i śledzić zainstalowanych plików (%1$d problem(y))</string>
     <string name="nexus_stale_placement_reason">Nie jest już tworzony przez to rozmieszczenie</string>
     <string name="nexus_restore_previous_deployment">Przywróć poprzednie wdrożenie</string>

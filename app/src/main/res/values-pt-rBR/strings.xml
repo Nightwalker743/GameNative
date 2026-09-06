@@ -2301,8 +2301,8 @@
     <string name="nexus_confirm_risky_game_root_files_description">Arquivos DLL, EXE e de carregamento podem mudar como o jogo inicia. Confirme somente se o arquivo for confiável e a prévia corresponder às instruções de instalação.</string>
     <string name="nexus_building_install_plan">Criando o plano de posicionamento de arquivos…</string>
     <string name="nexus_reapply_missing_files">Reaplicar arquivos ausentes</string>
-    <string name="nexus_adopt_ownership">Adotar propriedade dos arquivos</string>
-    <string name="nexus_ownership_adopted">A propriedade dos arquivos foi registrada sem alterar os arquivos do jogo.</string>
+    <string name="nexus_adopt_ownership">Verificar e rastrear arquivos</string>
+    <string name="nexus_ownership_adopted">Os arquivos foram verificados e rastreados sem alterações.</string>
     <string name="nexus_file_tracking_setup_failed">Não foi possível verificar e rastrear os arquivos instalados (%1$d problema(s))</string>
     <string name="nexus_stale_placement_reason">Não é mais produzido por este posicionamento</string>
     <string name="nexus_restore_previous_deployment">Restaurar implantação anterior</string>

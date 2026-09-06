@@ -2181,7 +2181,7 @@
     <string name="nexus_building_install_plan">Building the file placement plan…</string>
     <string name="nexus_reapply_missing_files">Reapply missing files</string>
     <string name="nexus_adopt_ownership">Verify and track files</string>
-    <string name="nexus_ownership_adopted">Verified files were adopted without changing them</string>
+    <string name="nexus_ownership_adopted">Verified files are now tracked without changing them</string>
     <string name="nexus_file_tracking_setup_failed">Could not verify and track installed files (%1$d issue(s))</string>
     <string name="nexus_stale_placement_reason">No longer produced by this placement</string>
     <string name="nexus_restore_previous_deployment">Restore previous deployment</string>

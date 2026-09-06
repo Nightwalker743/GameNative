@@ -2431,8 +2431,8 @@
     <string name="nexus_confirm_risky_game_root_files_description">Les fichiers DLL, EXE et de chargement peuvent modifier le démarrage du jeu. Confirmez uniquement si l’archive est fiable et si l’aperçu correspond à ses instructions d’installation.</string>
     <string name="nexus_building_install_plan">Création du plan de placement des fichiers…</string>
     <string name="nexus_reapply_missing_files">Réappliquer les fichiers manquants</string>
-    <string name="nexus_adopt_ownership">Adopter la propriété des fichiers</string>
-    <string name="nexus_ownership_adopted">La propriété des fichiers a été enregistrée sans modifier les fichiers du jeu.</string>
+    <string name="nexus_adopt_ownership">Vérifier et suivre les fichiers</string>
+    <string name="nexus_ownership_adopted">Les fichiers ont été vérifiés et sont désormais suivis sans avoir été modifiés.</string>
     <string name="nexus_file_tracking_setup_failed">Impossible de vérifier et de suivre les fichiers installés (%1$d problème(s))</string>
     <string name="nexus_stale_placement_reason">Ce placement ne produit plus ce fichier</string>
     <string name="nexus_restore_previous_deployment">Restaurer le déploiement précédent</string>

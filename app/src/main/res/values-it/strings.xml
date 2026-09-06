@@ -2422,8 +2422,8 @@
     <string name="nexus_confirm_risky_game_root_files_description">I file DLL, EXE e loader possono cambiare il modo in cui si avvia il gioco. Conferma solo se l’archivio è attendibile e l’anteprima corrisponde alle istruzioni di installazione.</string>
     <string name="nexus_building_install_plan">Creazione del piano di posizionamento dei file…</string>
     <string name="nexus_reapply_missing_files">Riapplica i file mancanti</string>
-    <string name="nexus_adopt_ownership">Acquisisci proprietà dei file</string>
-    <string name="nexus_ownership_adopted">La proprietà dei file è stata registrata senza modificare i file di gioco.</string>
+    <string name="nexus_adopt_ownership">Verifica e registra i file</string>
+    <string name="nexus_ownership_adopted">I file sono stati verificati e registrati senza modificarli.</string>
     <string name="nexus_file_tracking_setup_failed">Impossibile verificare e registrare i file installati (%1$d problema/i)</string>
     <string name="nexus_stale_placement_reason">Non viene più prodotto da questo posizionamento</string>
     <string name="nexus_restore_previous_deployment">Ripristina distribuzione precedente</string>

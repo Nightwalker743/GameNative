@@ -2436,8 +2436,8 @@
     <string name="nexus_confirm_risky_game_root_files_description">DLL、EXE 和載入器檔案可能改變遊戲的啟動方式。僅在壓縮檔可信且預覽與安裝說明一致時確認。</string>
     <string name="nexus_building_install_plan">正在建立檔案放置計畫…</string>
     <string name="nexus_reapply_missing_files">重新套用遺失檔案</string>
-    <string name="nexus_adopt_ownership">接管檔案所有權</string>
-    <string name="nexus_ownership_adopted">已記錄檔案所有權，未變更遊戲檔案。</string>
+    <string name="nexus_adopt_ownership">驗證並追蹤檔案</string>
+    <string name="nexus_ownership_adopted">已驗證並追蹤檔案，未進行任何變更。</string>
     <string name="nexus_file_tracking_setup_failed">無法驗證並追蹤已安裝的檔案（%1$d 個問題）</string>
     <string name="nexus_stale_placement_reason">此放置方案不再產生此檔案</string>
     <string name="nexus_restore_previous_deployment">還原上一次部署</string>

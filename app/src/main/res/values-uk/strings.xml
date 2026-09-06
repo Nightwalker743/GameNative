@@ -2433,8 +2433,8 @@
     <string name="nexus_confirm_risky_game_root_files_description">Файли DLL, EXE та завантажувачі можуть змінити запуск гри. Підтверджуйте, лише якщо архіву можна довіряти, а попередній перегляд відповідає інструкції зі встановлення.</string>
     <string name="nexus_building_install_plan">Створення плану розміщення файлів…</string>
     <string name="nexus_reapply_missing_files">Повторно застосувати відсутні файли</string>
-    <string name="nexus_adopt_ownership">Прийняти володіння файлами</string>
-    <string name="nexus_ownership_adopted">Володіння файлами зареєстровано без зміни файлів гри.</string>
+    <string name="nexus_adopt_ownership">Перевірити й відстежувати файли</string>
+    <string name="nexus_ownership_adopted">Файли перевірено й додано до відстеження без змін.</string>
     <string name="nexus_file_tracking_setup_failed">Не вдалося перевірити й відстежувати встановлені файли (проблем: %1$d)</string>
     <string name="nexus_stale_placement_reason">Більше не створюється цим варіантом розміщення</string>
     <string name="nexus_restore_previous_deployment">Відновити попереднє розгортання</string>

@@ -2384,8 +2384,8 @@
     <string name="nexus_confirm_risky_game_root_files_description">DLL、EXE、ローダーファイルはゲームの起動方法を変更することがあります。信頼できるアーカイブで、プレビューがインストール手順と一致する場合のみ確認してください。</string>
     <string name="nexus_building_install_plan">ファイル配置プランを作成中…</string>
     <string name="nexus_reapply_missing_files">不足しているファイルを再適用</string>
-    <string name="nexus_adopt_ownership">ファイル所有情報を登録</string>
-    <string name="nexus_ownership_adopted">ゲームファイルを変更せずに所有情報を登録しました。</string>
+    <string name="nexus_adopt_ownership">ファイルを確認して追跡</string>
+    <string name="nexus_ownership_adopted">ファイルを変更せずに確認し、追跡対象にしました。</string>
     <string name="nexus_file_tracking_setup_failed">インストール済みファイルを確認して追跡できませんでした（問題 %1$d 件）</string>
     <string name="nexus_stale_placement_reason">この配置では生成されなくなりました</string>
     <string name="nexus_restore_previous_deployment">以前の配置を復元</string>

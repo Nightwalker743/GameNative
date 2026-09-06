@@ -2436,8 +2436,8 @@
     <string name="nexus_confirm_risky_game_root_files_description">Fișierele DLL, EXE și de încărcare pot schimba modul în care pornește jocul. Confirmă numai dacă arhiva este de încredere, iar previzualizarea corespunde instrucțiunilor de instalare.</string>
     <string name="nexus_building_install_plan">Se creează planul de amplasare a fișierelor…</string>
     <string name="nexus_reapply_missing_files">Reaplică fișierele lipsă</string>
-    <string name="nexus_adopt_ownership">Preia proprietatea fișierelor</string>
-    <string name="nexus_ownership_adopted">Proprietatea fișierelor a fost înregistrată fără modificarea fișierelor jocului.</string>
+    <string name="nexus_adopt_ownership">Verifică și urmărește fișierele</string>
+    <string name="nexus_ownership_adopted">Fișierele au fost verificate și urmărite fără a fi modificate.</string>
     <string name="nexus_file_tracking_setup_failed">Fișierele instalate nu au putut fi verificate și urmărite (%1$d problemă(e))</string>
     <string name="nexus_stale_placement_reason">Nu mai este produs de această plasare</string>
     <string name="nexus_restore_previous_deployment">Restaurează implementarea anterioară</string>
