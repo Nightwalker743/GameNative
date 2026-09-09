@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 26,
-    "identityHash": "342c7a6e39ea112d85cb3d00d8989b3f",
+    "version": 27,
+    "identityHash": "e06fa9178e730cbe25e5afadf33e22f5",
     "entities": [
       {
         "tableName": "app_info",
@@ -1673,7 +1673,7 @@
       },
       {
         "tableName": "mod_placement_recipe",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`recipe_id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `install_id` TEXT NOT NULL, `source_subpath` TEXT NOT NULL, `target_root` TEXT NOT NULL, `target_relative_path` TEXT NOT NULL, `mode` TEXT NOT NULL, `strip_prefix_segments` INTEGER NOT NULL, `include_source_directory` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, FOREIGN KEY(`install_id`) REFERENCES `mod_install`(`install_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`recipe_id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `install_id` TEXT NOT NULL, `source_subpath` TEXT NOT NULL, `target_root` TEXT NOT NULL, `target_relative_path` TEXT NOT NULL, `target_file_name` TEXT NOT NULL, `mode` TEXT NOT NULL, `strip_prefix_segments` INTEGER NOT NULL, `include_source_directory` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, FOREIGN KEY(`install_id`) REFERENCES `mod_install`(`install_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "recipeId",
@@ -1702,6 +1702,12 @@
           {
             "fieldPath": "targetRelativePath",
             "columnName": "target_relative_path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetFileName",
+            "columnName": "target_file_name",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -1875,7 +1881,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '342c7a6e39ea112d85cb3d00d8989b3f')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e06fa9178e730cbe25e5afadf33e22f5')"
     ]
   }
 }

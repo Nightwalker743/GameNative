@@ -3,7 +3,7 @@ package app.gamenative.db
 import androidx.room.testing.MigrationTestHelper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import app.gamenative.db.migration.ROOM_MIGRATION_V25_to_V26
+import app.gamenative.db.migration.ROOM_MIGRATION_V26_to_V27
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -18,8 +18,8 @@ class ModPlacementMigrationAndroidTest {
     )
 
     @Test
-    fun migrate25To26_preservesInstallAndRecipe() {
-        helper.createDatabase(DATABASE_NAME, 25).apply {
+    fun migrate26To27_preservesMasterInstallAndRecipe() {
+        helper.createDatabase(MASTER_SCHEMA_DATABASE_NAME, 26).apply {
             execSQL(
                 """
                 INSERT INTO mod_install (
@@ -47,10 +47,10 @@ class ModPlacementMigrationAndroidTest {
         }
 
         helper.runMigrationsAndValidate(
-            DATABASE_NAME,
-            26,
+            MASTER_SCHEMA_DATABASE_NAME,
+            27,
             true,
-            ROOM_MIGRATION_V25_to_V26,
+            ROOM_MIGRATION_V26_to_V27,
         ).use { database ->
             database.query(
                 """
@@ -69,7 +69,27 @@ class ModPlacementMigrationAndroidTest {
         }
     }
 
+    @Test
+    fun migrate26To27_reconcilesPlacementSchema() {
+        helper.createDatabase(PLACEMENT_SCHEMA_DATABASE_NAME, 25).apply {
+            execSQL(
+                "ALTER TABLE mod_placement_recipe ADD COLUMN target_file_name TEXT NOT NULL DEFAULT ''",
+            )
+            execSQL("PRAGMA user_version = 26")
+            execSQL("UPDATE room_master_table SET identity_hash = '7e163d4af9b2107253274fe6d3f84665' WHERE id = 42")
+            close()
+        }
+
+        helper.runMigrationsAndValidate(
+            PLACEMENT_SCHEMA_DATABASE_NAME,
+            27,
+            true,
+            ROOM_MIGRATION_V26_to_V27,
+        ).close()
+    }
+
     private companion object {
-        const val DATABASE_NAME = "mod-placement-migration"
+        const val MASTER_SCHEMA_DATABASE_NAME = "mod-placement-v26-master"
+        const val PLACEMENT_SCHEMA_DATABASE_NAME = "mod-placement-v26-placement"
     }
 }
