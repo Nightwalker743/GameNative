@@ -108,7 +108,7 @@ object BethesdaPluginManager {
                     )
                     check(plan.isComplete) { plan.errors.values.joinToString() }
                     plan.files
-                        .filter { file -> file.source.extension.lowercase() in pluginExtensions }
+                        .filter { file -> file.target.extension.lowercase() in pluginExtensions }
                         .map { file -> file.source to file.target }
                 }
                 pluginFiles.map { (source, target) ->

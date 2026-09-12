@@ -190,6 +190,24 @@ class AutomaticPlacementPlannerTest {
     }
 
     @Test
+    fun combinedRules_blockOneSourceMappedToDifferentDestinations() {
+        val result = AutomaticPlacementPlanner.plan(
+            gameName = "Classic game",
+            entries = archive("Mods/Plugin.dll"),
+            context = AutomaticPlacementContext(
+                defaultTargetRelativePath = "Packages",
+                defaultTargetIsProven = true,
+                existingGameDirectories = setOf("Mods"),
+            ),
+        )
+
+        val combined = result.candidates.single { it.id == "rules:combined-v1" }
+
+        assertEquals(PlannedFileStatus.CONFLICTED, combined.plan.files.single().status)
+        assertTrue(combined.plan.blockingIssues.any { "multiple destinations" in it.lowercase() })
+    }
+
+    @Test
     fun provenModDirectory_preservesPackageWrapperAndStripsOnlySelectedVariant() {
         val entries = archive(
             "CharacterEditor/v1/About/About.xml",

@@ -69,6 +69,12 @@ object ModDeploymentJournalStore {
     fun readAll(root: File): List<ModDeploymentJournal> =
         journalDir(root).listFiles().orEmpty().filter { it.isFile && it.extension == "json" }.mapNotNull(::readFile)
 
+    fun delete(root: File, installId: String) {
+        val current = journalFile(root, installId)
+        current.delete()
+        File(current.parentFile, "${current.name}.tmp").delete()
+    }
+
     fun reconcile(root: File): List<ModDeploymentJournal> = readAll(root).map { journal ->
         when (journal.checkpoint) {
             ModDeploymentCheckpoint.PLANNED,

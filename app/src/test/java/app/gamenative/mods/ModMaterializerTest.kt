@@ -807,6 +807,30 @@ class ModMaterializerTest {
     }
 
     @Test
+    fun rollbackAppliedPlan_removesOwnedCopyDirectoryMarkerAndDirectory() = runBlocking {
+        File(extracted, "Package/file.txt").apply {
+            parentFile?.mkdirs()
+            writeText("payload")
+        }
+        val plan = ModMaterializer.materializationPlan(
+            install(),
+            listOf(recipe(ModPlacementMode.COPY, targetRelativePath = "Mods")),
+            gameDir,
+            "",
+        )
+        val copiedDirectory = File(gameDir, "Mods/Package")
+
+        val applied = ModMaterializer.apply(install(), plan, backupDir, allowOverwrite = false)
+        assertTrue(applied.errors.toString(), applied.errors.isEmpty())
+        assertTrue(copiedDirectory.isDirectory)
+
+        val rollbackSkipped = ModMaterializer.rollbackAppliedPlan(plan)
+
+        assertTrue(rollbackSkipped.toString(), rollbackSkipped.isEmpty())
+        assertFalse(copiedDirectory.exists())
+    }
+
+    @Test
     fun reviewedPackageVariant_materializesInsideItsPreservedWrapper() = runBlocking {
         val paths = listOf(
             "CharacterEditor/v1/About/About.xml" to "old-version",

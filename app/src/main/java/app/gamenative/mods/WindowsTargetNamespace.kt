@@ -89,6 +89,7 @@ class WindowsTargetNamespace(
 }
 
 object WindowsPathIdentity {
+    private val invalidSegmentChars = setOf('<', '>', ':', '"', '|', '?', '*')
     private val reservedNames = buildSet {
         addAll(listOf("con", "prn", "aux", "nul"))
         (1..9).forEach { index ->
@@ -125,6 +126,6 @@ object WindowsPathIdentity {
     private fun isUnsafeWindowsSegment(segment: String): Boolean {
         val key = segmentKey(segment)
         if (key.isBlank() || key.substringBefore('.') in reservedNames) return true
-        return segment.any { it.code < 32 || it in setOf('<', '>', ':', '"', '|', '?', '*') }
+        return segment.any { it.code < 32 || it in invalidSegmentChars }
     }
 }

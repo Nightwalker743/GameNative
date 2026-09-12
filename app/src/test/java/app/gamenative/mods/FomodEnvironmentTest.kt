@@ -163,6 +163,28 @@ class FomodEnvironmentTest {
         }
     }
 
+    @Test
+    fun inspectedEmptyPluginState_provesMissingDependency() {
+        val root = createTempDirectory("fomod-empty-plugin-state").toFile()
+        try {
+            val dependency = FomodPluginDependency("Absent.esp", FomodRequiredFileState.MISSING)
+            val installer = FomodInstaller(
+                moduleName = "Missing plugin dependency",
+                requiredFiles = emptyList(),
+                steps = emptyList(),
+                moduleDependencies = FomodDependencyExpression(pluginDependencies = listOf(dependency)),
+            )
+
+            val snapshot = FomodEnvironmentSnapshotBuilder.build(installer, "Skyrim Special Edition", root)
+
+            assertTrue(snapshot.pluginStateKnown)
+            assertEquals(FomodFactState.TRUE, snapshot.evaluate(dependency))
+            assertEquals(FomodFactState.UNKNOWN, FomodEnvironmentSnapshot().evaluate(dependency))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     private fun peHeader(machine: Int): ByteArray = ByteArray(512).also { bytes ->
         bytes[0] = 'M'.code.toByte()
         bytes[1] = 'Z'.code.toByte()

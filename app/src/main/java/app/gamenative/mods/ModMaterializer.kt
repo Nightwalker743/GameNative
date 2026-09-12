@@ -318,6 +318,9 @@ object ModMaterializer {
         restoredOverwriteTargets: Set<String> = emptySet(),
     ): List<String> = withContext(Dispatchers.IO) {
         val skipped = mutableListOf<String>()
+        val restoredOverwriteTargetKeys = restoredOverwriteTargets.mapTo(mutableSetOf()) {
+            WindowsPathIdentity.absoluteKey(File(it))
+        }
         val plan = materializationPlan(install, recipes, gameRootDir, winePrefix, captureTargetHashes = false)
         plan.operations.forEach { entry ->
             runCatching {
@@ -338,7 +341,7 @@ object ModMaterializer {
                         skipped = skipped,
                         allowOwnedDirectoryDelete = false,
                         reportChangedFiles = true,
-                        ignoredChangedTargets = restoredOverwriteTargets,
+                        ignoredChangedTargetKeys = restoredOverwriteTargetKeys,
                         removeLegacySentinel = true,
                     )
                 }
@@ -385,6 +388,30 @@ object ModMaterializer {
                         skipped += target.absolutePath
                     }
                 }.onFailure { skipped += file.target.absolutePath }
+            }
+
+        plan.operations.asReversed()
+            .filter { operation ->
+                operation.mode == ModPlacementMode.COPY &&
+                    operation.source.isDirectory &&
+                    !operation.targetExistedBefore
+            }
+            .forEach { operation ->
+                runCatching {
+                    val operationTargetPath = operation.target.absoluteFile.toPath().normalize()
+                    val preservedTargetExists = plan.files.any { file ->
+                        file.mode == ModPlacementMode.COPY &&
+                            file.target.absoluteFile.toPath().normalize().startsWith(operationTargetPath) &&
+                            (file.target.exists() || Files.isSymbolicLink(file.target.toPath()))
+                    }
+                    if (!preservedTargetExists) {
+                        val sentinel = File(operation.target, COPY_SENTINEL)
+                        if (sentinel.isFile && sentinel.readText() == plan.installId) {
+                            check(sentinel.delete()) { "Could not remove rollback marker" }
+                        }
+                        deleteEmptyDirs(operation.target, stopAt = operation.target.parentFile)
+                    }
+                }.onFailure { skipped += operation.target.absolutePath }
             }
         skipped.distinct()
     }
@@ -809,7 +836,7 @@ object ModMaterializer {
         skipped: MutableList<String>,
         allowOwnedDirectoryDelete: Boolean,
         reportChangedFiles: Boolean,
-        ignoredChangedTargets: Set<String> = emptySet(),
+        ignoredChangedTargetKeys: Set<String> = emptySet(),
         removeLegacySentinel: Boolean = false,
     ) {
         if (!target.exists() && !Files.isSymbolicLink(target.toPath())) return
@@ -826,13 +853,13 @@ object ModMaterializer {
                 .filter { it.isFile }
                 .forEach { sourceFile ->
                     val targetFile = safeChildTarget(target, sourceFile.relativeTo(source).path)
-                    removeCopiedFileIfUnchanged(targetFile, sourceFile, skipped, reportChangedFiles, ignoredChangedTargets)
+                    removeCopiedFileIfUnchanged(targetFile, sourceFile, skipped, reportChangedFiles, ignoredChangedTargetKeys)
                 }
             if (allowOwnedDirectoryDelete || removeLegacySentinel) {
                 deleteEmptyDirs(target, stopAt = target.parentFile)
             }
         } else {
-            removeCopiedFileIfUnchanged(target, source, skipped, reportChangedFiles, ignoredChangedTargets)
+            removeCopiedFileIfUnchanged(target, source, skipped, reportChangedFiles, ignoredChangedTargetKeys)
         }
     }
 
@@ -841,17 +868,14 @@ object ModMaterializer {
         source: File,
         skipped: MutableList<String>,
         reportChangedFiles: Boolean,
-        ignoredChangedTargets: Set<String> = emptySet(),
+        ignoredChangedTargetKeys: Set<String> = emptySet(),
     ) {
         if (!target.exists() || !target.isFile || !source.isFile) return
         val targetKey = WindowsPathIdentity.absoluteKey(target)
-        val ignoredKeys = ignoredChangedTargets.asSequence()
-            .map { WindowsPathIdentity.absoluteKey(File(it)) }
-            .toSet()
-        if (targetKey in ignoredKeys) return
+        if (targetKey in ignoredChangedTargetKeys) return
         if (sha256(target) == sha256(source)) {
             target.delete()
-        } else if (reportChangedFiles && targetKey !in ignoredKeys) {
+        } else if (reportChangedFiles) {
             skipped += target.absolutePath
         }
     }

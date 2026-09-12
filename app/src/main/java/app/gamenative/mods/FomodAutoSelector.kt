@@ -78,7 +78,6 @@ object FomodAutoSelector {
             mode = ModPlacementMode.OVERWRITE_COPY.name,
             environment = environment,
         )
-        if (result.unsupportedMappings.isNotEmpty()) return null
         if (result.recipes.isEmpty()) return null
 
         return FomodAutoSelectionResult(

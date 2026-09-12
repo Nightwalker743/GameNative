@@ -84,6 +84,34 @@ class BethesdaPluginManagerTest {
     }
 
     @Test
+    fun detectPlugins_usesRenamedTargetExtension() = runBlocking {
+        val install = install()
+        File(install.extractedPath, "Choice/Plugin.bin").apply {
+            parentFile?.mkdirs()
+            writeText("plugin")
+        }
+        val renamedRecipe = ModPlacementRecipe(
+            installId = install.installId,
+            sourceSubpath = "Choice/Plugin.bin",
+            targetRoot = ModTargetRoot.GAME_DIR.name,
+            targetRelativePath = "Data",
+            targetFileName = "Renamed.esp",
+            mode = ModPlacementMode.OVERWRITE_COPY.name,
+        )
+
+        val plugins = BethesdaPluginManager.detectPlugins(
+            installs = listOf(install),
+            recipesByInstallId = mapOf(install.installId to listOf(renamedRecipe)),
+            prioritiesByInstallId = emptyMap(),
+            gameRootDir = gameDir,
+            winePrefix = "",
+            pluginsFile = null,
+        )
+
+        assertEquals(listOf("Renamed.esp"), plugins.map { it.fileName })
+    }
+
+    @Test
     fun detectPlugins_canDefaultNewPluginsToEnabled() = runBlocking {
         val install = install()
         File(install.extractedPath, "Data/Example.esp").apply {

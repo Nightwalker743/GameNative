@@ -27,6 +27,9 @@ object FomodSelectionEvaluator {
         val selectedPlugins = FomodRecipeGenerator.selectedPluginsForKeys(installer, selectedPluginKeys, environment)
         val flags = linkedMapOf<String, String>()
         selectedPlugins.forEach { plugin -> plugin.conditionFlags.forEach { (name, value) -> flags[name] = value } }
+        val conditionalStates = installer.conditionalFileInstalls.map { conditional ->
+            conditional to conditional.dependencies.evaluate(flags, environment)
+        }
         var ordinal = 0
         val expected = buildList {
             installer.requiredFiles.forEach { mapping ->
@@ -37,8 +40,8 @@ object FomodSelectionEvaluator {
                     add(FomodExpectedMapping(mapping, PlacementOrigin.FOMOD_OPTION, ordinal++))
                 }
             }
-            installer.conditionalFileInstalls.forEach { conditional ->
-                if (conditional.dependencies.evaluate(flags, environment) == FomodFactState.TRUE) {
+            conditionalStates.forEach { (conditional, state) ->
+                if (state == FomodFactState.TRUE) {
                     conditional.files.forEach { mapping ->
                         add(FomodExpectedMapping(mapping, PlacementOrigin.FOMOD_CONDITIONAL, ordinal++))
                     }
@@ -64,7 +67,7 @@ object FomodSelectionEvaluator {
                 FomodFactState.UNKNOWN -> Unit
                 FomodFactState.TRUE -> Unit
             }
-            if (installer.conditionalFileInstalls.any { it.dependencies.evaluate(flags, environment) == FomodFactState.UNKNOWN }) {
+            if (conditionalStates.any { (_, state) -> state == FomodFactState.UNKNOWN }) {
                 add("A selected FOMOD conditional depends on unknown game facts")
             }
             if (installer.conditionalFileInstalls.any { it.dependencies.unsupportedCount() > 0 }) {

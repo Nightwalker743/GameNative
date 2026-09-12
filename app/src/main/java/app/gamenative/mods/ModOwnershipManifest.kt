@@ -92,12 +92,16 @@ data class ModOwnershipManifest(
 )
 
 fun ModOwnershipManifest.reviewedPlanOrNull(): ModInstallPlan? {
-    val ownedBySourceAndTarget = files.associateBy { it.sourceRelativePath to it.normalizedTargetKey }
+    val ownedBySourceAndTarget = files.associateBy {
+        Triple(it.sourceRelativePath, it.targetRoot, it.targetRelativePath)
+    }
     val planned = if (decisions.isNotEmpty()) {
         decisions.mapNotNull { decision ->
             val status = runCatching { PlannedFileStatus.valueOf(decision.status) }.getOrNull() ?: return@mapNotNull null
             val origin = runCatching { PlacementOrigin.valueOf(decision.origin) }.getOrDefault(PlacementOrigin.MANUAL_RECIPE)
-            val owned = ownedBySourceAndTarget[decision.sourceRelativePath to decision.normalizedTargetKey]
+            val owned = ownedBySourceAndTarget[
+                Triple(decision.sourceRelativePath, decision.targetRoot, decision.targetRelativePath),
+            ]
                 ?: files.firstOrNull { it.sourceRelativePath == decision.sourceRelativePath }
             PlannedModFile(
                 sourceRelativePath = decision.sourceRelativePath,
@@ -336,7 +340,7 @@ object ModOwnershipStore {
             .filter { it.isFile && it.name.endsWith(".json.zst") && !it.name.endsWith(".previous.json.zst") }
             .mapNotNull(::readFile)
 
-    fun writePending(root: File, manifest: ModOwnershipManifest) {
+    fun write(root: File, manifest: ModOwnershipManifest) {
         val current = currentFile(root, manifest.installId)
         val previous = previousFile(root, manifest.installId)
         val temp = File(current.parentFile, "${current.name}.tmp")
@@ -351,11 +355,6 @@ object ModOwnershipStore {
             moveReplacing(current, previous)
         }
         moveReplacing(temp, current)
-    }
-
-    fun commit(root: File, installId: String) {
-        // Keep one prior deployment so a successful reconfigure can be undone without
-        // retaining an unbounded history. The next write rotates it atomically.
     }
 
     fun delete(root: File, installId: String) {

@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -98,6 +99,7 @@ import app.gamenative.mods.ResolvedModTargetRoot
 import app.gamenative.ui.component.NoExtractOutlinedTextField
 import app.gamenative.utils.StorageUtils
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.DateFormat
@@ -890,7 +892,10 @@ private fun PlacementPlanFilesDialog(
                                     )
                                 }
                             }
-                            items(groupRows, key = { "${group.name}:${it.source}:${it.target}:${it.previousTarget}" }) { row ->
+                            itemsIndexed(
+                                groupRows,
+                                key = { index, row -> "${group.name}:${row.source}:${row.target}:${row.previousTarget}:$index" },
+                            ) { _, row ->
                                 Column(
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
                                     verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -1634,6 +1639,7 @@ private fun ContainerDestinationPickerDialog(
         if (dir != null && dir.isDirectory) {
             loading = true
             try {
+                delay(150)
                 val root = currentRoot
                 browserEntries = withContext(Dispatchers.IO) {
                     if (root == null) {

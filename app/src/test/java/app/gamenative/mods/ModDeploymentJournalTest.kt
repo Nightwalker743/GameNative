@@ -1,7 +1,10 @@
 package app.gamenative.mods
 
 import app.gamenative.data.ModPlacementMode
+import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -55,7 +58,7 @@ class ModDeploymentJournalTest {
         )
         val journal = ModDeploymentJournalStore.begin(root, "install", "game", plan)
         ModDeploymentJournalStore.checkpoint(root, journal, ModDeploymentCheckpoint.VERIFYING)
-        ModOwnershipStore.writePending(
+        ModOwnershipStore.write(
             root,
             ModOwnershipManifest(
                 installId = "install",
@@ -86,6 +89,18 @@ class ModDeploymentJournalTest {
                     ModVerificationIssueType.MODIFIED
             },
         )
+    }
+
+    @Test
+    fun delete_removesCurrentAndTemporaryJournalFiles() {
+        val root = temporaryFolder.newFolder("delete")
+        ModDeploymentJournalStore.begin(root, "install", "game", emptyPlan())
+        val temporary = File(root, "journals/install.json.tmp").apply { writeText("partial") }
+
+        ModDeploymentJournalStore.delete(root, "install")
+
+        assertNull(ModDeploymentJournalStore.read(root, "install"))
+        assertFalse(temporary.exists())
     }
 
     private fun emptyPlan() = ModMaterializationPlan("install", emptyList(), emptyList())

@@ -82,20 +82,28 @@ object ModConfigurationDraftStore {
         }
     }
 
-    fun write(root: File, draft: ModConfigurationDraft) {
+    fun write(root: File, draft: ModConfigurationDraft): Boolean {
         val target = file(root, draft.installId)
         val temp = File(target.parentFile, "${target.name}.tmp")
-        target.parentFile?.mkdirs()
-        FileOutputStream(temp).use { output ->
-            output.write(json.encodeToString(draft.copy(updatedAt = System.currentTimeMillis())).toByteArray(Charsets.UTF_8))
-            output.fd.sync()
-        }
-        runCatching {
-            Files.move(temp.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-        }.getOrElse {
-            temp.copyTo(target, overwrite = true)
-            temp.delete()
-        }
+        return runCatching {
+            target.parentFile?.mkdirs()
+            FileOutputStream(temp).use { output ->
+                output.write(json.encodeToString(draft.copy(updatedAt = System.currentTimeMillis())).toByteArray(Charsets.UTF_8))
+                output.fd.sync()
+            }
+            runCatching {
+                Files.move(temp.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            }.getOrElse {
+                temp.copyTo(target, overwrite = true)
+                temp.delete()
+            }
+        }.fold(
+            onSuccess = { true },
+            onFailure = {
+                temp.delete()
+                false
+            },
+        )
     }
 
     fun delete(root: File, installId: String) {

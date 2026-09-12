@@ -3,6 +3,7 @@ package app.gamenative.mods
 import app.gamenative.data.ModInstall
 import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
@@ -31,6 +32,19 @@ class ModConfigurationDraftTest {
         assertNull(ModConfigurationDraftStore.read(root, install("different-hash")))
         ModConfigurationDraftStore.delete(root, install.installId)
         assertNull(ModConfigurationDraftStore.read(root, install))
+    }
+
+    @Test
+    fun writeFailure_isBestEffortAndLeavesNoTemporaryFile() {
+        val invalidRoot = temporaryFolder.newFile("not-a-directory")
+        val draft = ModConfigurationDraft(
+            installId = "install",
+            archiveIdentity = "archive",
+            placementChoice = "AUTOMATIC",
+        )
+
+        assertFalse(ModConfigurationDraftStore.write(invalidRoot, draft))
+        assertFalse(File(invalidRoot, "configuration/install.json.tmp").exists())
     }
 
     private fun install(hash: String) = ModInstall(

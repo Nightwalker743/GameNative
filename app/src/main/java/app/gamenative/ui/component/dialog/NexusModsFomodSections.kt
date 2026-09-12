@@ -353,8 +353,7 @@ internal fun FomodWizardDialog(
                                         pendingResult = PendingFomodResult(
                                             drafts = result.recipes.map { it.toDraft() },
                                             plan = result.plan,
-                                            unsupportedCount = result.plan?.unresolvedCount
-                                                ?: result.unsupportedMappings.size,
+                                            unsupportedCount = result.plan?.unresolvedCount ?: 0,
                                             unresolvedDetails = result.plan?.files.orEmpty()
                                                 .filter { file ->
                                                     file.status == PlannedFileStatus.UNSUPPORTED ||

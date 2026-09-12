@@ -137,7 +137,6 @@ fun FomodPlugin.effectiveType(
 
 data class FomodRecipeGenerationResult(
     val recipes: List<ModPlacementRecipe>,
-    val unsupportedMappings: List<FomodFileMapping>,
     val plan: ModInstallPlan? = null,
     val blockingIssues: List<String> = emptyList(),
 )
@@ -475,7 +474,6 @@ object FomodRecipeGenerator {
             }
             return FomodRecipeGenerationResult(
                 recipes = recipes.distinctBy(::recipeIdentity),
-                unsupportedMappings = emptyList(),
                 plan = plan,
                 blockingIssues = plan.blockingIssues,
             )
@@ -582,7 +580,6 @@ object FomodRecipeGenerator {
 
         return FomodRecipeGenerationResult(
             recipes = recipes.distinctBy(::recipeIdentity),
-            unsupportedMappings = emptyList(),
         )
     }
 

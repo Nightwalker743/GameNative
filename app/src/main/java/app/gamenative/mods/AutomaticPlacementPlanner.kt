@@ -449,6 +449,7 @@ object AutomaticPlacementPlanner {
         evidence: List<String>,
     ): AutomaticPlacementCandidate {
         val placedBySource = linkedMapOf<String, PlannedModFile>()
+        val conflictingSourceKeys = mutableSetOf<String>()
         drafts.forEach { draft ->
             ModPlacementSources.decode(draft.sourceSubpath).ifEmpty { listOf("") }.forEach { source ->
                 val sourceIsDirectory = source.isBlank() || index.isDirectory(source)
@@ -467,7 +468,7 @@ object AutomaticPlacementPlanner {
                         relative.takeIf(String::isNotBlank),
                     ).joinToString("/")
                     val targetKey = ModTargetResolver.normalizedTargetKey(draft.targetRoot, targetPath)
-                    placedBySource[file.normalizedKey] = PlannedModFile(
+                    val planned = PlannedModFile(
                         sourceRelativePath = file.displayPath,
                         targetRoot = draft.targetRoot,
                         targetRelativePath = targetPath,
@@ -480,6 +481,26 @@ object AutomaticPlacementPlanner {
                         evidence = evidence,
                         risk = if (file.role == ArchiveContentRole.RISKY_ROOT) PlacementRisk.UNSAFE else PlacementRisk.SAFE,
                     )
+                    val previous = placedBySource[file.normalizedKey]
+                    when {
+                        file.normalizedKey in conflictingSourceKeys -> Unit
+                        previous != null && previous.normalizedTargetKey != planned.normalizedTargetKey -> {
+                            conflictingSourceKeys += file.normalizedKey
+                            placedBySource[file.normalizedKey] = previous.copy(
+                                status = PlannedFileStatus.CONFLICTED,
+                                reason = "One archive file maps to multiple destinations",
+                                evidence = (previous.evidence + planned.evidence).distinct(),
+                                risk = if (
+                                    previous.risk == PlacementRisk.UNSAFE || planned.risk == PlacementRisk.UNSAFE
+                                ) {
+                                    PlacementRisk.UNSAFE
+                                } else {
+                                    PlacementRisk.REVIEW
+                                },
+                            )
+                        }
+                        else -> placedBySource[file.normalizedKey] = planned
+                    }
                 }
             }
         }
@@ -522,6 +543,7 @@ object AutomaticPlacementPlanner {
         val blockers = buildList {
             if (index.caseCollisions.isNotEmpty()) add("Archive contains case-colliding file paths")
             if (classified.any { it.status == PlannedFileStatus.UNSUPPORTED }) add("Some installable files have no proven destination")
+            if (conflictingSourceKeys.isNotEmpty()) add("One or more archive files map to multiple destinations")
             if (duplicateTargets.isNotEmpty()) add("Multiple files target the same Windows path")
             if (classified.any { it.risk == PlacementRisk.UNSAFE }) add(ModInstallPlan.RISKY_ROOT_REVIEW_BLOCKER)
         }

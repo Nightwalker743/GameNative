@@ -151,7 +151,6 @@ class FomodInstallerTest {
             mode = ModPlacementMode.OVERWRITE_COPY.name,
         )
 
-        assertTrue(result.unsupportedMappings.isEmpty())
         assertEquals(
             listOf("Common->Data", "Option->Data/textures", "Plugins/Example.esp->Data"),
             result.recipes.map { "${it.sourceSubpath}->${it.targetRelativePath}" },
@@ -227,7 +226,6 @@ class FomodInstallerTest {
             selectedPluginNames = emptySet(),
         )
 
-        assertTrue(result.unsupportedMappings.isEmpty())
         assertEquals("Renamed.esp", result.recipes.single().targetFileName)
     }
 

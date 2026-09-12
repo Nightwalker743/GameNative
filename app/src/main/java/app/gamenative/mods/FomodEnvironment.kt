@@ -22,6 +22,7 @@ data class FomodEnvironmentSnapshot(
     val gameName: String = "",
     val gameVersion: String? = null,
     val fileFacts: Map<String, Boolean> = emptyMap(),
+    val pluginStateKnown: Boolean = false,
     val presentPlugins: Set<String> = emptySet(),
     val activePlugins: Set<String> = emptySet(),
     val pluginMasters: Map<String, List<String>> = emptyMap(),
@@ -43,7 +44,7 @@ data class FomodEnvironmentSnapshot(
         val present = when {
             key in activePlugins -> true
             key in presentPlugins -> true
-            presentPlugins.isNotEmpty() -> false
+            pluginStateKnown -> false
             else -> return FomodFactState.UNKNOWN
         }
         return requiredState(dependency.state, present, key in activePlugins, isPlugin = true)
@@ -135,6 +136,7 @@ object FomodEnvironmentSnapshotBuilder {
             gameName = gameName,
             gameVersion = gameVersion,
             fileFacts = fileFacts,
+            pluginStateKnown = gameRootDir != null,
             presentPlugins = presentPlugins,
             activePlugins = activePlugins,
             pluginMasters = pluginMasters,

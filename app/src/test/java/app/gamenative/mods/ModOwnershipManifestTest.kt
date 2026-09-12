@@ -19,8 +19,7 @@ class ModOwnershipManifestTest {
         val root = temporaryFolder.newFolder("cache")
         val low = manifest("low", "Data/Scripts/X.pex", "one", priority = 10)
         val high = manifest("high", "data/scripts/x.pex", "two", priority = 20)
-        ModOwnershipStore.writePending(root, low)
-        ModOwnershipStore.commit(root, low.installId)
+        ModOwnershipStore.write(root, low)
 
         assertEquals(low, ModOwnershipStore.read(root, low.installId))
         val overlay = ModProfileOverlayPlanner.build(listOf(high, low), mapOf("high" to 20, "low" to 10))
@@ -213,10 +212,8 @@ class ModOwnershipManifestTest {
             planProducerVersion = 2,
         )
         val second = first.copy(planDigest = "second", files = first.files.map { it.copy(installedHash = "two") })
-        ModOwnershipStore.writePending(root, first)
-        ModOwnershipStore.commit(root, first.installId)
-        ModOwnershipStore.writePending(root, second)
-        ModOwnershipStore.commit(root, second.installId)
+        ModOwnershipStore.write(root, first)
+        ModOwnershipStore.write(root, second)
 
         val restored = ModOwnershipStore.reviewedPlan(root, "install")
 
@@ -224,6 +221,37 @@ class ModOwnershipManifestTest {
         assertEquals("Data/First.txt", restored?.files?.single()?.targetRelativePath)
         assertEquals(listOf("requiredFiles"), restored?.files?.single()?.evidence)
         assertEquals(first, ModOwnershipStore.readPrevious(root, "install"))
+    }
+
+    @Test
+    fun reviewedPlan_matchesRepeatedSourceByLogicalDestination() {
+        val manifest = ModOwnershipManifest(
+            installId = "install",
+            appId = "game",
+            planDigest = "digest",
+            files = listOf(
+                owned("Shared.bin", "Data/First.bin").copy(installedSize = 11),
+                owned("Shared.bin", "Data/Second.bin").copy(installedSize = 22),
+            ),
+            decisions = listOf("Data/Second.bin", "Data/First.bin").map { target ->
+                ModInstallDecision(
+                    sourceRelativePath = "Shared.bin",
+                    targetRoot = "GAME_DIR",
+                    targetRelativePath = target,
+                    normalizedTargetKey = WindowsPathIdentity.targetKey("GAME_DIR", target).orEmpty(),
+                    status = PlannedFileStatus.PLACED.name,
+                    origin = PlacementOrigin.FOMOD_REQUIRED.name,
+                    mode = ModPlacementMode.OVERWRITE_COPY.name,
+                    priority = 0,
+                    reason = "fixture",
+                    outcome = "CREATED",
+                )
+            },
+        )
+
+        val restored = manifest.reviewedPlanOrNull()!!
+
+        assertEquals(listOf(22L, 11L), restored.files.map { it.sizeBytes })
     }
 
     private fun owned(source: String, target: String): ModOwnedFile = ModOwnedFile(

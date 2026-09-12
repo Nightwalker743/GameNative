@@ -653,8 +653,7 @@ object NexusModManager {
                 priority = priority,
                 preservedStale = staleCleanup.preserved,
             )
-            ModOwnershipStore.writePending(ownershipRoot, ownership)
-            ModOwnershipStore.commit(ownershipRoot, install.installId)
+            ModOwnershipStore.write(ownershipRoot, ownership)
             if (install.status != ModInstallStatus.APPLIED.name) {
                 dao.updateInstallStatus(install.installId, ModInstallStatus.APPLIED.name)
             }
@@ -795,8 +794,7 @@ object NexusModManager {
                 profileId = profileId,
                 priority = priority,
             )
-            ModOwnershipStore.writePending(root, ownership)
-            ModOwnershipStore.commit(root, install.installId)
+            ModOwnershipStore.write(root, ownership)
             ModPlacementResult(0, plan.files.size, 0, emptyMap(), emptyList())
         }
     }
@@ -880,20 +878,16 @@ object NexusModManager {
             return@withContext listOf("Verify and track this mod's installed files before disabling or removing it safely")
         }
         val cleanup = ModOwnershipReconciler.removeOwnedFiles(ownership, manifests, restoreBackups = restoreBackups)
-        ModOwnershipStore.writePending(
+        val preservedByTarget = cleanup.preserved.associateBy { it.normalizedTargetKey }
+        ModOwnershipStore.write(
             ownershipRoot,
             ownership.copy(
                 state = ModOwnershipState.DISABLED,
                 files = ownership.files.map { file ->
-                    if (file.normalizedTargetKey in cleanup.preserved.map { it.normalizedTargetKey }.toSet()) {
-                        cleanup.preserved.first { it.normalizedTargetKey == file.normalizedTargetKey }
-                    } else {
-                        file.copy(active = false)
-                    }
+                    preservedByTarget[file.normalizedTargetKey] ?: file.copy(active = false)
                 },
             ),
         )
-        ModOwnershipStore.commit(ownershipRoot, install.installId)
         dao.updateInstallEnabled(install.installId, false, ModInstallStatus.DISABLED.name)
         cleanup.skippedPaths
     }
@@ -910,7 +904,9 @@ object NexusModManager {
             val dao = dao(context)
             dao.deleteOverwriteManifests(install.installId)
             dao.deleteInstall(install.installId)
-            ModOwnershipStore.delete(cacheRoot(context, install.appId), install.installId)
+            val installCacheRoot = cacheRoot(context, install.appId)
+            ModOwnershipStore.delete(installCacheRoot, install.installId)
+            ModDeploymentJournalStore.delete(installCacheRoot, install.installId)
             if (install.archivePath.isNotBlank()) {
                 val archiveFile = File(install.archivePath)
                 archiveFile.delete()
@@ -1163,7 +1159,9 @@ object NexusModManager {
         }
 
         val ownershipRoot = cacheRoot(context, appId)
-        val journals = ModDeploymentJournalStore.reconcile(ownershipRoot).associateBy { it.installId }
+        val journals = ModDeploymentCoordinator.withGameLock(appId) {
+            ModDeploymentJournalStore.reconcile(ownershipRoot)
+        }.associateBy { it.installId }
         val ownershipByInstallId = installs.mapNotNull { install ->
             ModOwnershipStore.read(ownershipRoot, install.installId)?.let { install.installId to it }
         }.toMap()
@@ -1178,6 +1176,9 @@ object NexusModManager {
             overlay,
             ModVerificationDepth.CHANGED_CONTENT,
         ).issues
+        val overlayInstallIds = overlay.targets.values.asSequence()
+            .flatMap { it.contributors.asSequence() }
+            .mapTo(mutableSetOf()) { it.installId }
 
         installs.forEach { install ->
             val status = runCatching { ModInstallStatus.valueOf(install.status) }.getOrNull()
@@ -1247,7 +1248,7 @@ object NexusModManager {
                         )
                     }
                 }
-                if (ownership == null && extracted.isDirectory) {
+                if ((ownership == null || install.installId !in overlayInstallIds) && extracted.isDirectory) {
                     val missing = missingAppliedTargets(install, recipes, gameRootDir, winePrefix).take(3)
                     if (missing.isNotEmpty()) {
                         add(
@@ -1361,7 +1362,9 @@ object NexusModManager {
     }
 
     suspend fun reconcilePendingDeploymentsForApp(context: Context, appId: String): List<ModDeploymentJournal> =
-        withContext(Dispatchers.IO) { ModDeploymentJournalStore.reconcile(cacheRoot(context, appId)) }
+        ModDeploymentCoordinator.withGameLock(appId) {
+            withContext(Dispatchers.IO) { ModDeploymentJournalStore.reconcile(cacheRoot(context, appId)) }
+        }
 
     fun hasMissingAppliedTargets(
         install: ModInstall,
