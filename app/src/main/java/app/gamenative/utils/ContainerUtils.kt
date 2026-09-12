@@ -148,6 +148,8 @@ object ContainerUtils {
             useLegacyDRM = PrefManager.useLegacyDRM,
             unpackFiles = PrefManager.unpackFiles,
             suspendPolicy = PrefManager.suspendPolicy,
+            fasterExternalLoading = PrefManager.fasterExternalLoading,
+            disableLibredirect = PrefManager.disableLibredirect,
             wineVersion = PrefManager.wineVersion,
             emulator = PrefManager.emulator,
             fexcoreVersion = PrefManager.fexcoreVersion,
@@ -237,6 +239,8 @@ object ContainerUtils {
         PrefManager.useLegacyDRM = containerData.useLegacyDRM
         PrefManager.unpackFiles = containerData.unpackFiles
         PrefManager.suspendPolicy = containerData.suspendPolicy
+        PrefManager.fasterExternalLoading = containerData.fasterExternalLoading
+        PrefManager.disableLibredirect = containerData.disableLibredirect
         PrefManager.portraitMode = containerData.portraitMode
         PrefManager.sharpnessEffect = containerData.sharpnessEffect
         PrefManager.sharpnessLevel = containerData.sharpnessLevel
@@ -936,6 +940,8 @@ object ContainerUtils {
                 useLegacyDRM = PrefManager.useLegacyDRM,
                 unpackFiles = PrefManager.unpackFiles,
                 suspendPolicy = PrefManager.suspendPolicy,
+                fasterExternalLoading = PrefManager.fasterExternalLoading,
+                disableLibredirect = PrefManager.disableLibredirect,
                 portraitMode = PrefManager.portraitMode,
                 externalDisplayMode = PrefManager.externalDisplayInputMode,
                 externalDisplaySwap = PrefManager.externalDisplaySwap,
@@ -1279,6 +1285,9 @@ object ContainerUtils {
         }
         return null
     }
+
+    fun isAbsoluteWindowsPath(path: String): Boolean =
+        Regex("^[A-Za-z]:[\\\\/]").containsMatchIn(path)
 
     /**
      * Scans the container's A: drive for all .exe and .bat files
