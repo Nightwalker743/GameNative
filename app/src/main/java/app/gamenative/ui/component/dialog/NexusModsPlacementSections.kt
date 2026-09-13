@@ -1926,7 +1926,7 @@ private fun ContainerDestinationPickerDialog(
     }
 
     if (showNewFolderDialog && !readOnly) {
-        val validName = validVirtualDestinationFolderName(newFolderName)
+        val validDestination = validVirtualDestinationFolder(currentDir, newFolderName)
         AlertDialog(
             onDismissRequest = { showNewFolderDialog = false },
             title = { Text(stringResource(R.string.nexus_new_destination_folder)) },
@@ -1938,7 +1938,7 @@ private fun ContainerDestinationPickerDialog(
                         onValueChange = { newFolderName = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text(stringResource(R.string.nexus_folder_name)) },
-                        isError = newFolderName.isNotBlank() && !validName,
+                        isError = newFolderName.isNotBlank() && !validDestination,
                         singleLine = true,
                     )
                     Text(
@@ -1952,11 +1952,13 @@ private fun ContainerDestinationPickerDialog(
                 Button(
                     onClick = {
                         currentDir?.let { parent ->
-                            selectedDestination = File(parent, newFolderName.trim())
-                            showNewFolderDialog = false
+                            File(parent, newFolderName.trim()).takeIf { !it.exists() || it.isDirectory }?.let {
+                                selectedDestination = it
+                                showNewFolderDialog = false
+                            }
                         }
                     },
-                    enabled = validName && currentDir != null,
+                    enabled = validDestination,
                 ) { Text(stringResource(R.string.nexus_use_folder)) }
             },
             dismissButton = {

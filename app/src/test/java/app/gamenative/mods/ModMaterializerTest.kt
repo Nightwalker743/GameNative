@@ -875,6 +875,22 @@ class ModMaterializerTest {
     }
 
     @Test
+    fun missingTargetCheck_rejectsARegularFileInPlaceOfASymlink() {
+        File(extracted, "payload.txt").writeText("source")
+        File(gameDir, "linked.txt").writeText("replacement")
+        val appliedInstall = install().copy(status = ModInstallStatus.APPLIED.name)
+
+        assertTrue(
+            NexusModManager.hasMissingAppliedTargets(
+                appliedInstall,
+                listOf(recipe(ModPlacementMode.SYMLINK, "payload.txt", "linked.txt")),
+                gameDir,
+                "",
+            ),
+        )
+    }
+
+    @Test
     fun apply_refusesToMaterializeAnyPartOfAnIncompleteReviewedPlan() = runBlocking {
         File(extracted, "ready.txt").writeText("ready")
         val targetPath = "Data/ready.txt"

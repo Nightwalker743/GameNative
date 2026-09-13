@@ -5,6 +5,7 @@ import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -45,6 +46,14 @@ class ModConfigurationDraftTest {
 
         assertFalse(ModConfigurationDraftStore.write(invalidRoot, draft))
         assertFalse(File(invalidRoot, "configuration/install.json.tmp").exists())
+    }
+
+    @Test
+    fun preparedFileReplacementFailure_preservesExistingTarget() {
+        val target = temporaryFolder.newFile("current.json").apply { writeText("valid") }
+
+        assertTrue(runCatching { replaceWithPreparedFile(File(target.parentFile, "missing.tmp"), target) }.isFailure)
+        assertEquals("valid", target.readText())
     }
 
     private fun install(hash: String) = ModInstall(

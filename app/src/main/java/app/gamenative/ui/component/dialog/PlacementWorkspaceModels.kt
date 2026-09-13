@@ -212,6 +212,12 @@ internal fun validVirtualDestinationFolderName(value: String): Boolean {
         WindowsPathIdentity.normalizedRelativeKey(name) != null
 }
 
+internal fun validVirtualDestinationFolder(parent: File?, value: String): Boolean {
+    if (parent == null || !validVirtualDestinationFolderName(value)) return false
+    val candidate = File(parent, value.trim())
+    return !candidate.exists() || candidate.isDirectory
+}
+
 internal enum class PlacementReviewCategory {
     ADDED,
     REPLACED,

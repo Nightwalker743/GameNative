@@ -2,8 +2,6 @@ package app.gamenative.mods
 
 import java.io.File
 import java.io.FileOutputStream
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.util.UUID
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -116,12 +114,7 @@ object ModDeploymentJournalStore {
             output.write(json.encodeToString(journal).toByteArray(Charsets.UTF_8))
             output.fd.sync()
         }
-        runCatching {
-            Files.move(temp.toPath(), current.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-        }.getOrElse {
-            temp.copyTo(current, overwrite = true)
-            temp.delete()
-        }
+        replaceWithPreparedFile(temp, current)
     }
 
     private fun readFile(file: File): ModDeploymentJournal? =

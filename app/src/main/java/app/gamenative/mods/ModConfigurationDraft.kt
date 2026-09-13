@@ -6,8 +6,6 @@ import app.gamenative.data.ModPlacementRecipe
 import app.gamenative.data.ModTargetRoot
 import java.io.File
 import java.io.FileOutputStream
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.util.Locale
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -91,12 +89,7 @@ object ModConfigurationDraftStore {
                 output.write(json.encodeToString(draft.copy(updatedAt = System.currentTimeMillis())).toByteArray(Charsets.UTF_8))
                 output.fd.sync()
             }
-            runCatching {
-                Files.move(temp.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-            }.getOrElse {
-                temp.copyTo(target, overwrite = true)
-                temp.delete()
-            }
+            replaceWithPreparedFile(temp, target)
         }.fold(
             onSuccess = { true },
             onFailure = {

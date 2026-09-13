@@ -82,6 +82,17 @@ class PlacementWorkspaceModelsTest {
     }
 
     @Test
+    fun virtualDestinationFolder_rejectsAnExistingFile() {
+        val parent = temporaryFolder.newFolder("destination-parent")
+        File(parent, "existing").writeText("file")
+        File(parent, "directory").mkdir()
+
+        assertFalse(validVirtualDestinationFolder(parent, "existing"))
+        assertTrue(validVirtualDestinationFolder(parent, "new folder"))
+        assertTrue(validVirtualDestinationFolder(parent, "directory"))
+    }
+
+    @Test
     fun destinationBrowser_showsFilesAndClassifiesPlanAndOwnership() {
         val rootDir = temporaryFolder.newFolder("game")
         val dataDir = File(rootDir, "Data").apply { mkdirs() }

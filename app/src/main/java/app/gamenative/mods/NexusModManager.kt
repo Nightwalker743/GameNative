@@ -1584,7 +1584,7 @@ object NexusModManager {
         )
         missing += plan.errors.values
         plan.operations.filter { it.mode == ModPlacementMode.SYMLINK }.forEach { entry ->
-            if (!Files.isSymbolicLink(entry.target.toPath()) && !entry.target.exists()) {
+            if (!Files.isSymbolicLink(entry.target.toPath())) {
                 missing += entry.target.absolutePath
             }
             if (missing.size >= 3) return missing.take(3)

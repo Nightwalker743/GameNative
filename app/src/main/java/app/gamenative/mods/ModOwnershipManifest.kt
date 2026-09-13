@@ -351,10 +351,9 @@ object ModOwnershipStore {
             output.fd.sync()
         }
         if (current.isFile) {
-            previous.delete()
-            moveReplacing(current, previous)
+            replaceWithPreparedFile(current, previous)
         }
-        moveReplacing(temp, current)
+        replaceWithPreparedFile(temp, current)
     }
 
     fun delete(root: File, installId: String) {
@@ -468,20 +467,6 @@ object ModOwnershipStore {
                 json.decodeFromString<ModOwnershipManifest>(reader.readText())
             }
         }.getOrNull()
-    }
-
-    private fun moveReplacing(source: File, target: File) {
-        runCatching {
-            Files.move(
-                source.toPath(),
-                target.toPath(),
-                java.nio.file.StandardCopyOption.ATOMIC_MOVE,
-                java.nio.file.StandardCopyOption.REPLACE_EXISTING,
-            )
-        }.getOrElse {
-            source.copyTo(target, overwrite = true)
-            source.delete()
-        }
     }
 
     internal fun sha256(file: File): String {
