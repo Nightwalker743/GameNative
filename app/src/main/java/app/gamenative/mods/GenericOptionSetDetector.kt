@@ -82,16 +82,19 @@ object GenericOptionSetDetector {
         val related = siblings.associateWith { root ->
             siblings.filter { other ->
                 if (root == other) return@filter false
-                val overlap = signatures.getValue(root).intersect(signatures.getValue(other)).size
-                val smaller = minOf(signatures.getValue(root).size, signatures.getValue(other).size).coerceAtLeast(1)
                 val versionAlternatives = versionFamilyHasEvidence &&
                     root.normalizedKey in versionChoices && other.normalizedKey in versionChoices
                 val wrapperEvidence = root.optionStyleWrapper ||
                     other.optionStyleWrapper ||
                     parentLooksLikeOptionContainer ||
                     installBoundaries.getValue(root).intersect(installBoundaries.getValue(other)).isNotEmpty()
-                versionAlternatives ||
-                    (wrapperEvidence && overlap > 0 && overlap.toDouble() / smaller >= 0.6)
+                if (versionAlternatives) return@filter true
+                if (!wrapperEvidence) return@filter false
+                val rootSignature = signatures.getValue(root)
+                val otherSignature = signatures.getValue(other)
+                val overlap = rootSignature.intersect(otherSignature).size
+                val smaller = minOf(rootSignature.size, otherSignature.size).coerceAtLeast(1)
+                overlap > 0 && overlap.toDouble() / smaller >= 0.6
             }
         }
         val visited = mutableSetOf<String>()
